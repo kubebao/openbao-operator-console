@@ -38,8 +38,8 @@ const absoluteFormat = new Intl.DateTimeFormat(undefined, {
   timeZoneName: 'short',
 })
 
-export function absolute(value: string): string {
-  const time = Date.parse(value)
+export function absolute(value: string | number): string {
+  const time = typeof value === 'number' ? value : Date.parse(value)
   return Number.isFinite(time) ? absoluteFormat.format(time) : 'Unknown'
 }
 

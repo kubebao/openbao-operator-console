@@ -4,6 +4,9 @@ The console evaluates each collected OpenBao deployment against a fixed set of r
 finding with a severity. Findings appear in **Attention**, mark the matching tab on the deployment page, and highlight
 the evidence rows that triggered them.
 
+The overview tiles group findings by availability, backups, restore tests, and lifecycle. The History tab lists
+every recorded change, including when each finding was raised or resolved.
+
 Rules use current evidence only. When collection fails, the console keeps the last known findings and adds a collection
 finding instead of treating missing evidence as recovery.
 
@@ -24,13 +27,13 @@ The Fleet view sorts by state in that order: critical, attention, unknown, then 
 | --- | --- | --- | --- | --- |
 | Replicas need attention | Critical when 0 ready, otherwise high | Service availability | Ready replicas are below desired replicas after the startup grace period | Overview: ready / desired replicas |
 | OpenBao is sealed | Critical | Service availability | The operator reports `OpenBaoSealed=True` for the current resource generation | Conditions tab |
-| Upgrade requires investigation | High | Operations | The operator records an upgrade failure | Operations tab |
-| Recovery requires investigation | High | Operations | A recovery request is failed or unknown, or its cleanup failed | Operations tab |
-| Replica history conflict | Critical | Operations | A remote replica observation records conflicting histories | Overview: replica history |
-| Backup failed | High | Backup protection | One or more consecutive backup attempts failed | Backup evidence tab |
-| No successful backup observed | High | Backup protection | Backups are configured but no successful completion is recorded | Backup evidence tab |
-| Backup is overdue | High | Backup protection | The last successful backup is older than the maximum backup age | Backup evidence tab |
-| Restore test needs attention | High | Backup protection | The latest restore test failed or is blocked | Backup evidence tab |
+| Upgrade requires investigation | High | Operations | The operator records an upgrade failure | Lifecycle tab |
+| Recovery requires investigation | High | Operations | A recovery request is failed or unknown, or its cleanup failed | Lifecycle tab |
+| Replica history conflict | Critical | Operations | A remote replica observation records conflicting histories | Lifecycle tab |
+| Backup failed | High | Backup protection | One or more consecutive backup attempts failed | Backups tab |
+| No successful backup observed | High | Backup protection | Backups are configured but no successful completion is recorded | Backups tab |
+| Backup is overdue | High | Backup protection | The last successful backup is older than the maximum backup age | Backups tab |
+| Restore test needs attention | High | Backup protection | The latest restore test failed or is blocked | Backups tab |
 | Collection is incomplete | High | Collection | The console cannot refresh this deployment's evidence | Overview: collection result |
 
 Paused clusters do not raise replica or sealed findings. Conditions observed for an older resource generation are

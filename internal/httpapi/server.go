@@ -62,6 +62,7 @@ func (s *Server) snapshot(ctx context.Context) (contract.Snapshot, error) {
 			configuration, _ = s.Settings.Current()
 			result = filterEnrollment(result, configuration)
 		}
+		result.Policy = contract.AttentionPolicy{MaxBackupAgeHours: configuration.MaxBackupAgeHours, StartupGraceMinutes: configuration.StartupGraceMinutes}
 		now := time.Now().UTC()
 		for _, enrolled := range configuration.Connections {
 			found := false

@@ -355,6 +355,12 @@ export interface components {
             readonly relationships: readonly components["schemas"]["Relationship"][];
             readonly activity: readonly components["schemas"]["Activity"][];
             readonly viewer: components["schemas"]["Viewer"];
+            readonly policy: components["schemas"]["AttentionPolicy"];
+        };
+        /** @description Thresholds the attention rules apply to every deployment. */
+        readonly AttentionPolicy: {
+            readonly maxBackupAgeHours: number;
+            readonly startupGraceMinutes: number;
         };
         readonly History: {
             readonly observations: readonly components["schemas"]["Observation"][];

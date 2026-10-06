@@ -27,9 +27,13 @@ test('documentation screenshots', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'identity-bao', exact: true })).toBeVisible()
   await capture(page, 'deployment')
 
-  await page.goto('/deployments/customer-x?tab=backup')
-  await expect(page.getByRole('heading', { name: 'Backup evidence' })).toBeVisible()
+  await page.goto('/deployments/customer-x?tab=backups')
+  await expect(page.getByRole('heading', { name: 'Backup activity, last 7 days' })).toBeVisible()
   await capture(page, 'backup-evidence')
+
+  await page.goto('/deployments/identity?tab=history')
+  await expect(page.getByRole('heading', { name: 'Recorded changes' })).toBeVisible()
+  await capture(page, 'history')
 
   await page.goto('/topology')
   await page.getByRole('button', { name: 'Inspect payments/payments-bao', exact: true }).click()

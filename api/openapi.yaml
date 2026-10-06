@@ -1529,6 +1529,7 @@
                   "relationships",
                   "activity",
                   "viewer",
+                  "policy",
                 ],
               "properties":
                 {
@@ -1555,6 +1556,19 @@
                       "items": { "$ref": "#/components/schemas/Activity" },
                     },
                   "viewer": { "$ref": "#/components/schemas/Viewer" },
+                  "policy": { "$ref": "#/components/schemas/AttentionPolicy" },
+                },
+            },
+          "AttentionPolicy":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Thresholds the attention rules apply to every deployment.",
+              "required": ["maxBackupAgeHours", "startupGraceMinutes"],
+              "properties":
+                {
+                  "maxBackupAgeHours": { "type": "integer", "minimum": 1 },
+                  "startupGraceMinutes": { "type": "integer", "minimum": 0 },
                 },
             },
           "History":

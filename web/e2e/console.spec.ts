@@ -10,14 +10,14 @@ test('attention drills into deployment evidence and history', async ({ page }) =
   await expect(page.getByRole('heading', { name: 'identity-bao', exact: true })).toBeVisible()
   await page.getByRole('tab', { name: /^Conditions/ }).click()
   await expect(page.getByRole('tab', { name: 'Conditions Has critical finding' })).toBeVisible()
-  await expect(page.getByRole('cell', { name: 'OpenBaoSealed' })).toBeVisible()
+  await expect(page.getByText('OpenBaoSealed', { exact: true })).toBeVisible()
   await page.reload()
   await expect(page.getByRole('tab', { name: /^Conditions/ })).toHaveAttribute(
     'data-state',
     'active',
   )
-  await page.getByRole('tab', { name: 'Observation history' }).click()
-  await expect(page.getByRole('heading', { name: 'Retained observations' })).toBeVisible()
+  await page.getByRole('tab', { name: 'History', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Recorded changes' })).toBeVisible()
 })
 
 test('fleet filters are shareable and sorting works', async ({ page }) => {
@@ -143,13 +143,14 @@ test('clusters explain API access and enrolled controller evidence', async ({ pa
     .click()
   await expect(page).toHaveURL(/cluster=prod-eu-1/)
   await expect(page.getByText('Showing 4 of 12 deployments')).toBeVisible()
+  // A healthy operator is context on the deployment page; its details stay on Clusters.
   await page.goto('/deployments/payments')
-  await expect(page.getByRole('heading', { name: 'operator-prod-eu-1', exact: true })).toBeVisible()
-  await expect(
-    page.getByText('Deployment readiness does not prove successful reconciliation.', {
-      exact: false,
-    }),
-  ).toBeVisible()
+  await expect(page.getByRole('link', { name: 'operator-prod-eu-1', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Operator needs attention' })).toHaveCount(0)
+  // An operator without current evidence explains why the deployment's evidence is suspect.
+  await page.goto('/deployments/edge')
+  await expect(page.getByRole('heading', { name: 'Operator needs attention' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'operator-edge', exact: true })).toBeVisible()
 })
 
 test('administrators add a paused cluster, edit policies, and inspect changes', async ({
@@ -241,15 +242,40 @@ test('administrators add a paused cluster, edit policies, and inspect changes', 
 
 test('findings lead to their highlighted evidence', async ({ page }) => {
   await page.goto('/deployments/customer-x')
-  await expect(page.getByRole('tab', { name: 'Backup evidence Has finding' })).toBeVisible()
-  await page.getByRole('button', { name: 'View backup evidence' }).click()
-  await expect(page).toHaveURL(/tab=backup/)
-  const failures = page.locator('.detail-rows > div', { hasText: 'Consecutive failures' })
+  await expect(page.getByRole('tab', { name: 'Backups Has finding' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Backups: open Backups' })).toHaveClass(/tile-high/)
+  await page.getByRole('button', { name: 'View backups', exact: true }).click()
+  await expect(page).toHaveURL(/tab=backups/)
+  const failures = page.locator('.summary-stat', { hasText: 'Consecutive failures' })
   await expect(failures).toHaveClass(/finding-high/)
+  await expect(
+    page.getByRole('img', { name: /backups completed and 2 failures observed/ }),
+  ).toBeVisible()
   await page.goto('/deployments/staging')
-  await page.getByRole('tab', { name: /^Operations/ }).click()
-  await expect(page.getByRole('heading', { name: 'Upgrade failure' })).toBeVisible()
+  await page.getByRole('tab', { name: /^Lifecycle/ }).click()
+  await expect(page.getByRole('heading', { name: 'Version' })).toBeVisible()
   await expect(page.getByText('PodNotReady', { exact: true })).toBeVisible()
+  await expect(page.locator('.detail-rows > div', { hasText: 'Upgrade' }).first()).toHaveClass(
+    /finding-high/,
+  )
+})
+
+test('history explains recorded changes in plain language', async ({ page }) => {
+  await page.goto('/deployments/identity')
+  await expect(
+    page.getByRole('heading', { name: 'Recent changes' }).locator('..').locator('..'),
+  ).toContainText('State Attention → Critical')
+  await page.getByRole('button', { name: 'View history' }).click()
+  await expect(page).toHaveURL(/tab=history/)
+  await expect(
+    page.getByRole('img', { name: /Recorded state from .*Healthy, then Attention, then Critical/ }),
+  ).toBeVisible()
+  await expect(page.getByText('OpenBaoSealed reported True', { exact: true })).toBeVisible()
+  await expect(page.getByText('Ready replicas 3 → 1', { exact: true })).toBeVisible()
+  await page.getByRole('tab', { name: /^Conditions/ }).click()
+  await expect(page.locator('.condition', { hasText: 'OpenBaoSealed' })).toHaveClass(
+    /finding-critical/,
+  )
 })
 
 test('fleet lists the most severe deployments first', async ({ page }) => {

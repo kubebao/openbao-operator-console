@@ -63,7 +63,7 @@ const deployment = createRoute({
     z
       .object({
         tab: z
-          .enum(['overview', 'conditions', 'operations', 'backup', 'history'])
+          .enum(['overview', 'lifecycle', 'backups', 'conditions', 'history'])
           .catch('overview'),
       })
       .parse(search),

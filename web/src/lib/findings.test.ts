@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Issue } from '../api/schema'
-import { fieldSeverity, findingLocation, tabSeverity } from './findings'
+import { dimensionSeverity, fieldSeverity, findingLocation, tabSeverity } from './findings'
 
 function issue(rule: string, severity: Issue['severity']): Issue {
   return {
@@ -19,7 +19,7 @@ function issue(rule: string, severity: Issue['severity']): Issue {
 describe('finding locations', () => {
   it('points backup findings to the backup evidence row', () => {
     expect(findingLocation(issue('backup-failed', 'high'))).toEqual({
-      tab: 'backup',
+      tab: 'backups',
       fields: ['backupFailures'],
     })
   })
@@ -32,7 +32,9 @@ describe('finding locations', () => {
     }
     expect(tabSeverity(deployment, 'conditions')).toBe('critical')
     expect(tabSeverity(deployment, 'overview')).toBe('high')
-    expect(tabSeverity(deployment, 'backup')).toBeNull()
+    expect(tabSeverity(deployment, 'backups')).toBeNull()
     expect(fieldSeverity(deployment, 'replicas')).toBe('high')
+    expect(dimensionSeverity(deployment, 'availability')).toBe('critical')
+    expect(dimensionSeverity(deployment, 'backups')).toBeNull()
   })
 })

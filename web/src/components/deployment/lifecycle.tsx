@@ -1,0 +1,229 @@
+import { Link } from '@tanstack/react-router'
+import {
+  Check,
+  CircleDashed,
+  GitCompareArrows,
+  Package,
+  RotateCcw,
+  Workflow,
+  X,
+} from 'lucide-react'
+import type { Deployment, Operator } from '../../api/schema'
+import { fieldSeverity } from '../../lib/findings'
+import { cleanupStates, operatorHealthLabels, recoveryPhases, roleLabels } from '../../lib/format'
+import { observedGeneration, replicaLag, upgradeLabels, upgradeState } from '../../lib/lifecycle'
+import { DetailRows } from '../page'
+import { Timestamp } from '../status'
+
+type Recovery = NonNullable<Deployment['recovery']>
+
+const recoverySteps = ['pending', 'validating', 'running', 'completed'] as const
+
+function RecoverySteps({ recovery }: { recovery: Recovery }) {
+  const failed = recovery.phase === 'failed' || recovery.phase === 'unknown'
+  const current = failed ? -1 : recoverySteps.indexOf(recovery.phase)
+  return (
+    <ol className="phase-steps" aria-label={`Recovery phase: ${recoveryPhases[recovery.phase]}`}>
+      {recoverySteps.map((step, index) => {
+        const done = !failed && (index < current || recovery.phase === 'completed')
+        const active = !failed && index === current && recovery.phase !== 'completed'
+        return (
+          <li
+            key={step}
+            className={done ? 'done' : active ? 'active' : ''}
+            aria-current={active ? 'step' : undefined}
+          >
+            {done ? <Check size={13} /> : <CircleDashed size={13} />}
+            {recoveryPhases[step]}
+          </li>
+        )
+      })}
+      {failed && (
+        <li className="failed" aria-current="step">
+          <X size={13} />
+          {recoveryPhases[recovery.phase]}
+        </li>
+      )}
+    </ol>
+  )
+}
+
+export function LifecycleTab({
+  deployment,
+  operator,
+}: {
+  deployment: Deployment
+  operator: Operator | undefined
+}) {
+  const upgrade = upgradeState(deployment)
+  const generation = observedGeneration(deployment)
+  const recovery = deployment.recovery
+  const replica = deployment.replica
+  const lag = replicaLag(deployment)
+  return (
+    <div className="lifecycle-grid">
+      <section className="detail-section">
+        <h2>
+          <Package size={17} />
+          Version
+        </h2>
+        <DetailRows
+          rows={[
+            { label: 'Running version', value: deployment.version || 'Not observed' },
+            { label: 'Requested version', value: deployment.desiredVersion || 'Not observed' },
+            {
+              label: 'Upgrade',
+              value: (
+                <span className={`upgrade-state upgrade-${upgrade}`}>{upgradeLabels[upgrade]}</span>
+              ),
+              finding: fieldSeverity(deployment, 'upgrade'),
+            },
+            ...(deployment.upgradeFailure
+              ? [
+                  {
+                    label: 'Failure reason',
+                    value: <code>{deployment.upgradeFailure.reason || 'Not reported'}</code>,
+                    finding: fieldSeverity(deployment, 'upgrade'),
+                  },
+                  {
+                    label: 'Failure recorded',
+                    value: <Timestamp value={deployment.upgradeFailure.at} />,
+                  },
+                ]
+              : []),
+          ]}
+        />
+        {deployment.upgradeFailure && (
+          <p className="section-footnote">
+            The operator records this failure. Inspect its post-upgrade checks before retrying.
+          </p>
+        )}
+      </section>
+
+      <section className="detail-section">
+        <h2>
+          <Workflow size={17} />
+          Reconciliation
+        </h2>
+        <DetailRows
+          rows={[
+            { label: 'Resource generation', value: deployment.generation },
+            {
+              label: 'Reported by operator',
+              value:
+                generation === null
+                  ? 'No conditions reported'
+                  : generation >= deployment.generation
+                    ? `Generation ${String(generation)} (current)`
+                    : `Generation ${String(generation)} of ${String(deployment.generation)}`,
+            },
+            {
+              label: 'Managed by',
+              value: operator ? (
+                <Link to="/clusters" className="text-link">
+                  {operator.id} · {operatorHealthLabels[operator.health]}
+                </Link>
+              ) : (
+                (deployment.operatorId ?? 'No operator declared')
+              ),
+            },
+            {
+              label: 'Operator version label',
+              value: deployment.operatorVersion ?? 'Not observed',
+            },
+          ]}
+        />
+        <p className="section-footnote">
+          Conditions carry the generation the operator last acted on. A lower generation means a
+          specification change has not been reconciled yet.
+        </p>
+      </section>
+
+      <section className="detail-section">
+        <h2>
+          <RotateCcw size={17} />
+          Recovery
+        </h2>
+        {recovery ? (
+          <>
+            <RecoverySteps recovery={recovery} />
+            <DetailRows
+              rows={[
+                { label: 'Request', value: recovery.requestName },
+                {
+                  label: 'Mechanism',
+                  value: recovery.mechanism === 'snapshot' ? 'Snapshot' : 'Native',
+                },
+                {
+                  label: 'Phase',
+                  value: recoveryPhases[recovery.phase],
+                  finding:
+                    recovery.phase === 'failed' || recovery.phase === 'unknown'
+                      ? fieldSeverity(deployment, 'recovery')
+                      : null,
+                },
+                { label: 'Execution stage', value: recovery.stage || 'Not reported' },
+                { label: 'Started', value: <Timestamp value={recovery.startedAt} /> },
+                {
+                  label: 'Target application confirmed',
+                  value: <Timestamp value={recovery.applicationConfirmedAt} />,
+                },
+                { label: 'Completed', value: <Timestamp value={recovery.completedAt} /> },
+                {
+                  label: 'Cleanup',
+                  value: cleanupStates[recovery.cleanup],
+                  finding:
+                    recovery.cleanup === 'failed' ? fieldSeverity(deployment, 'recovery') : null,
+                },
+              ]}
+            />
+            <p className="section-footnote">
+              Historical completion does not establish current client availability. Unknown
+              execution requires investigation.
+            </p>
+          </>
+        ) : (
+          <p className="muted">
+            No recovery request is recorded for this deployment. Recovery runs through the operator
+            and your runbooks.
+          </p>
+        )}
+      </section>
+
+      {replica && (
+        <section className="detail-section">
+          <h2>
+            <GitCompareArrows size={17} />
+            Replication
+          </h2>
+          <DetailRows
+            rows={[
+              { label: 'Role', value: roleLabels[deployment.role] },
+              {
+                label: 'Behind source',
+                value:
+                  lag === null
+                    ? 'Not reported'
+                    : `${lag.toLocaleString()} ${lag === 1n ? 'entry' : 'entries'}`,
+              },
+              { label: 'Local index', value: <code>{replica.localIndex ?? 'Not reported'}</code> },
+              {
+                label: 'Source index',
+                value: <code>{replica.sourceIndex ?? 'Not reported'}</code>,
+              },
+              { label: 'Observed', value: <Timestamp value={replica.observedAt} /> },
+              {
+                label: 'History',
+                value: replica.historyConflict ? 'Conflict recorded' : 'No conflict recorded',
+                finding: fieldSeverity(deployment, 'replicaHistory'),
+              },
+            ]}
+          />
+          <p className="section-footnote">
+            An applied index does not authorize survivor selection during recovery.
+          </p>
+        </section>
+      )}
+    </div>
+  )
+}

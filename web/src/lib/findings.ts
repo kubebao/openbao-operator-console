@@ -1,6 +1,14 @@
 import type { Deployment, Issue } from '../api/schema'
 
-export type DeploymentTab = 'overview' | 'conditions' | 'operations' | 'backup' | 'history'
+export type DeploymentTab = 'overview' | 'lifecycle' | 'backups' | 'conditions' | 'history'
+
+export const tabLabels: Record<DeploymentTab, string> = {
+  overview: 'Overview',
+  lifecycle: 'Lifecycle',
+  backups: 'Backups',
+  conditions: 'Conditions',
+  history: 'History',
+}
 
 // Evidence rows that a finding can point to. Each value names one rendered detail row.
 export type EvidenceField =
@@ -25,13 +33,13 @@ const locations: Record<string, FindingLocation> = {
   'replica-readiness': { tab: 'overview', fields: ['replicas'] },
   sealed: { tab: 'conditions', fields: ['sealed'] },
   collection: { tab: 'overview', fields: ['collection'] },
-  'replica-history-conflict': { tab: 'overview', fields: ['replicaHistory'] },
-  'upgrade-failed': { tab: 'operations', fields: ['upgrade'] },
-  'recovery-investigate': { tab: 'operations', fields: ['recovery'] },
-  'backup-failed': { tab: 'backup', fields: ['backupFailures'] },
-  'backup-never-succeeded': { tab: 'backup', fields: ['backupSuccess'] },
-  'backup-overdue': { tab: 'backup', fields: ['backupSuccess'] },
-  'restore-test': { tab: 'backup', fields: ['restoreTest'] },
+  'replica-history-conflict': { tab: 'lifecycle', fields: ['replicaHistory'] },
+  'upgrade-failed': { tab: 'lifecycle', fields: ['upgrade'] },
+  'recovery-investigate': { tab: 'lifecycle', fields: ['recovery'] },
+  'backup-failed': { tab: 'backups', fields: ['backupFailures'] },
+  'backup-never-succeeded': { tab: 'backups', fields: ['backupSuccess'] },
+  'backup-overdue': { tab: 'backups', fields: ['backupSuccess'] },
+  'restore-test': { tab: 'backups', fields: ['restoreTest'] },
 }
 
 export function findingLocation(issue: Pick<Issue, 'rule'>): FindingLocation {
@@ -61,5 +69,26 @@ export function fieldSeverity(
 ): Issue['severity'] | null {
   return strongest(
     deployment.issues.filter((issue) => findingLocation(issue).fields.includes(field)),
+  )
+}
+
+// Overview tiles summarize groups of evidence rows.
+export type EvidenceDimension = 'availability' | 'backups' | 'restoreTest' | 'lifecycle'
+
+const dimensions: Record<EvidenceDimension, readonly EvidenceField[]> = {
+  availability: ['replicas', 'sealed'],
+  backups: ['backupFailures', 'backupSuccess'],
+  restoreTest: ['restoreTest'],
+  lifecycle: ['upgrade', 'recovery', 'replicaHistory'],
+}
+
+export function dimensionSeverity(
+  deployment: Pick<Deployment, 'issues'>,
+  dimension: EvidenceDimension,
+): Issue['severity'] | null {
+  return strongest(
+    deployment.issues.filter((issue) =>
+      findingLocation(issue).fields.some((field) => dimensions[dimension].includes(field)),
+    ),
   )
 }

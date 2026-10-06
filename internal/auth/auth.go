@@ -350,7 +350,7 @@ func Allowed(user config.User, deployment contract.Deployment) bool {
 }
 
 func Scope(snapshot contract.Snapshot, user config.User, demo bool) contract.Snapshot {
-	result := contract.Snapshot{Mode: snapshot.Mode, CollectedAt: snapshot.CollectedAt,
+	result := contract.Snapshot{Mode: snapshot.Mode, CollectedAt: snapshot.CollectedAt, Policy: snapshot.Policy,
 		Deployments: []contract.Deployment{}, Connections: []contract.Connection{}, Relationships: []contract.Relationship{}, Activity: []contract.Activity{},
 		Viewer: contract.Viewer{Name: user.Name, Subject: user.Subject, Admin: user.Admin, ConnectionIds: []string{}},
 	}

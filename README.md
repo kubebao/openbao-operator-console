@@ -31,6 +31,10 @@ requests to OpenBao. Lifecycle operations stay with the operator and your runboo
   tests, failed upgrades, recovery problems, and collection gaps, ordered by severity.
 - **Evidence you can trace.** Each finding links to the tab and the exact evidence rows that produced it. Collection
   time, producer time, and state transitions stay separate, and missing evidence is shown as unknown, never as healthy.
+- **Deployment health at a glance.** Availability, backups, restore tests, and lifecycle on one overview; backup age
+  against policy; interpreted operator conditions; and upgrade and recovery progress.
+- **Change history.** Seven days of recorded state and a plain-language timeline of what changed, such as findings
+  raised and resolved, replica counts, versions, conditions, and backups.
 - **Fleet inventory.** Search, filters you can share as URLs, and severity sorting across clusters, teams, and
   environments.
 - **Topology and recovery paths.** Declared replication and snapshot recovery relationships, bound to resource UIDs,
@@ -46,15 +50,16 @@ requests to OpenBao. Lifecycle operations stay with the operator and your runboo
 
 ## Screenshots
 
-| Fleet inventory | Deployment evidence |
+| Fleet inventory | Deployment overview |
 | --- | --- |
-| ![Fleet table sorted by severity](docs/images/fleet.png) | ![Deployment overview with a critical finding](docs/images/deployment.png) |
-| **Highlighted backup evidence** | **Recovery path** |
-| ![Backup evidence with the failing row highlighted](docs/images/backup-evidence.png) | ![Topology view of a snapshot recovery path](docs/images/topology.png) |
-| **Cluster coverage** | **Dark theme** |
-| ![Cluster collection and operator status](docs/images/clusters.png) | ![Attention workspace in dark theme](docs/images/attention-dark.png) |
+| ![Fleet table sorted by severity](docs/images/fleet.png) | ![Deployment overview with evidence tiles and findings](docs/images/deployment.png) |
+| **Backup health** | **Change history** |
+| ![Backup age against policy, activity over seven days, and restore-test evidence](docs/images/backup-evidence.png) | ![State over seven days and a timeline of recorded changes](docs/images/history.png) |
+| **Recovery path** | **Cluster coverage** |
+| ![Topology view of a snapshot recovery path](docs/images/topology.png) | ![Cluster collection and operator status](docs/images/clusters.png) |
 
-The screenshots show the built-in demonstration data. Regenerate them with `make screenshots`.
+A [dark theme](docs/images/attention-dark.png) is included. The screenshots show the built-in demonstration data;
+regenerate them with `make screenshots`.
 
 ## Quick start
 

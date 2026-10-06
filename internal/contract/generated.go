@@ -745,6 +745,12 @@ type ApiCapabilityResource string
 // ApiCapabilityState defines model for ApiCapability.State.
 type ApiCapabilityState string
 
+// AttentionPolicy Thresholds the attention rules apply to every deployment.
+type AttentionPolicy struct {
+	MaxBackupAgeHours   int `json:"maxBackupAgeHours"`
+	StartupGraceMinutes int `json:"startupGraceMinutes"`
+}
+
 // Backup defines model for Backup.
 type Backup struct {
 	ConsecutiveFailures int32        `json:"consecutiveFailures"`
@@ -1216,13 +1222,16 @@ type SetupUnlock struct {
 
 // Snapshot defines model for Snapshot.
 type Snapshot struct {
-	Activity      []Activity     `json:"activity"`
-	CollectedAt   time.Time      `json:"collectedAt"`
-	Connections   []Connection   `json:"connections"`
-	Deployments   []Deployment   `json:"deployments"`
-	Mode          SnapshotMode   `json:"mode"`
-	Relationships []Relationship `json:"relationships"`
-	Viewer        Viewer         `json:"viewer"`
+	Activity    []Activity   `json:"activity"`
+	CollectedAt time.Time    `json:"collectedAt"`
+	Connections []Connection `json:"connections"`
+	Deployments []Deployment `json:"deployments"`
+	Mode        SnapshotMode `json:"mode"`
+
+	// Policy Thresholds the attention rules apply to every deployment.
+	Policy        AttentionPolicy `json:"policy"`
+	Relationships []Relationship  `json:"relationships"`
+	Viewer        Viewer          `json:"viewer"`
 }
 
 // SnapshotMode defines model for Snapshot.Mode.

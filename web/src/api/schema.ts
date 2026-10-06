@@ -172,6 +172,10 @@ const snapshotObject = z.object({
     connectionIds: z.array(z.string()),
     admin: z.boolean(),
   }),
+  policy: z.object({
+    maxBackupAgeHours: z.number().int().positive(),
+    startupGraceMinutes: z.number().int().nonnegative(),
+  }),
 })
 
 export const snapshotSchema: z.ZodType<Snapshot> = snapshotObject
