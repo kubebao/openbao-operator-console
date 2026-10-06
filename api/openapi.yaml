@@ -1,0 +1,2293 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "OpenBao Operator Console", "version": "0.1.0" },
+  "paths":
+    {
+      "/api/v1/snapshot":
+        {
+          "get":
+            {
+              "operationId": "getSnapshot",
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Snapshot" },
+                            },
+                        },
+                    },
+                  "401":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "503":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/v1/deployments/{id}/history":
+        {
+          "get":
+            {
+              "operationId": "getDeploymentHistory",
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/History" },
+                            },
+                        },
+                    },
+                  "404":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/v1/settings":
+        {
+          "get":
+            {
+              "operationId": "getSettings",
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Settings" },
+                            },
+                        },
+                    },
+                  "400":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "401":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "403":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "409":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "503":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                },
+            },
+          "put":
+            {
+              "operationId": "updateSettings",
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Settings" },
+                            },
+                        },
+                    },
+                  "400":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "401":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "403":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "409":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "503":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                },
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            { "$ref": "#/components/schemas/SettingsUpdate" },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/v1/settings/connections/check":
+        {
+          "post":
+            {
+              "operationId": "checkConnection",
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/ConnectionCheckResult",
+                                },
+                            },
+                        },
+                    },
+                  "400":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "401":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "403":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "409":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "503":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                },
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            { "$ref": "#/components/schemas/ConnectionCheck" },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/v1/settings/identity/trial":
+        {
+          "post":
+            {
+              "operationId": "testIdentity",
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/LoginRedirect",
+                                },
+                            },
+                        },
+                    },
+                  "400":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "401":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "403":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "409":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "503":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                },
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            { "$ref": "#/components/schemas/IdentityTrial" },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/v1/setup":
+        {
+          "get":
+            {
+              "operationId": "getSetup",
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/SetupStatus" },
+                            },
+                        },
+                    },
+                  "400":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "401":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "403":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "409":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "429":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "503":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/v1/setup/unlock":
+        {
+          "post":
+            {
+              "operationId": "unlockSetup",
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            { "$ref": "#/components/schemas/SetupUnlock" },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/SetupStatus" },
+                            },
+                        },
+                    },
+                  "400":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "401":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "403":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "409":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "429":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "503":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "410":
+                    {
+                      "description": "Setup window expired",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/v1/setup/identity":
+        {
+          "post":
+            {
+              "operationId": "startSetupIdentity",
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            { "$ref": "#/components/schemas/IdentityInput" },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/LoginRedirect",
+                                },
+                            },
+                        },
+                    },
+                  "400":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "401":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "403":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "409":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "429":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "503":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "410":
+                    {
+                      "description": "Setup window expired",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/v1/setup/lock":
+        {
+          "post":
+            {
+              "operationId": "lockSetup",
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/SetupStatus" },
+                            },
+                        },
+                    },
+                  "400":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "401":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "403":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "409":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "429":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "503":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/v1/settings/connections/rbac":
+        {
+          "post":
+            {
+              "operationId": "generateReaderAccess",
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "#/components/schemas/ReaderAccessInput",
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/ReaderAccessResult",
+                                },
+                            },
+                        },
+                    },
+                  "400":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "401":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "403":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "409":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "429":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                  "503":
+                    {
+                      "description": "Request could not be completed",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Problem" },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/v1/settings/connections/credentials":
+        {
+          "get":
+            {
+              "operationId": "getCredentialStatuses",
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Administrator credential lifecycle status without authentication material",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/CredentialStatuses",
+                                },
+                            },
+                        },
+                    },
+                  "401": { "description": "Sign in required" },
+                  "403": { "description": "Administrator access required" },
+                  "503": { "description": "Settings unavailable" },
+                },
+            },
+        },
+    },
+  "components":
+    {
+      "schemas":
+        {
+          "Evidence":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                [
+                  "collection",
+                  "collectedAt",
+                  "lastAttemptAt",
+                  "producerObservedAt",
+                  "producerFreshness",
+                ],
+              "properties":
+                {
+                  "collection":
+                    {
+                      "type": "string",
+                      "enum":
+                        [
+                          "current",
+                          "stale",
+                          "denied",
+                          "unreachable",
+                          "unsupported",
+                        ],
+                    },
+                  "collectedAt": { "type": "string", "format": "date-time" },
+                  "lastAttemptAt": { "type": "string", "format": "date-time" },
+                  "producerObservedAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                  "producerFreshness":
+                    { "type": "string", "enum": ["unknown", "fresh", "stale"] },
+                },
+            },
+          "Condition":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                [
+                  "type",
+                  "status",
+                  "reason",
+                  "message",
+                  "observedGeneration",
+                  "lastTransitionAt",
+                ],
+              "properties":
+                {
+                  "type": { "type": "string" },
+                  "status":
+                    { "type": "string", "enum": ["True", "False", "Unknown"] },
+                  "reason": { "type": "string" },
+                  "message": { "type": "string" },
+                  "observedGeneration":
+                    { "type": "integer", "format": "int64" },
+                  "lastTransitionAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                },
+            },
+          "RestoreTest":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                [
+                  "outcome",
+                  "finishedAt",
+                  "lastSuccessAt",
+                  "key",
+                  "digest",
+                  "reason",
+                ],
+              "properties":
+                {
+                  "outcome":
+                    {
+                      "type": "string",
+                      "enum":
+                        ["notRun", "running", "passed", "failed", "blocked"],
+                    },
+                  "finishedAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                  "lastSuccessAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                  "key": { "type": "string", "nullable": true },
+                  "digest": { "type": "string", "nullable": true },
+                  "reason": { "type": "string" },
+                },
+            },
+          "Backup":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                [
+                  "lastSuccessAt",
+                  "nextAt",
+                  "key",
+                  "digest",
+                  "sizeBytes",
+                  "consecutiveFailures",
+                  "restoreTest",
+                ],
+              "properties":
+                {
+                  "lastSuccessAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                  "nextAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                  "key": { "type": "string", "nullable": true },
+                  "digest": { "type": "string", "nullable": true },
+                  "sizeBytes":
+                    { "type": "integer", "format": "int64", "nullable": true },
+                  "consecutiveFailures":
+                    { "type": "integer", "format": "int32" },
+                  "restoreTest":
+                    {
+                      "nullable": true,
+                      "allOf": [{ "$ref": "#/components/schemas/RestoreTest" }],
+                    },
+                },
+            },
+          "Recovery":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                [
+                  "requestName",
+                  "mechanism",
+                  "phase",
+                  "stage",
+                  "startedAt",
+                  "completedAt",
+                  "applicationConfirmedAt",
+                  "cleanup",
+                  "exclusionAcknowledged",
+                ],
+              "properties":
+                {
+                  "requestName": { "type": "string" },
+                  "mechanism":
+                    { "type": "string", "enum": ["snapshot", "native"] },
+                  "phase":
+                    {
+                      "type": "string",
+                      "enum":
+                        [
+                          "pending",
+                          "validating",
+                          "running",
+                          "completed",
+                          "failed",
+                          "unknown",
+                        ],
+                    },
+                  "stage": { "type": "string" },
+                  "startedAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                  "completedAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                  "applicationConfirmedAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                  "cleanup":
+                    {
+                      "type": "string",
+                      "enum":
+                        ["notApplicable", "pending", "complete", "failed"],
+                    },
+                  "exclusionAcknowledged":
+                    { "type": "boolean", "nullable": true },
+                },
+            },
+          "Replica":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                ["observedAt", "localIndex", "sourceIndex", "historyConflict"],
+              "properties":
+                {
+                  "observedAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                  "localIndex": { "type": "string", "nullable": true },
+                  "sourceIndex": { "type": "string", "nullable": true },
+                  "historyConflict": { "type": "boolean" },
+                },
+            },
+          "Issue":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                [
+                  "id",
+                  "deploymentId",
+                  "rule",
+                  "severity",
+                  "category",
+                  "title",
+                  "detail",
+                  "firstSeenAt",
+                  "lastCheckedAt",
+                ],
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "deploymentId": { "type": "string" },
+                  "rule": { "type": "string" },
+                  "severity":
+                    { "type": "string", "enum": ["critical", "high", "info"] },
+                  "category":
+                    {
+                      "type": "string",
+                      "enum":
+                        ["availability", "operations", "backup", "visibility"],
+                    },
+                  "title": { "type": "string" },
+                  "detail": { "type": "string" },
+                  "firstSeenAt": { "type": "string", "format": "date-time" },
+                  "lastCheckedAt": { "type": "string", "format": "date-time" },
+                },
+            },
+          "Deployment":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                [
+                  "id",
+                  "uid",
+                  "name",
+                  "namespace",
+                  "connectionId",
+                  "location",
+                  "team",
+                  "environment",
+                  "version",
+                  "desiredVersion",
+                  "operatorVersion",
+                  "role",
+                  "health",
+                  "readyReplicas",
+                  "desiredReplicas",
+                  "evidence",
+                  "conditions",
+                  "backup",
+                  "recovery",
+                  "replica",
+                  "issues",
+                  "resourceVersion",
+                  "generation",
+                  "upgradeFailure",
+                  "operatorId",
+                ],
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "uid": { "type": "string" },
+                  "name": { "type": "string" },
+                  "namespace": { "type": "string" },
+                  "connectionId": { "type": "string" },
+                  "location": { "type": "string" },
+                  "team": { "type": "string" },
+                  "environment":
+                    {
+                      "type": "string",
+                      "enum": ["production", "staging", "development", "other"],
+                    },
+                  "version": { "type": "string" },
+                  "desiredVersion": { "type": "string" },
+                  "operatorVersion": { "type": "string", "nullable": true },
+                  "role":
+                    {
+                      "type": "string",
+                      "enum": ["primary", "replica", "recoveryTarget"],
+                    },
+                  "health":
+                    {
+                      "type": "string",
+                      "enum": ["healthy", "attention", "critical", "unknown"],
+                    },
+                  "readyReplicas":
+                    { "type": "integer", "format": "int32", "nullable": true },
+                  "desiredReplicas":
+                    { "type": "integer", "format": "int32", "nullable": true },
+                  "evidence": { "$ref": "#/components/schemas/Evidence" },
+                  "conditions":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Condition" },
+                    },
+                  "backup":
+                    {
+                      "nullable": true,
+                      "allOf": [{ "$ref": "#/components/schemas/Backup" }],
+                    },
+                  "recovery":
+                    {
+                      "nullable": true,
+                      "allOf": [{ "$ref": "#/components/schemas/Recovery" }],
+                    },
+                  "replica":
+                    {
+                      "nullable": true,
+                      "allOf": [{ "$ref": "#/components/schemas/Replica" }],
+                    },
+                  "issues":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Issue" },
+                    },
+                  "resourceVersion": { "type": "string" },
+                  "generation": { "type": "integer", "format": "int64" },
+                  "upgradeFailure":
+                    {
+                      "allOf":
+                        [{ "$ref": "#/components/schemas/OperationFailure" }],
+                      "nullable": true,
+                    },
+                  "operatorId": { "type": "string", "nullable": true },
+                },
+            },
+          "Connection":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                [
+                  "id",
+                  "name",
+                  "region",
+                  "collection",
+                  "lastSuccessAt",
+                  "lastAttemptAt",
+                  "namespaces",
+                  "operators",
+                  "capabilities",
+                ],
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "name": { "type": "string" },
+                  "region": { "type": "string" },
+                  "collection":
+                    {
+                      "type": "string",
+                      "enum":
+                        [
+                          "current",
+                          "stale",
+                          "denied",
+                          "unreachable",
+                          "unsupported",
+                          "pending",
+                        ],
+                    },
+                  "lastSuccessAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                  "lastAttemptAt": { "type": "string", "format": "date-time" },
+                  "namespaces":
+                    { "type": "array", "items": { "type": "string" } },
+                  "operators":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Operator" },
+                    },
+                  "capabilities":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/ApiCapability" },
+                    },
+                },
+            },
+          "Relationship":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                [
+                  "id",
+                  "sourceId",
+                  "targetId",
+                  "kind",
+                  "repository",
+                  "provenance",
+                  "observedAt",
+                ],
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "sourceId": { "type": "string" },
+                  "targetId": { "type": "string" },
+                  "kind":
+                    {
+                      "type": "string",
+                      "enum": ["replication", "snapshotRecovery"],
+                    },
+                  "repository": { "type": "string", "nullable": true },
+                  "provenance":
+                    {
+                      "type": "string",
+                      "enum": ["declared", "observed", "historical"],
+                    },
+                  "observedAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                },
+            },
+          "Activity":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                ["id", "deploymentId", "at", "title", "detail", "outcome"],
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "deploymentId": { "type": "string" },
+                  "at": { "type": "string", "format": "date-time" },
+                  "title": { "type": "string" },
+                  "detail": { "type": "string" },
+                  "outcome":
+                    {
+                      "type": "string",
+                      "enum": ["success", "warning", "info", "error"],
+                    },
+                },
+            },
+          "Viewer":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "subject", "connectionIds", "admin"],
+              "properties":
+                {
+                  "name": { "type": "string" },
+                  "subject": { "type": "string" },
+                  "connectionIds":
+                    { "type": "array", "items": { "type": "string" } },
+                  "admin": { "type": "boolean" },
+                },
+            },
+          "Snapshot":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                [
+                  "mode",
+                  "collectedAt",
+                  "deployments",
+                  "connections",
+                  "relationships",
+                  "activity",
+                  "viewer",
+                ],
+              "properties":
+                {
+                  "mode": { "type": "string", "enum": ["demo", "live"] },
+                  "collectedAt": { "type": "string", "format": "date-time" },
+                  "deployments":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Deployment" },
+                    },
+                  "connections":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Connection" },
+                    },
+                  "relationships":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Relationship" },
+                    },
+                  "activity":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Activity" },
+                    },
+                  "viewer": { "$ref": "#/components/schemas/Viewer" },
+                },
+            },
+          "History":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["observations"],
+              "properties":
+                {
+                  "observations":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Observation" },
+                    },
+                },
+            },
+          "Problem":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["code", "message"],
+              "properties":
+                {
+                  "code": { "type": "string" },
+                  "message": { "type": "string" },
+                },
+            },
+          "Observation":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["recordedAt", "deployment"],
+              "properties":
+                {
+                  "recordedAt": { "type": "string", "format": "date-time" },
+                  "deployment": { "$ref": "#/components/schemas/Deployment" },
+                },
+            },
+          "OperationFailure":
+            {
+              "type": "object",
+              "required": ["reason", "at"],
+              "properties":
+                {
+                  "reason": { "type": "string" },
+                  "at":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                },
+            },
+          "ApiCapability":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["namespace", "resource", "state", "checkedAt"],
+              "properties":
+                {
+                  "namespace": { "type": "string" },
+                  "resource":
+                    {
+                      "type": "string",
+                      "enum":
+                        [
+                          "openbaoclusters",
+                          "openbaorestores",
+                          "openbaorecoveries",
+                        ],
+                    },
+                  "state":
+                    {
+                      "type": "string",
+                      "enum":
+                        [
+                          "available",
+                          "unsupported",
+                          "denied",
+                          "unreachable",
+                          "notChecked",
+                        ],
+                    },
+                  "checkedAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                },
+            },
+          "Operator":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                [
+                  "id",
+                  "namespace",
+                  "name",
+                  "container",
+                  "namespaces",
+                  "uid",
+                  "image",
+                  "version",
+                  "collection",
+                  "lastAttemptAt",
+                  "lastSuccessAt",
+                  "health",
+                  "generation",
+                  "observedGeneration",
+                  "readyReplicas",
+                  "desiredReplicas",
+                  "updatedReplicas",
+                ],
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "namespace": { "type": "string" },
+                  "name": { "type": "string" },
+                  "container": { "type": "string" },
+                  "namespaces":
+                    { "type": "array", "items": { "type": "string" } },
+                  "uid": { "type": "string", "nullable": true },
+                  "image": { "type": "string", "nullable": true },
+                  "version":
+                    {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Version declared by the enrolled Deployment label; not verified binary identity.",
+                    },
+                  "collection":
+                    {
+                      "type": "string",
+                      "enum":
+                        [
+                          "current",
+                          "stale",
+                          "denied",
+                          "unreachable",
+                          "notFound",
+                          "invalid",
+                        ],
+                    },
+                  "lastAttemptAt": { "type": "string", "format": "date-time" },
+                  "lastSuccessAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                  "health":
+                    {
+                      "type": "string",
+                      "enum":
+                        ["available", "progressing", "unavailable", "unknown"],
+                    },
+                  "generation": { "type": "integer", "format": "int64" },
+                  "observedGeneration":
+                    { "type": "integer", "format": "int64", "nullable": true },
+                  "readyReplicas":
+                    { "type": "integer", "format": "int32", "nullable": true },
+                  "desiredReplicas":
+                    { "type": "integer", "format": "int32", "nullable": true },
+                  "updatedReplicas":
+                    { "type": "integer", "format": "int32", "nullable": true },
+                },
+            },
+          "Scope":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["connectionId", "namespaces"],
+              "properties":
+                {
+                  "connectionId": { "type": "string" },
+                  "namespaces":
+                    { "type": "array", "items": { "type": "string" } },
+                },
+            },
+          "ManagedUser":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["subject", "name", "admin", "scopes"],
+              "properties":
+                {
+                  "subject": { "type": "string" },
+                  "name": { "type": "string" },
+                  "admin": { "type": "boolean" },
+                  "scopes":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Scope" },
+                    },
+                },
+            },
+          "GroupBinding":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "admin", "scopes"],
+              "properties":
+                {
+                  "name": { "type": "string" },
+                  "admin": { "type": "boolean" },
+                  "scopes":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Scope" },
+                    },
+                },
+            },
+          "ManagedNamespace":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "team", "environment", "location"],
+              "properties":
+                {
+                  "name": { "type": "string" },
+                  "team": { "type": "string" },
+                  "environment":
+                    {
+                      "type": "string",
+                      "enum": ["production", "staging", "development", "other"],
+                    },
+                  "location": { "type": "string" },
+                },
+            },
+          "ManagedOperator":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                ["id", "namespace", "deployment", "container", "namespaces"],
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "namespace": { "type": "string" },
+                  "deployment": { "type": "string" },
+                  "container": { "type": "string" },
+                  "namespaces":
+                    { "type": "array", "items": { "type": "string" } },
+                },
+            },
+          "ManagedConnection":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                [
+                  "id",
+                  "name",
+                  "region",
+                  "disabled",
+                  "authentication",
+                  "server",
+                  "credentialConfigured",
+                  "namespaces",
+                  "operators",
+                ],
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "name": { "type": "string" },
+                  "region": { "type": "string" },
+                  "disabled": { "type": "boolean" },
+                  "authentication":
+                    { "type": "string", "enum": ["local", "remote"] },
+                  "server": { "type": "string" },
+                  "credentialConfigured": { "type": "boolean" },
+                  "namespaces":
+                    {
+                      "type": "array",
+                      "items":
+                        { "$ref": "#/components/schemas/ManagedNamespace" },
+                    },
+                  "operators":
+                    {
+                      "type": "array",
+                      "items":
+                        { "$ref": "#/components/schemas/ManagedOperator" },
+                    },
+                  "renewal":
+                    {
+                      "allOf":
+                        [{ "$ref": "#/components/schemas/TokenRenewal" }],
+                      "nullable": true,
+                    },
+                },
+            },
+          "ResourceRef":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["connectionId", "namespace", "name", "uid"],
+              "properties":
+                {
+                  "connectionId": { "type": "string" },
+                  "namespace": { "type": "string" },
+                  "name": { "type": "string" },
+                  "uid": { "type": "string" },
+                },
+            },
+          "ManagedRelationship":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "source", "target", "kind", "repository"],
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "source": { "$ref": "#/components/schemas/ResourceRef" },
+                  "target": { "$ref": "#/components/schemas/ResourceRef" },
+                  "kind":
+                    {
+                      "type": "string",
+                      "enum": ["replication", "snapshotRecovery"],
+                    },
+                  "repository": { "type": "string" },
+                },
+            },
+          "Configuration":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                [
+                  "connections",
+                  "users",
+                  "groups",
+                  "relationships",
+                  "maxBackupAgeHours",
+                  "startupGraceMinutes",
+                ],
+              "properties":
+                {
+                  "connections":
+                    {
+                      "type": "array",
+                      "items":
+                        { "$ref": "#/components/schemas/ManagedConnection" },
+                    },
+                  "users":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/ManagedUser" },
+                    },
+                  "groups":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/GroupBinding" },
+                    },
+                  "relationships":
+                    {
+                      "type": "array",
+                      "items":
+                        { "$ref": "#/components/schemas/ManagedRelationship" },
+                    },
+                  "maxBackupAgeHours": { "type": "integer", "minimum": 1 },
+                  "startupGraceMinutes": { "type": "integer", "minimum": 0 },
+                },
+            },
+          "IdentitySummary":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                ["issuer", "clientId", "ca", "groupsClaim", "secretConfigured"],
+              "properties":
+                {
+                  "issuer": { "type": "string" },
+                  "clientId": { "type": "string" },
+                  "ca": { "type": "string" },
+                  "groupsClaim": { "type": "string" },
+                  "secretConfigured": { "type": "boolean" },
+                },
+            },
+          "IdentityInput":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["issuer", "clientId", "ca", "groupsClaim"],
+              "properties":
+                {
+                  "issuer": { "type": "string" },
+                  "clientId": { "type": "string" },
+                  "ca": { "type": "string" },
+                  "groupsClaim": { "type": "string" },
+                  "clientSecret": { "type": "string" },
+                },
+            },
+          "SettingsChange":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["revision", "actor", "summary", "at"],
+              "properties":
+                {
+                  "revision": { "type": "integer", "format": "int64" },
+                  "actor": { "type": "string" },
+                  "summary": { "type": "string" },
+                  "at": { "type": "string", "format": "date-time" },
+                },
+            },
+          "Settings":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["revision", "configuration", "identity", "changes"],
+              "properties":
+                {
+                  "revision": { "type": "integer", "format": "int64" },
+                  "configuration":
+                    { "$ref": "#/components/schemas/Configuration" },
+                  "identity":
+                    { "$ref": "#/components/schemas/IdentitySummary" },
+                  "changes":
+                    {
+                      "type": "array",
+                      "items":
+                        { "$ref": "#/components/schemas/SettingsChange" },
+                    },
+                },
+            },
+          "ClusterCredential":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["server", "ca", "token", "certificate", "key"],
+              "properties":
+                {
+                  "server": { "type": "string" },
+                  "ca": { "type": "string" },
+                  "token": { "type": "string" },
+                  "certificate": { "type": "string" },
+                  "key": { "type": "string" },
+                },
+            },
+          "CredentialUpdate":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["connectionId"],
+              "properties":
+                {
+                  "connectionId": { "type": "string" },
+                  "credential":
+                    { "$ref": "#/components/schemas/ClusterCredential" },
+                  "kubeconfig": { "type": "string" },
+                  "context": { "type": "string" },
+                },
+            },
+          "SettingsUpdate":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["revision", "configuration", "credentials"],
+              "properties":
+                {
+                  "revision": { "type": "integer", "format": "int64" },
+                  "configuration":
+                    { "$ref": "#/components/schemas/Configuration" },
+                  "credentials":
+                    {
+                      "type": "array",
+                      "items":
+                        { "$ref": "#/components/schemas/CredentialUpdate" },
+                    },
+                },
+            },
+          "ConnectionCheck":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["connection"],
+              "properties":
+                {
+                  "connection":
+                    { "$ref": "#/components/schemas/ManagedConnection" },
+                  "credential":
+                    { "$ref": "#/components/schemas/ClusterCredential" },
+                  "kubeconfig": { "type": "string" },
+                  "context": { "type": "string" },
+                },
+            },
+          "ConnectionCheckResult":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                [
+                  "connection",
+                  "rbac",
+                  "deployments",
+                  "diagnostics",
+                  "credentialExpiry",
+                ],
+              "properties":
+                {
+                  "connection": { "$ref": "#/components/schemas/Connection" },
+                  "rbac": { "type": "string" },
+                  "deployments":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Deployment" },
+                    },
+                  "diagnostics":
+                    { "$ref": "#/components/schemas/ConnectionDiagnostic" },
+                  "credentialExpiry":
+                    { "$ref": "#/components/schemas/CredentialExpiry" },
+                },
+            },
+          "IdentityTrial":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["revision", "identity"],
+              "properties":
+                {
+                  "revision": { "type": "integer", "format": "int64" },
+                  "identity": { "$ref": "#/components/schemas/IdentityInput" },
+                },
+            },
+          "LoginRedirect":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["url"],
+              "properties": { "url": { "type": "string" } },
+            },
+          "SetupStatus":
+            {
+              "type": "object",
+              "required": ["state", "callbackUrl", "sessionExpiresAt"],
+              "properties":
+                {
+                  "state":
+                    {
+                      "type": "string",
+                      "enum": ["required", "unlocked", "complete", "expired"],
+                    },
+                  "callbackUrl": { "type": "string" },
+                  "sessionExpiresAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                },
+              "additionalProperties": false,
+            },
+          "SetupUnlock":
+            {
+              "type": "object",
+              "required": ["token"],
+              "properties":
+                {
+                  "token":
+                    { "type": "string", "minLength": 32, "maxLength": 512 },
+                },
+              "additionalProperties": false,
+            },
+          "ReaderAccessInput":
+            {
+              "type": "object",
+              "required": ["connection"],
+              "properties":
+                {
+                  "connection":
+                    { "$ref": "#/components/schemas/ManagedConnection" },
+                },
+              "additionalProperties": false,
+            },
+          "ReaderAccessResult":
+            {
+              "type": "object",
+              "required": ["rbac", "serviceAccount", "serviceAccountNamespace"],
+              "properties":
+                {
+                  "rbac": { "type": "string" },
+                  "serviceAccount": { "type": "string" },
+                  "serviceAccountNamespace": { "type": "string" },
+                },
+              "additionalProperties": false,
+            },
+          "ConnectionDiagnostic":
+            {
+              "type": "object",
+              "required": ["state", "message"],
+              "properties":
+                {
+                  "state":
+                    {
+                      "type": "string",
+                      "enum":
+                        [
+                          "available",
+                          "unreachable",
+                          "tlsError",
+                          "unauthorized",
+                          "forbidden",
+                          "unsupported",
+                          "unknown",
+                        ],
+                    },
+                  "message": { "type": "string" },
+                },
+              "additionalProperties": false,
+            },
+          "CredentialExpiry":
+            {
+              "type": "object",
+              "required": ["expiresAt", "source"],
+              "properties":
+                {
+                  "expiresAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                  "source":
+                    {
+                      "type": "string",
+                      "enum": ["certificate", "declaredToken", "unknown"],
+                    },
+                },
+              "additionalProperties": false,
+            },
+          "TokenRenewal":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["namespace", "serviceAccount"],
+              "properties":
+                {
+                  "namespace":
+                    { "type": "string", "minLength": 1, "maxLength": 63 },
+                  "serviceAccount":
+                    { "type": "string", "minLength": 1, "maxLength": 253 },
+                },
+            },
+          "CredentialStatus":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                [
+                  "connectionId",
+                  "mode",
+                  "state",
+                  "expiresAt",
+                  "expirySource",
+                  "lastAttemptAt",
+                  "lastSuccessAt",
+                  "nextAttemptAt",
+                ],
+              "properties":
+                {
+                  "connectionId": { "type": "string" },
+                  "mode":
+                    {
+                      "type": "string",
+                      "enum": ["local", "manual", "automatic"],
+                    },
+                  "state":
+                    {
+                      "type": "string",
+                      "enum":
+                        [
+                          "ready",
+                          "pending",
+                          "healthy",
+                          "retrying",
+                          "permissionDenied",
+                          "reconnectRequired",
+                          "paused",
+                        ],
+                    },
+                  "expiresAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                  "expirySource":
+                    {
+                      "type": "string",
+                      "enum":
+                        [
+                          "unknown",
+                          "declaredToken",
+                          "certificate",
+                          "tokenRequest",
+                        ],
+                    },
+                  "lastAttemptAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                  "lastSuccessAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                  "nextAttemptAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                },
+            },
+          "CredentialStatuses":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["credentials"],
+              "properties":
+                {
+                  "credentials":
+                    {
+                      "type": "array",
+                      "items":
+                        { "$ref": "#/components/schemas/CredentialStatus" },
+                    },
+                },
+            },
+        },
+    },
+}

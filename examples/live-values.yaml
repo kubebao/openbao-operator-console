@@ -1,0 +1,32 @@
+# Adapt names, namespaces, image, and subject before installation.
+existingSecret: console-runtime
+readerNamespaces: [console-sample]
+operatorReaders:
+  - namespace: console-system
+    deployments: [console-operator-openbao-operator-controller]
+enrollment:
+  maxBackupAgeHours: 24
+  startupGraceMinutes: 10
+  connections:
+    - id: local
+      name: Local Kubernetes
+      region: local
+      namespaces:
+        - name: console-sample
+          team: Platform
+          environment: development
+          location: Local
+      operators:
+        - id: console-operator
+          namespace: console-system
+          deployment: console-operator-openbao-operator-controller
+          container: manager
+          namespaces: [console-sample]
+  users:
+    - subject: replace-with-oidc-subject
+      name: Platform engineer
+      admin: true
+      scopes:
+        - connectionId: local
+          namespaces: [console-sample]
+  relationships: []

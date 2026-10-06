@@ -1,0 +1,29 @@
+apiVersion: openbao.org/v1alpha1
+kind: OpenBaoCluster
+metadata:
+  name: console-bao
+  namespace: console-sample
+spec:
+  controllerJWTMode: Target
+  version: "2.7.0"
+  replicas: 1
+  profile: Development
+  tls:
+    enabled: true
+    rotationPeriod: 720h
+  storage:
+    size: 1Gi
+  deletionPolicy: DeleteAll
+  selfInit:
+    enabled: true
+    oidc:
+      enabled: true
+    requests:
+      - name: local-read-policy
+        operation: update
+        path: sys/policies/acl/local-read
+        policy:
+          policy: |
+            path "sys/health" {
+              capabilities = ["read"]
+            }

@@ -1,0 +1,27 @@
+maxBackupAgeHours: 24
+startupGraceMinutes: 10
+connections:
+  - id: local
+    name: Local development
+    region: local
+    kubeconfig: /absolute/path/to/reader-kubeconfig
+    context: kind-console-dev
+    namespaces:
+      - name: console-sample
+        team: Platform
+        environment: development
+        location: Local
+    operators:
+      - id: console-operator
+        namespace: console-system
+        deployment: console-operator-openbao-operator-controller
+        container: manager
+        namespaces: [console-sample]
+users:
+  - subject: replace-with-oidc-subject
+    name: Platform engineer
+    admin: true
+    scopes:
+      - connectionId: local
+        namespaces: [console-sample]
+relationships: []

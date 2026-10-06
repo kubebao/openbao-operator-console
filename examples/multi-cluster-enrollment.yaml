@@ -1,0 +1,50 @@
+maxBackupAgeHours: 24
+startupGraceMinutes: 10
+connections:
+  - id: production-eu
+    name: Production EU
+    region: eu-west-1
+    kubeconfig: /etc/console/kubeconfigs/production/reader.yaml
+    context: production-eu-reader
+    namespaces:
+      - name: payments
+        team: Payments
+        environment: production
+        location: Amsterdam
+      - name: platform
+        team: Platform
+        environment: production
+        location: Amsterdam
+    operators:
+      - id: production-operator
+        namespace: openbao-operator-system
+        deployment: openbao-operator-controller
+        container: manager
+        namespaces: [payments, platform]
+  - id: recovery-eu
+    name: Recovery EU
+    region: eu-central-1
+    kubeconfig: /etc/console/kubeconfigs/recovery/reader.yaml
+    context: recovery-eu-reader
+    namespaces:
+      - name: payments-recovery
+        team: Payments
+        environment: production
+        location: Frankfurt
+    operators:
+      - id: recovery-operator
+        namespace: openbao-operator-system
+        deployment: openbao-operator-controller
+        container: manager
+        namespaces: [payments-recovery]
+users:
+  - subject: replace-with-keycloak-user-id
+    name: Platform engineer
+    scopes:
+      - connectionId: production-eu
+        namespaces: [payments, platform]
+      - connectionId: recovery-eu
+        namespaces: [payments-recovery]
+relationships: []
+# Add UID-bound replication or snapshotRecovery relationships after collection.
+# Connection checks print resource UIDs. Names alone do not establish a route.

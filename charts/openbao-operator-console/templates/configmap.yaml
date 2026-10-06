@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-enrollment
+data:
+  enrollment.yaml: |
+    {{- toYaml .Values.enrollment | nindent 4 }}

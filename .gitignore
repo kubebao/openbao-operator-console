@@ -1,0 +1,13 @@
+node_modules/
+web/dist/
+internal/httpapi/assets/*
+!internal/httpapi/assets/placeholder.txt
+bin/
+.env
+.local/
+.state/
+coverage/
+web/test-results/
+web/playwright-report/
+*.tsbuildinfo
+.DS_Store

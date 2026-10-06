@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: console-reader
+  namespace: console-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: console-reader
+  namespace: console-sample
+rules:
+  - apiGroups: [openbao.org]
+    resources: [openbaoclusters, openbaorestores, openbaorecoveries]
+    verbs: [list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: console-reader
+  namespace: console-sample
+subjects:
+  - kind: ServiceAccount
+    name: console-reader
+    namespace: console-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: console-reader
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: console-operator-reader
+  namespace: console-system
+rules:
+  - apiGroups: [apps]
+    resources: [deployments]
+    resourceNames: [console-operator-openbao-operator-controller]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: console-operator-reader
+  namespace: console-system
+subjects:
+  - kind: ServiceAccount
+    name: console-reader
+    namespace: console-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: console-operator-reader

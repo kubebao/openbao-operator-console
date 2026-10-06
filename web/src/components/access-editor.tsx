@@ -1,0 +1,115 @@
+import { formError } from '../lib/errors'
+import { useState } from 'react'
+import type { Configuration, Scope } from '../api/schema'
+import { SettingsEditor, Field, ScopePicker } from './settings-editor'
+import { Button } from './ui/button'
+
+export interface AccessGrant {
+  key: string
+  name: string
+  admin: boolean
+  scopes: readonly Scope[]
+}
+export function AccessEditor({
+  initial,
+  kind,
+  existing,
+  configuration,
+  onSave,
+  onClose,
+}: {
+  initial: AccessGrant
+  kind: 'user' | 'group'
+  existing: boolean
+  configuration: Configuration
+  onSave: (grant: AccessGrant) => Promise<void>
+  onClose: () => void
+}) {
+  const [grant, setGrant] = useState(initial)
+  const [error, setError] = useState('')
+  const [pending, setPending] = useState(false)
+  return (
+    <SettingsEditor title={`${existing ? 'Edit' : 'Add'} ${kind}`} onClose={onClose}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          setPending(true)
+          setError('')
+          void onSave(grant)
+            .then(onClose)
+            .catch((error: unknown) => {
+              setError(formError(error))
+            })
+            .finally(() => {
+              setPending(false)
+            })
+        }}
+      >
+        <Field
+          label={kind === 'user' ? 'OIDC subject' : 'OIDC group'}
+          help={
+            kind === 'user'
+              ? 'The stable subject from the identity provider.'
+              : 'Exact group value in the configured signed token claim.'
+          }
+        >
+          <input
+            required
+            disabled={existing}
+            value={grant.key}
+            onChange={(event) => {
+              setGrant({ ...grant, key: event.target.value })
+            }}
+          />
+        </Field>
+        {kind === 'user' && (
+          <Field label="Display name">
+            <input
+              required
+              value={grant.name}
+              onChange={(event) => {
+                setGrant({ ...grant, name: event.target.value })
+              }}
+            />
+          </Field>
+        )}
+        <label className="checkbox-field">
+          <input
+            type="checkbox"
+            checked={grant.admin}
+            onChange={(event) => {
+              setGrant({ ...grant, admin: event.target.checked })
+            }}
+          />
+          Console administrator
+        </label>
+        {grant.admin ? (
+          <p className="muted">
+            Administrators can manage settings and view all enrolled namespaces.
+          </p>
+        ) : (
+          <ScopePicker
+            configuration={configuration}
+            scopes={grant.scopes}
+            onChange={(scopes) => {
+              setGrant({ ...grant, scopes })
+            }}
+          />
+        )}
+        {error && (
+          <p role="alert" className="form-error">
+            {error}
+          </p>
+        )}
+        <div className="editor-actions">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={pending}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={pending}>
+            {pending ? 'Saving…' : 'Save access'}
+          </Button>
+        </div>
+      </form>
+    </SettingsEditor>
+  )
+}

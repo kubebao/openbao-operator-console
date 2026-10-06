@@ -1,0 +1,66 @@
+image:
+  repository: openbao-operator-console
+  tag: local
+  pullPolicy: IfNotPresent
+
+# Must contain DATABASE_URL, OIDC_REDIRECT_URL, and CONFIG_KEY (32 raw random bytes).
+# Optional OIDC_ISSUER, OIDC_CLIENT_ID, and OIDC_CLIENT_SECRET seed first-start SSO.
+# The database key must survive upgrades and be backed up separately.
+# OIDC settings seed the first start; OIDC_REDIRECT_URL remains a deployment setting.
+existingSecret: ""
+
+# Required for browser setup on an empty database without seeded SSO.
+# The referenced key contains 32 random bytes encoded as hexadecimal or URL-safe
+# base64 text. It is never generated or printed by the application or chart.
+# Remove this Secret mount after setup completes.
+setup:
+  tokenSecret: ""
+  tokenKey: setup-token
+
+# OIDC subjects granted administrator access during the first database import.
+# Subsequent access changes use Settings in the console.
+bootstrapAdminSubjects: []
+
+# Optional ConfigMap containing the private CA for the OIDC provider.
+# Trust applies only to OIDC; TLS verification remains enabled.
+oidcCA:
+  configMap: ""
+  key: ca.crt
+
+# The backend uses this ServiceAccount for connections without a kubeconfig.
+# Grant list access only in enrolled namespaces on this Kubernetes cluster.
+readerNamespaces: []
+
+# Named controller Deployments on the local cluster. Separate from workload reads.
+# Use one entry per operator namespace. Remote clusters use --print-rbac.
+operatorReaders: []
+# - namespace: openbao-operator-system
+#   deployments: [openbao-operator-controller]
+
+enrollment:
+  maxBackupAgeHours: 24
+  startupGraceMinutes: 10
+  connections: []
+  users: []
+  groups: []
+  relationships: []
+
+# Mount pre-existing Secrets that contain remote kubeconfigs. Reference their
+# mounted paths from enrollment.connections[].kubeconfig.
+kubeconfigSecrets: []
+# - name: remote-reader
+#   mountPath: /etc/console/kubeconfigs/remote
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  tlsSecret: ""
