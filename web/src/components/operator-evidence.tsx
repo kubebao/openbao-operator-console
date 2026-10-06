@@ -2,6 +2,7 @@ import { Cpu } from 'lucide-react'
 import type { Operator } from '../api/schema'
 import { operatorHealthLabels } from '../lib/format'
 import { DetailRows } from './page'
+import { InfoTip } from './info-tip'
 import { EvidenceBadge, Timestamp } from './status'
 
 const healthStyle = {
@@ -32,6 +33,11 @@ export function OperatorEvidence({ operator }: { operator: Operator }) {
         ) : (
           <EvidenceBadge collection={operator.collection} />
         )}
+        <InfoTip label="About operator evidence">
+          {operator.collection !== 'current' ? 'Workload facts are last known. ' : ''}
+          Deployment readiness does not prove successful reconciliation. The version label does not
+          verify the binary.
+        </InfoTip>
       </div>
       <DetailRows
         rows={[
@@ -53,11 +59,6 @@ export function OperatorEvidence({ operator }: { operator: Operator }) {
           },
         ]}
       />
-      <p className="section-footnote">
-        {operator.collection !== 'current' ? 'Workload facts are last known. ' : ''}
-        Deployment readiness does not prove successful reconciliation. The version label does not
-        verify the binary.
-      </p>
     </section>
   )
 }

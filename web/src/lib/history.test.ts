@@ -123,16 +123,34 @@ describe('change descriptions', () => {
     ])
   })
 
-  it('keeps an entry for observations without a displayed change', () => {
+  it('merges consecutive observations without a displayed change', () => {
     const entries = describeHistory([
+      observation('2026-10-06T12:00:00Z', deployment({ resourceVersion: '5', readyReplicas: 2 })),
+      observation('2026-10-06T11:00:00Z', deployment({ resourceVersion: '4' })),
+      observation('2026-10-06T10:30:00Z', deployment({ resourceVersion: '3' })),
       observation('2026-10-06T10:00:00Z', deployment({ resourceVersion: '2' })),
       observation('2026-10-06T09:00:00Z', deployment()),
     ])
-    expect(entries.map((entry) => entry.changes[0]?.title)).toEqual([
-      'Resource updated',
-      'Earliest retained observation',
+    expect(entries.map((entry) => [entry.changes[0]?.title, entry.quiet])).toEqual([
+      ['Ready replicas 3 → 2', false],
+      ['Status updated 3 times without visible changes', true],
+      ['Earliest retained observation', false],
     ])
-    expect(entries[1]?.earliest).toBe(true)
+    expect(entries[1]?.changes[0]?.detail).toBe('Resource version 2 → 4')
+    expect(entries[2]?.earliest).toBe(true)
+  })
+
+  it('describes a condition that changed and returned between collections', () => {
+    const before = deployment()
+    const after = deployment({
+      conditions: before.conditions.map((condition) => ({
+        ...condition,
+        lastTransitionAt: '2026-10-06T11:00:00Z',
+      })),
+    })
+    expect(describeChange(before, after).map((change) => change.title)).toEqual([
+      'Available changed and returned to True',
+    ])
   })
 })
 

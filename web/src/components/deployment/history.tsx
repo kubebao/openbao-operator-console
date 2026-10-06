@@ -6,6 +6,7 @@ import { describeHistory, stateBand } from '../../lib/history'
 import { EmptyState } from '../page'
 import { Timestamp } from '../status'
 import { StateBand } from './charts'
+import { SectionTitle } from '../info-tip'
 
 const dayFormat = new Intl.DateTimeFormat(undefined, {
   weekday: 'long',
@@ -54,21 +55,26 @@ export function HistoryTab({ id, now }: { id: string; now: number }) {
   return (
     <>
       <section className="detail-section">
-        <h2>State over the last 7 days</h2>
+        <SectionTitle
+          tipLabel="About the state band"
+          tip="A state lasts until the next recorded change. The console records a change when a displayed field, the state, the collection result, or the findings change. Time while the console was not running cannot be distinguished from an unchanged state."
+        >
+          State over the last 7 days
+        </SectionTitle>
         <StateBand
           segments={stateBand(observations, windowStart, windowEnd)}
           start={windowStart}
           end={windowEnd}
         />
-        <p className="section-footnote">
-          A state lasts until the next recorded change. The console records a change when the
-          resource, its state, its collection result, or its findings change. Time while the console
-          itself was not running cannot be distinguished from an unchanged state.
-        </p>
       </section>
       <section className="detail-section">
         <div className="section-heading">
-          <h2>Recorded changes</h2>
+          <SectionTitle
+            tipLabel="About recorded changes"
+            tip="Up to 100 recorded changes are kept for seven days."
+          >
+            Recorded changes
+          </SectionTitle>
           <span className="muted">
             {entries.length} {entries.length === 1 ? 'change' : 'changes'}
             {oldest && (
@@ -138,10 +144,6 @@ export function HistoryTab({ id, now }: { id: string; now: number }) {
             ))}
           </div>
         )}
-        <p className="section-footnote">
-          Up to 100 recorded changes are kept for seven days. Missing periods are not proof of an
-          unchanged state.
-        </p>
       </section>
     </>
   )

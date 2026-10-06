@@ -14,6 +14,7 @@ import { cleanupStates, operatorHealthLabels, recoveryPhases, roleLabels } from 
 import { observedGeneration, replicaLag, upgradeLabels, upgradeState } from '../../lib/lifecycle'
 import { DetailRows } from '../page'
 import { Timestamp } from '../status'
+import { SectionTitle } from '../info-tip'
 
 type Recovery = NonNullable<Deployment['recovery']>
 
@@ -63,10 +64,13 @@ export function LifecycleTab({
   return (
     <div className="lifecycle-grid">
       <section className="detail-section">
-        <h2>
-          <Package size={17} />
+        <SectionTitle
+          icon={<Package size={17} />}
+          tipLabel="About upgrades"
+          tip="Upgrade state comes from the operator's recorded failure, its Upgrading condition, and the requested and running versions. Inspect the operator's post-upgrade checks before retrying a failed upgrade."
+        >
           Version
-        </h2>
+        </SectionTitle>
         <DetailRows
           rows={[
             { label: 'Running version', value: deployment.version || 'Not observed' },
@@ -93,18 +97,16 @@ export function LifecycleTab({
               : []),
           ]}
         />
-        {deployment.upgradeFailure && (
-          <p className="section-footnote">
-            The operator records this failure. Inspect its post-upgrade checks before retrying.
-          </p>
-        )}
       </section>
 
       <section className="detail-section">
-        <h2>
-          <Workflow size={17} />
+        <SectionTitle
+          icon={<Workflow size={17} />}
+          tipLabel="About reconciliation"
+          tip="Conditions carry the generation the operator last acted on. A lower generation means a specification change has not been reconciled yet."
+        >
           Reconciliation
-        </h2>
+        </SectionTitle>
         <DetailRows
           rows={[
             { label: 'Resource generation', value: deployment.generation },
@@ -133,17 +135,16 @@ export function LifecycleTab({
             },
           ]}
         />
-        <p className="section-footnote">
-          Conditions carry the generation the operator last acted on. A lower generation means a
-          specification change has not been reconciled yet.
-        </p>
       </section>
 
       <section className="detail-section">
-        <h2>
-          <RotateCcw size={17} />
+        <SectionTitle
+          icon={<RotateCcw size={17} />}
+          tipLabel="About recovery evidence"
+          tip="Historical completion does not establish current client availability. Unknown execution requires investigation."
+        >
           Recovery
-        </h2>
+        </SectionTitle>
         {recovery ? (
           <>
             <RecoverySteps recovery={recovery} />
@@ -177,10 +178,6 @@ export function LifecycleTab({
                 },
               ]}
             />
-            <p className="section-footnote">
-              Historical completion does not establish current client availability. Unknown
-              execution requires investigation.
-            </p>
           </>
         ) : (
           <p className="muted">
@@ -192,10 +189,13 @@ export function LifecycleTab({
 
       {replica && (
         <section className="detail-section">
-          <h2>
-            <GitCompareArrows size={17} />
+          <SectionTitle
+            icon={<GitCompareArrows size={17} />}
+            tipLabel="About replication evidence"
+            tip="An applied index does not authorize survivor selection during recovery."
+          >
             Replication
-          </h2>
+          </SectionTitle>
           <DetailRows
             rows={[
               { label: 'Role', value: roleLabels[deployment.role] },
@@ -219,9 +219,6 @@ export function LifecycleTab({
               },
             ]}
           />
-          <p className="section-footnote">
-            An applied index does not authorize survivor selection during recovery.
-          </p>
         </section>
       )}
     </div>

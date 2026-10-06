@@ -118,7 +118,11 @@ export function OverviewTab({
   const findings = [...deployment.issues].sort(
     (a, b) => severityRank[a.severity] - severityRank[b.severity],
   )
-  const recent = observations ? describeHistory(observations).slice(0, 5) : null
+  const recent = observations
+    ? describeHistory(observations)
+        .filter((entry) => !entry.quiet)
+        .slice(0, 5)
+    : null
   const relationships = snapshot.relationships.filter(
     (relationship) =>
       relationship.sourceId === deployment.id || relationship.targetId === deployment.id,

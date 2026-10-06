@@ -103,7 +103,8 @@ func Project(cluster unstructured.Unstructured, connection config.Connection, na
 		generation, _, _ := unstructured.NestedInt64(condition, "observedGeneration")
 		result.Conditions = append(result.Conditions, contract.Condition{
 			Type: text(condition, "type"), Status: status, Reason: text(condition, "reason"),
-			Message:            "Operator condition; inspect the reason and observation generation.",
+			// Raw operator messages stay outside the approved projection; the reason is shown instead.
+			Message:            "",
 			ObservedGeneration: generation, LastTransitionAt: timestamp(condition, "lastTransitionTime"),
 		})
 	}

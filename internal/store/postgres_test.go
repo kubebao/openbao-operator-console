@@ -35,6 +35,18 @@ func TestPostgresRetainsFirstSeenAcrossRestartAndFailedCollection(t *testing.T) 
 	if err := p.Apply(ctx, batch); err != nil {
 		t.Fatal(err)
 	}
+	// A status write that only changes the resource version is not a recorded change.
+	churn := d
+	churn.ResourceVersion = "2"
+	churn.Evidence.CollectedAt = now.Add(30 * time.Second)
+	batch.Connection.LastAttemptAt = now.Add(30 * time.Second)
+	batch.Deployments = []contract.Deployment{churn}
+	if err := p.Apply(ctx, batch); err != nil {
+		t.Fatal(err)
+	}
+	if history, err := p.History(ctx, id); err != nil || len(history) != 1 {
+		t.Fatalf("resource version churn was recorded: %v %d", err, len(history))
+	}
 	p.Close()
 	p = open()
 	defer p.Close()

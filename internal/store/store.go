@@ -3,6 +3,8 @@ package store
 
 import (
 	"context"
+	"encoding/json"
+	"reflect"
 	"time"
 
 	"github.com/dc-tec/openbao-operator-console/internal/contract"
@@ -82,4 +84,60 @@ func SameFindings(current, previous contract.Deployment) bool {
 		}
 	}
 	return true
+}
+
+// volatileFields change on every operator status write or collection round without changing
+// what the console shows. Observations are recorded only when other fields change, so the
+// retained history describes meaningful changes instead of resource version churn.
+var volatileFields = map[string][]string{
+	"":         {"resourceVersion"},
+	"evidence": {"collectedAt", "lastAttemptAt", "producerObservedAt"},
+	"replica":  {"observedAt", "localIndex", "sourceIndex"},
+}
+
+func displayedFields(deployment contract.Deployment) (map[string]any, error) {
+	encoded, err := json.Marshal(deployment)
+	if err != nil {
+		return nil, err
+	}
+	var value map[string]any
+	if err := json.Unmarshal(encoded, &value); err != nil {
+		return nil, err
+	}
+	for parent, fields := range volatileFields {
+		target := value
+		if parent != "" {
+			nested, ok := value[parent].(map[string]any)
+			if !ok {
+				continue
+			}
+			target = nested
+		}
+		for _, field := range fields {
+			delete(target, field)
+		}
+	}
+	if issues, ok := value["issues"].([]any); ok {
+		for _, raw := range issues {
+			if issue, ok := raw.(map[string]any); ok {
+				delete(issue, "firstSeenAt")
+				delete(issue, "lastCheckedAt")
+			}
+		}
+	}
+	return value, nil
+}
+
+// ObservationChanged reports whether a deployment differs from its previous projection in a
+// field the console displays or evaluates. A projection that cannot be compared counts as changed.
+func ObservationChanged(current, previous contract.Deployment) bool {
+	a, err := displayedFields(current)
+	if err != nil {
+		return true
+	}
+	b, err := displayedFields(previous)
+	if err != nil {
+		return true
+	}
+	return !reflect.DeepEqual(a, b)
 }

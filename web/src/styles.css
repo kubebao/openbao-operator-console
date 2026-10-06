@@ -3617,3 +3617,76 @@ tr.finding-critical > td {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Section titles with an optional explanation behind an info tip. */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 15px;
+}
+.detail-section .section-title h2,
+.section-title h2 {
+  margin-bottom: 0;
+}
+.section-heading .section-title {
+  margin-bottom: 0;
+}
+.info-tip {
+  position: relative;
+  display: inline-flex;
+}
+.info-tip > button {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted-foreground);
+}
+.info-tip > button:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.info-tip > [role='tooltip'] {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  z-index: 40;
+  width: max-content;
+  max-width: min(320px, 80vw);
+  margin-top: 6px;
+  padding: 9px 11px;
+  transform: translateX(-50%);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--foreground);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-align: left;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+/* A transparent bridge keeps the tooltip open while the pointer moves onto it. */
+.info-tip > [role='tooltip']::before {
+  content: '';
+  position: absolute;
+  inset: -8px 0 auto;
+  height: 8px;
+}
+.info-tip:hover > [role='tooltip'],
+.info-tip:focus-within > [role='tooltip'] {
+  visibility: visible;
+  opacity: 1;
+}
+.info-tip > button:focus-visible {
+  outline-offset: 1px;
+}

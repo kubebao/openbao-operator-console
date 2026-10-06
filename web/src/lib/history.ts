@@ -24,6 +24,8 @@ export interface HistoryEntry {
   changes: readonly Change[]
   // True for the oldest retained observation, which has no predecessor to compare with.
   earliest: boolean
+  // True when no displayed field changed. Consecutive quiet observations are merged.
+  quiet: boolean
 }
 
 const healthTone: Record<Deployment['health'], ChangeTone> = {
@@ -101,7 +103,21 @@ export function describeChange(previous: Deployment, current: Deployment): Chang
   const conditions = new Map(previous.conditions.map((condition) => [condition.type, condition]))
   for (const condition of current.conditions) {
     const old = conditions.get(condition.type)
-    if (old?.status === condition.status) continue
+    if (old?.status === condition.status) {
+      if (old.reason !== condition.reason)
+        changes.push({
+          title: `${condition.type} reason ${old.reason || 'none'} → ${condition.reason || 'none'}`,
+          tone: 'neutral',
+        })
+      else if (old.lastTransitionAt !== condition.lastTransitionAt)
+        // The status changed and changed back between two collections.
+        changes.push({
+          title: `${condition.type} changed and returned to ${condition.status}`,
+          ...(condition.reason ? { detail: condition.reason } : {}),
+          tone: 'neutral',
+        })
+      continue
+    }
     const assessment = assessCondition(condition, current.generation).assessment
     changes.push({
       title: old
@@ -126,6 +142,8 @@ export function describeChange(previous: Deployment, current: Deployment): Chang
         .join(' · '),
       tone: 'success',
     })
+  else if (newBackup?.nextAt && oldBackup && newBackup.nextAt !== oldBackup.nextAt)
+    changes.push({ title: 'Backup schedule updated', tone: 'neutral' })
   if (newBackup && newBackup.consecutiveFailures > (oldBackup?.consecutiveFailures ?? 0)) {
     const added = newBackup.consecutiveFailures - (oldBackup?.consecutiveFailures ?? 0)
     changes.push({
@@ -189,16 +207,20 @@ function ascending(observations: readonly Observation[]): Observation[] {
 }
 
 // Turns retained observations into change entries, newest first. Observations without a
-// visible change keep a neutral entry so the record stays complete.
+// displayed change are kept as quiet entries, and consecutive quiet entries are merged so
+// status-only updates recorded by older versions stay out of the way.
 export function describeHistory(observations: readonly Observation[]): HistoryEntry[] {
   const sorted = ascending(observations)
-  const entries = sorted.map((observation, index): HistoryEntry => {
+  const entries: HistoryEntry[] = []
+  let quietRun: { first: Observation; count: number } | null = null
+  sorted.forEach((observation, index) => {
     const previous = sorted[index - 1]
-    if (!previous)
-      return {
+    if (!previous) {
+      entries.push({
         at: observation.recordedAt,
         observation,
         earliest: true,
+        quiet: false,
         changes: [
           {
             title: 'Earliest retained observation',
@@ -206,16 +228,44 @@ export function describeHistory(observations: readonly Observation[]): HistoryEn
             tone: 'neutral',
           },
         ],
-      }
+      })
+      return
+    }
     const changes = describeChange(previous.deployment, observation.deployment)
-    return {
+    if (changes.length) {
+      quietRun = null
+      entries.push({
+        at: observation.recordedAt,
+        observation,
+        earliest: false,
+        quiet: false,
+        changes,
+      })
+      return
+    }
+    const last = entries.at(-1)
+    quietRun =
+      quietRun && last?.quiet
+        ? { ...quietRun, count: quietRun.count + 1 }
+        : { first: observation, count: 1 }
+    const entry: HistoryEntry = {
       at: observation.recordedAt,
       observation,
       earliest: false,
-      changes: changes.length
-        ? changes
-        : [{ title: 'Resource updated', detail: 'No change in displayed fields', tone: 'neutral' }],
+      quiet: true,
+      changes: [
+        {
+          title:
+            quietRun.count === 1
+              ? 'Status updated without visible changes'
+              : `Status updated ${String(quietRun.count)} times without visible changes`,
+          detail: `Resource version ${quietRun.first.deployment.resourceVersion}${quietRun.count > 1 ? ` → ${observation.deployment.resourceVersion}` : ''}`,
+          tone: 'neutral',
+        },
+      ],
     }
+    if (quietRun.count > 1 && last?.quiet) entries[entries.length - 1] = entry
+    else entries.push(entry)
   })
   return entries.reverse()
 }

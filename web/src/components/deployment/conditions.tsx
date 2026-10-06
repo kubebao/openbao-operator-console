@@ -7,6 +7,7 @@ import type { Observation } from '../../lib/history'
 import { conditionTransitions } from '../../lib/history'
 import { EmptyState } from '../page'
 import { Timestamp } from '../status'
+import { SectionTitle } from '../info-tip'
 
 const icons: Record<ConditionAssessment, typeof Info> = {
   problem: AlertCircle,
@@ -36,7 +37,12 @@ export function ConditionsTab({
   const sealedFinding = fieldSeverity(deployment, 'sealed')
   return (
     <section className="detail-section">
-      <h2>Operator conditions</h2>
+      <SectionTitle
+        tipLabel="About conditions"
+        tip="Interpretation follows the operator's condition types. Unrecognized types are shown as reported. Conditions from an older resource generation are not current evidence."
+      >
+        Operator conditions
+      </SectionTitle>
       <ul className="condition-list">
         {views.map(({ condition, assessment, outdated }) => {
           const Icon = icons[assessment]
@@ -86,10 +92,6 @@ export function ConditionsTab({
           )
         })}
       </ul>
-      <p className="section-footnote">
-        Interpretation follows the operator's condition types. Unrecognized types are shown as
-        reported. Conditions from an older resource generation are not current evidence.
-      </p>
     </section>
   )
 }

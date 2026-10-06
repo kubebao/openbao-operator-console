@@ -276,6 +276,10 @@ test('history explains recorded changes in plain language', async ({ page }) => 
   await expect(page.locator('.condition', { hasText: 'OpenBaoSealed' })).toHaveClass(
     /finding-critical/,
   )
+  // Caveats stay available as the info button's description instead of page text.
+  await expect(page.getByRole('button', { name: 'About conditions' })).toHaveAccessibleDescription(
+    /Conditions from an older resource generation are not current evidence/,
+  )
 })
 
 test('fleet lists the most severe deployments first', async ({ page }) => {

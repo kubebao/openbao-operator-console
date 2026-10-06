@@ -9,6 +9,7 @@ import { DetailRows, EmptyState } from '../page'
 import { Timestamp } from '../status'
 import { Button } from '../ui/button'
 import { AgeMeter, BackupStrip, Sparkline } from './charts'
+import { SectionTitle } from '../info-tip'
 
 const outcomeTone = {
   passed: 'status-healthy',
@@ -103,24 +104,28 @@ export function BackupsTab({
       </div>
 
       <section className="detail-section">
-        <h2>Backup activity, last 7 days</h2>
+        <SectionTitle
+          tipLabel="About backup activity"
+          tip="Derived from recorded changes. Several failures between two observations appear as one marker with a count."
+        >
+          Backup activity, last 7 days
+        </SectionTitle>
         {observations === null ? (
           <p className="muted">Loading recorded changes…</p>
         ) : (
           <BackupStrip events={events} start={windowStart} end={now} />
         )}
-        <p className="section-footnote">
-          Derived from recorded changes. Several failures between two observations appear as one
-          marker with a count.
-        </p>
       </section>
 
       <div className="detail-two-column">
         <section className="detail-section">
-          <h2>
-            <Database size={17} />
+          <SectionTitle
+            icon={<Database size={17} />}
+            tipLabel="About backup evidence"
+            tip="Completion age is not a measured recovery point objective. A past upload does not prove the repository is still readable."
+          >
             Latest backup
-          </h2>
+          </SectionTitle>
           <DetailRows
             rows={[
               { label: 'Object key', value: <code>{backup.key ?? 'Not reported'}</code> },
@@ -137,16 +142,15 @@ export function BackupsTab({
               <Sparkline points={sizes} format={bytes} label="Backup size" />
             </div>
           )}
-          <p className="section-footnote">
-            Completion age is not measured RPO. A past upload does not prove the repository is still
-            readable.
-          </p>
         </section>
         <section className="detail-section">
-          <h2>
-            <ShieldCheck size={17} />
+          <SectionTitle
+            icon={<ShieldCheck size={17} />}
+            tipLabel="About restore tests"
+            tip="A pass covers a pinned snapshot restored into a disposable target in the same cluster. Client logins and secret reads are not tested."
+          >
             Restore test
-          </h2>
+          </SectionTitle>
           {test ? (
             <>
               <DetailRows
@@ -170,10 +174,6 @@ export function BackupsTab({
                   { label: 'Tested object key', value: <code>{test.key ?? 'Not reported'}</code> },
                 ]}
               />
-              <p className="section-footnote">
-                A pass covers a pinned snapshot restored into a disposable target in the same
-                cluster. Client logins and secret reads are not tested.
-              </p>
             </>
           ) : (
             <p className="muted">No restore-test result is reported.</p>

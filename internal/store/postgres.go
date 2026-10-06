@@ -201,8 +201,8 @@ func (p *Postgres) Apply(ctx context.Context, batch Batch) error {
 			return err
 		}
 		stamp := pgtype.Timestamptz{Time: batch.Connection.LastAttemptAt, Valid: true}
-		// Resource version and collection changes retain meaningful observations.
-		if !exists || current.ResourceVersion != old.ResourceVersion || current.Health != old.Health || current.Evidence.Collection != old.Evidence.Collection || !SameFindings(current, old) {
+		// Record an observation only for a displayed change, not for resource version churn.
+		if !exists || ObservationChanged(current, old) {
 			if err := queries.InsertObservation(ctx, database.InsertObservationParams{DeploymentID: current.Id, RecordedAt: stamp, Projection: projection}); err != nil {
 				return err
 			}
