@@ -1,4 +1,4 @@
-import { CircleAlert, Info, LogIn, ShieldCheck } from 'lucide-react'
+import { CircleAlert, Info, LogIn } from 'lucide-react'
 
 // Bounded reasons set by the backend after a failed or ended login. Provider errors never
 // reach the browser.
@@ -56,10 +56,6 @@ export function SignIn() {
           <LogIn size={16} />
           Sign in with single sign-on
         </a>
-        <p className="sign-in-footnote">
-          <ShieldCheck size={14} />
-          Read-only. The console never changes your clusters.
-        </p>
       </div>
     </main>
   )

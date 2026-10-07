@@ -1,60 +1,66 @@
 @import 'tailwindcss';
 
 :root {
+  /* OpenBao brand: DM Sans for text, primary #336d5c and shadow green #79c0ab for interaction,
+     border ink #091a28 for headings. Status colors stay separate from the brand accent. */
   font-family:
-    Inter,
+    'DM Sans Variable',
     -apple-system,
     BlinkMacSystemFont,
     'Segoe UI',
     sans-serif;
-  color: #1c2940;
-  background: #f7f9fc;
+  color: #1b2c31;
+  background: #f6f8f7;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  --background: #f7f9fc;
+  --background: #f6f8f7;
   --surface: #fff;
-  --sidebar: #f3f6fb;
-  --foreground: #1c2940;
-  --heading: #101c33;
-  --muted-foreground: #67768c;
-  --muted: #eef2f7;
-  --border: #e4eaf2;
-  --accent: #2868dc;
-  --accent-soft: #eaf1ff;
-  --green: #278457;
-  --green-soft: #e8f5ee;
+  --sidebar: #f0f4f2;
+  --foreground: #1b2c31;
+  --heading: #091a28;
+  --muted-foreground: #5c6d70;
+  --muted: #ebf0ee;
+  --border: #dfe7e3;
+  --accent: #336d5c;
+  --accent-soft: #e1f1ea;
+  --info: #2868dc;
+  --info-soft: #eaf1ff;
+  --green: #2e7d32;
+  --green-soft: #e7f4e6;
   --amber: #9c6511;
   --amber-soft: #fff5df;
   --red: #cb3544;
   --red-soft: #fff0f1;
-  --graph-dot: #dce3ed;
-  --graph-edge: #8493ad;
-  --shadow: 0 12px 45px #172c4e16;
+  --graph-dot: #d6e0dc;
+  --graph-edge: #7f9690;
+  --shadow: 0 12px 45px #091a2814;
   --brand-glow: #87d6be33;
 }
 
 [data-theme='dark'] {
   color-scheme: dark;
-  --background: #111923;
-  --surface: #18222f;
-  --sidebar: #141d29;
-  --foreground: #dbe4f0;
-  --heading: #eef3fa;
-  --muted-foreground: #98a8bd;
-  --muted: #223041;
-  --border: #2a3749;
-  --accent: #83acff;
-  --accent-soft: #233752;
-  --green: #72d3a3;
-  --green-soft: #1c3b31;
+  --background: #0b1620;
+  --surface: #12202b;
+  --sidebar: #0e1a24;
+  --foreground: #d8e4e7;
+  --heading: #f0f6f4;
+  --muted-foreground: #93a5ab;
+  --muted: #1b2b36;
+  --border: #253643;
+  --accent: #79c0ab;
+  --accent-soft: #19362f;
+  --info: #83acff;
+  --info-soft: #1f3350;
+  --green: #8fd17f;
+  --green-soft: #1e3a22;
   --amber: #f0c571;
-  --amber-soft: #3d3222;
+  --amber-soft: #3a3020;
   --red: #ff929c;
-  --red-soft: #402731;
-  --graph-dot: #2d3c51;
-  --graph-edge: #8d9fb9;
-  --shadow: 0 12px 45px #0005;
+  --red-soft: #3d2530;
+  --graph-dot: #263846;
+  --graph-edge: #8aa0a8;
+  --shadow: 0 12px 45px #0006;
   --brand-glow: #87d6be1f;
 }
 
@@ -131,7 +137,7 @@ strong {
   font-weight: 600;
 }
 code {
-  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-family: 'DM Mono', 'SFMono-Regular', Consolas, monospace;
   font-size: 11px;
   overflow-wrap: anywhere;
 }
@@ -253,7 +259,7 @@ input {
   font-size: 11px;
 }
 [data-theme='dark'] .nav-count {
-  color: #1c2633;
+  color: var(--background);
 }
 .nav-warning {
   margin-left: auto;
@@ -276,7 +282,7 @@ input {
   letter-spacing: 0.25px;
 }
 .read-only .status-dot {
-  background: var(--accent);
+  background: var(--info);
   width: 5px;
   height: 5px;
 }
@@ -1123,8 +1129,8 @@ tbody tr:hover {
   color: var(--green);
 }
 .role-recoveryTarget {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--info-soft);
+  color: var(--info);
 }
 .topology-count {
   font-size: 11px;
@@ -1297,7 +1303,7 @@ tbody tr:hover {
 .dialog-overlay {
   position: fixed;
   inset: 0;
-  background: #09142565;
+  background: #091a2866;
   z-index: 100;
   backdrop-filter: blur(3px);
   animation: fade-in 0.15s ease;
@@ -1850,7 +1856,7 @@ tbody tr:hover {
 .settings-field textarea,
 .connection-check textarea {
   resize: vertical;
-  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-family: 'DM Mono', 'SFMono-Regular', Consolas, monospace;
   font-size: 0.75rem;
 }
 .settings-field input:focus,
@@ -2286,10 +2292,10 @@ tbody tr:hover {
   margin-top: 2px;
 }
 .sign-in-notice-info {
-  background: var(--accent-soft);
+  background: var(--muted);
 }
 .sign-in-notice-info svg {
-  color: var(--accent);
+  color: var(--muted-foreground);
 }
 .sign-in-notice-error {
   background: var(--red-soft);
@@ -2303,16 +2309,6 @@ tbody tr:hover {
   padding: 11px 16px;
   font-size: 13px;
   font-weight: 550;
-}
-.sign-in-panel > .sign-in-footnote {
-  margin-top: 1.25rem;
-  font-size: 11.5px;
-}
-.sign-in-footnote svg {
-  display: inline;
-  vertical-align: -2px;
-  margin-right: 6px;
-  color: var(--green);
 }
 .initial-fleet {
   max-width: 680px;
@@ -3148,7 +3144,7 @@ tr.finding-critical > td {
   color: var(--muted-foreground);
 }
 .upgrade-state.upgrade-upgrading {
-  color: var(--accent);
+  color: var(--info);
 }
 .upgrade-state.upgrade-failed {
   color: var(--red);
@@ -3303,8 +3299,8 @@ tr.finding-critical > td {
   background: var(--green-soft);
 }
 .phase-steps li.active {
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--info);
+  background: var(--info-soft);
   font-weight: 600;
 }
 .phase-steps li.failed {
@@ -3541,7 +3537,7 @@ tr.finding-critical > td {
   color: var(--green);
 }
 .condition-active > svg {
-  color: var(--accent);
+  color: var(--info);
 }
 .condition.finding-critical,
 .condition.finding-high {

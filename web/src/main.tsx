@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { router } from './router'
+import '@fontsource-variable/dm-sans'
+import '@fontsource/dm-mono/400.css'
 import './styles.css'
 
 const element = document.getElementById('root')
