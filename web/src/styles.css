@@ -2270,17 +2270,11 @@ tbody tr:hover {
   color: var(--muted-foreground);
   font-weight: 500;
 }
-.sign-in-panel > p {
-  color: var(--muted-foreground);
-  margin-top: 0.5rem;
-  max-width: 32ch;
-}
-.sign-in-panel > .sign-in-notice {
+.sign-in-notice {
   display: flex;
   gap: 8px;
   align-items: flex-start;
   width: 100%;
-  max-width: none;
   margin-top: 1.5rem;
   padding: 10px 12px;
   border-radius: 6px;

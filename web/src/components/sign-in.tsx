@@ -39,7 +39,6 @@ export function SignIn() {
         <h1>
           OpenBao Operator <span>Console</span>
         </h1>
-        <p>Fleet evidence for your OpenBao clusters: health, backups, restore tests, and change.</p>
         {notice && (
           <p
             className={`sign-in-notice sign-in-notice-${notice.tone}`}
