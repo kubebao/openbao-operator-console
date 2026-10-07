@@ -194,7 +194,7 @@ func TestSetupClaimRequiresVerifiedLoginAndClosesPermanently(t *testing.T) {
 	}
 	replay := httptest.NewRecorder()
 	fixture.handler.ServeHTTP(replay, request)
-	if replay.Code != 400 {
+	if replay.Code != 303 || replay.Header().Get("Location") != "/?signin=expired" {
 		t.Fatal("consumed verified callback was replayed")
 	}
 	if _, revision := fixture.service.Current(); revision != 1 {

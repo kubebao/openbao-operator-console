@@ -201,7 +201,7 @@ func (a *Authenticator) Login(w http.ResponseWriter, request *http.Request) {
 	}
 	location, err := a.begin(w, provider, request.URL.Query().Get("returnTo"), false, nil)
 	if err != nil {
-		http.Error(w, "Cannot begin login", http.StatusServiceUnavailable)
+		http.Redirect(w, request, "/?signin="+string(SignInUnavailable), http.StatusSeeOther)
 		return
 	}
 	http.Redirect(w, request, location, http.StatusFound)
@@ -219,16 +219,27 @@ func (a *Authenticator) BeginSetup(w http.ResponseWriter, candidate *Authenticat
 	return a.begin(w, candidate.provider, "/settings/clusters/new", true, activate)
 }
 
-func callbackFailure(w http.ResponseWriter, request *http.Request, setup bool, status int, message string) {
+// SignInResult is the bounded reason the sign-in page shows after a failed or ended login.
+// Provider errors never reach the browser.
+type SignInResult string
+
+const (
+	SignInExpired     SignInResult = "expired"
+	SignInDenied      SignInResult = "denied"
+	SignInFailed      SignInResult = "failed"
+	SignInUnavailable SignInResult = "unavailable"
+	SignInSignedOut   SignInResult = "signed-out"
+)
+
+func callbackFailure(w http.ResponseWriter, request *http.Request, setup bool, result SignInResult) {
 	if setup {
-		result := "failed"
-		if message == "Login expired" {
-			result = "expired"
+		if result != SignInExpired {
+			result = SignInFailed
 		}
-		http.Redirect(w, request, "/setup?result="+result, http.StatusSeeOther)
+		http.Redirect(w, request, "/setup?result="+string(result), http.StatusSeeOther)
 		return
 	}
-	http.Error(w, message, status)
+	http.Redirect(w, request, "/?signin="+string(result), http.StatusSeeOther)
 }
 func (a *Authenticator) Callback(w http.ResponseWriter, request *http.Request) {
 	if a.demo {
@@ -241,7 +252,7 @@ func (a *Authenticator) Callback(w http.ResponseWriter, request *http.Request) {
 		a.mu.Lock()
 		pending := a.pending
 		a.mu.Unlock()
-		callbackFailure(w, request, pending, 400, "Invalid login state")
+		callbackFailure(w, request, pending, SignInFailed)
 		return
 	}
 	a.mu.Lock()
@@ -252,7 +263,7 @@ func (a *Authenticator) Callback(w http.ResponseWriter, request *http.Request) {
 	a.mu.Unlock()
 	http.SetCookie(w, &http.Cookie{Name: "__Host-console-state", Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: -1})
 	if !exists || !time.Now().Before(tx.expires) || tx.generation != generation {
-		callbackFailure(w, request, tx.setup || pending, 400, "Login expired")
+		callbackFailure(w, request, tx.setup || pending, SignInExpired)
 		return
 	}
 	ctx, cancel := context.WithTimeout(request.Context(), 15*time.Second)
@@ -260,36 +271,36 @@ func (a *Authenticator) Callback(w http.ResponseWriter, request *http.Request) {
 	ctx = oidc.ClientContext(ctx, tx.provider.client)
 	token, err := tx.provider.oauth.Exchange(ctx, request.URL.Query().Get("code"), oauth2.VerifierOption(tx.verifier))
 	if err != nil {
-		callbackFailure(w, request, tx.setup, 401, "Login exchange failed")
+		tx.fail(w, request, http.StatusUnauthorized, "Login exchange failed", SignInFailed)
 		return
 	}
 	raw, ok := token.Extra("id_token").(string)
 	if !ok {
-		callbackFailure(w, request, tx.setup, 401, "Identity token missing")
+		tx.fail(w, request, http.StatusUnauthorized, "Identity token missing", SignInFailed)
 		return
 	}
 	verified, err := tx.provider.verifier.Verify(ctx, raw)
 	if err != nil || subtle.ConstantTimeCompare([]byte(verifiedNonce(verified)), []byte(tx.nonce)) != 1 {
-		callbackFailure(w, request, tx.setup, 401, "Identity verification failed")
+		tx.fail(w, request, http.StatusUnauthorized, "Identity verification failed", SignInFailed)
 		return
 	}
 	groups := []string{}
 	if tx.provider.groupsClaim != "" {
 		var claims map[string]json.RawMessage
 		if err := verified.Claims(&claims); err != nil {
-			callbackFailure(w, request, tx.setup, 401, "Identity claims invalid")
+			tx.fail(w, request, http.StatusUnauthorized, "Identity claims invalid", SignInFailed)
 			return
 		}
 		if value, found := claims[tx.provider.groupsClaim]; found {
 			if json.Unmarshal(value, &groups) != nil || len(groups) > 1000 {
-				callbackFailure(w, request, tx.setup, 401, "Identity groups invalid")
+				tx.fail(w, request, http.StatusUnauthorized, "Identity groups invalid", SignInFailed)
 				return
 			}
 		}
 	}
 	if tx.activate != nil {
 		if err := tx.activate(ctx, verified.Subject, groups); err != nil {
-			callbackFailure(w, request, tx.setup, 403, "Identity provider was not activated. Return to Settings and retry with an enrolled administrator.")
+			tx.fail(w, request, http.StatusForbidden, "Identity provider was not activated. Return to Settings and retry with an enrolled administrator.", SignInDenied)
 			return
 		}
 		a.mu.Lock()
@@ -297,12 +308,12 @@ func (a *Authenticator) Callback(w http.ResponseWriter, request *http.Request) {
 		a.mu.Unlock()
 	}
 	if _, allowed := a.resolve(ctx, verified.Subject, groups); !allowed {
-		callbackFailure(w, request, tx.setup, 403, "Console access is not enrolled")
+		tx.fail(w, request, http.StatusForbidden, "Console access is not enrolled", SignInDenied)
 		return
 	}
 	id, err := randomToken()
 	if err != nil {
-		callbackFailure(w, request, tx.setup, 500, "Session creation failed")
+		tx.fail(w, request, http.StatusInternalServerError, "Session creation failed", SignInFailed)
 		return
 	}
 	expires := time.Now().Add(8 * time.Hour)
@@ -312,13 +323,23 @@ func (a *Authenticator) Callback(w http.ResponseWriter, request *http.Request) {
 	a.mu.Lock()
 	if generation != a.generation || len(a.sessions) >= 10000 {
 		a.mu.Unlock()
-		callbackFailure(w, request, tx.setup, 400, "Login expired")
+		tx.fail(w, request, http.StatusBadRequest, "Login expired", SignInExpired)
 		return
 	}
 	a.sessions[id] = session{subject: verified.Subject, groups: groups, expires: expires}
 	a.mu.Unlock()
 	http.SetCookie(w, &http.Cookie{Name: "__Host-console-session", Value: id, Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode, Expires: expires})
 	http.Redirect(w, request, tx.returnTo, http.StatusSeeOther)
+}
+
+// Identity trials keep an error response: the administrator still has a session, so the
+// sign-in page would not render.
+func (tx transaction) fail(w http.ResponseWriter, request *http.Request, status int, message string, result SignInResult) {
+	if tx.activate != nil && !tx.setup {
+		http.Error(w, message, status)
+		return
+	}
+	callbackFailure(w, request, tx.setup, result)
 }
 func verifiedNonce(token *oidc.IDToken) string {
 	if token == nil {
@@ -333,7 +354,7 @@ func (a *Authenticator) Logout(w http.ResponseWriter, request *http.Request) {
 		a.mu.Unlock()
 	}
 	http.SetCookie(w, &http.Cookie{Name: "__Host-console-session", Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: -1})
-	http.Redirect(w, request, "/", http.StatusSeeOther)
+	http.Redirect(w, request, "/?signin="+string(SignInSignedOut), http.StatusSeeOther)
 }
 func Allowed(user config.User, deployment contract.Deployment) bool {
 	for _, scope := range user.Scopes {

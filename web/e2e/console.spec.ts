@@ -79,6 +79,30 @@ test('mobile navigation and reduced motion retain working content', async ({ pag
   )
 })
 
+test('sign-in explains a refused login and keeps the return path', async ({ page }) => {
+  await page.route('**/api/v1/snapshot', (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 'unauthenticated', message: 'Sign in to view this fleet.' }),
+    }),
+  )
+  await page.goto('/fleet?query=payments&signin=denied')
+  await expect(page.getByRole('heading', { name: 'OpenBao Operator Console' })).toBeVisible()
+  await expect(page.getByRole('alert')).toContainText('no access to this console')
+  const login = await page
+    .getByRole('link', { name: 'Sign in with single sign-on' })
+    .getAttribute('href')
+  const returnTo = new URL(login ?? '', page.url()).searchParams.get('returnTo') ?? ''
+  expect(returnTo).toMatch(/^\/fleet\?query=payments/)
+  expect(returnTo).not.toContain('signin')
+  await page.goto('/?signin=signed-out')
+  await expect(page.getByRole('status')).toHaveText('You have signed out.')
+  await page.goto('/?signin=unknown')
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await expect(page.getByRole('status')).toHaveCount(0)
+})
+
 test('unavailable evidence never displays a healthy fleet', async ({ page }) => {
   await page.route('**/api/v1/snapshot', (route) =>
     route.fulfill({

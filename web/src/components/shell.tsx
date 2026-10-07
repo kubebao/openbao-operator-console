@@ -17,6 +17,8 @@ import {
 } from 'lucide-react'
 import { APIError, useSetup, useSnapshot } from '../api/client'
 import { age } from '../lib/format'
+import { Brand } from './brand'
+import { SignIn } from './sign-in'
 import { HealthBadge } from './status'
 import { Button } from './ui/button'
 
@@ -141,38 +143,13 @@ function WorkspaceShell({ theme, setTheme }: { theme: Theme; setTheme: (theme: T
     ).length ?? 0
 
   if (snapshot.isError && snapshot.error instanceof APIError && snapshot.error.status === 401)
-    return (
-      <div className="entry-state sign-in-page">
-        <div className="entry-brand">
-          OpenBao <span>Operator console</span>
-        </div>
-        <h1>Sign in</h1>
-        <p>Use your organization’s identity provider to continue.</p>
-        <a
-          href={`/auth/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`}
-          className="button button-primary"
-        >
-          Sign in
-        </a>
-      </div>
-    )
+    return <SignIn />
 
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <Link to="/" className="brand" aria-label="OpenBao console home">
-          <svg viewBox="0 0 32 32" aria-hidden="true">
-            <path fill="currentColor" d="M16 1 1 16l15 15 15-15z" />
-            <path
-              fill="none"
-              stroke="var(--sidebar)"
-              strokeWidth="1"
-              d="M16 1v30M1 16h30M5 12h22"
-            />
-          </svg>
-          <span>
-            OpenBao<small>Operator console</small>
-          </span>
+        <Link to="/" className="brand" aria-label="OpenBao Operator Console home">
+          <Brand />
         </Link>
         <nav aria-label="Main navigation">
           <Link to="/" activeOptions={{ exact: true }} activeProps={{ className: 'nav-active' }}>

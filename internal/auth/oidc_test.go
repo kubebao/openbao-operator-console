@@ -32,11 +32,11 @@ func TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay(t *testing.T) {
 	for _, scenario := range []struct {
 		name, subject string
 		wrongNonce    bool
-		status        int
+		location      string
 	}{
-		{"enrolled", "operator", false, http.StatusSeeOther},
-		{"unenrolled", "other", false, http.StatusForbidden},
-		{"nonce mismatch", "operator", true, http.StatusUnauthorized},
+		{"enrolled", "operator", false, "/"},
+		{"unenrolled", "other", false, "/?signin=denied"},
+		{"nonce mismatch", "operator", true, "/?signin=failed"},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
 			var issuer, nonce, challenge string
@@ -99,10 +99,10 @@ func TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay(t *testing.T) {
 			request.AddCookie(cookies[0])
 			callback := httptest.NewRecorder()
 			a.Callback(callback, request)
-			if callback.Code != scenario.status {
-				t.Fatalf("callback = %d, want %d: %s", callback.Code, scenario.status, callback.Body.String())
+			if callback.Code != http.StatusSeeOther || callback.Header().Get("Location") != scenario.location {
+				t.Fatalf("callback = %d %q, want %q", callback.Code, callback.Header().Get("Location"), scenario.location)
 			}
-			if scenario.status == http.StatusSeeOther {
+			if scenario.location == "/" {
 				var sessionCookie *http.Cookie
 				for _, cookie := range callback.Result().Cookies() {
 					if cookie.Name == "__Host-console-session" {
@@ -117,14 +117,15 @@ func TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay(t *testing.T) {
 				if user, ok := a.Viewer(view); !ok || user.Subject != "operator" {
 					t.Fatal("session did not authenticate enrolled subject")
 				}
-				a.Logout(httptest.NewRecorder(), view)
-				if _, ok := a.Viewer(view); ok {
-					t.Fatal("logout retained session")
+				logout := httptest.NewRecorder()
+				a.Logout(logout, view)
+				if _, ok := a.Viewer(view); ok || logout.Header().Get("Location") != "/?signin=signed-out" {
+					t.Fatal("logout retained session or skipped the signed-out notice")
 				}
 			}
 			replay := httptest.NewRecorder()
 			a.Callback(replay, request)
-			if replay.Code != http.StatusBadRequest {
+			if replay.Code != http.StatusSeeOther || replay.Header().Get("Location") != "/?signin=expired" {
 				t.Fatal("consumed state allowed replay")
 			}
 		})

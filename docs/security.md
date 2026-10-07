@@ -50,6 +50,8 @@ data, and provider error messages are not stored or returned by the API. Credent
   persisted.
 - Sessions expire after eight hours or at ID token expiry, whichever comes first. Sessions live in process memory.
 - Logout ends the console session. It does not end the identity provider's single sign-on session.
+- A failed login returns to the sign-in page with a fixed reason: expired, no access, failed, or unavailable. Provider
+  error details are not shown.
 - Requests that change state require the exact public origin.
 
 ## Authorization

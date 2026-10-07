@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Check, Copy, LockKeyhole } from 'lucide-react'
 import { useSetup, unlockSetup, startSetupIdentity, lockSetup } from '../api/client'
 import type { IdentityInput } from '../api/schema'
+import { Brand } from '../components/brand'
 import { Field } from '../components/settings-editor'
 import { Button } from '../components/ui/button'
 import { formError } from '../lib/errors'
@@ -73,7 +74,7 @@ export function SetupPage() {
     <main className="setup-page">
       <div className="setup-panel">
         <div className="entry-brand">
-          OpenBao <span>Operator console</span>
+          <Brand />
         </div>
         <header className="setup-header">
           <h1>{status?.state === 'complete' ? 'Setup complete' : 'Set up your console'}</h1>

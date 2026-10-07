@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="web/public/logo.svg" alt="" width="160">
+
 # OpenBao Operator Console
 
 **A read-only fleet console for the [OpenBao Operator](https://github.com/dc-tec/openbao-operator).**

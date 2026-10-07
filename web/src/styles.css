@@ -31,6 +31,7 @@
   --graph-dot: #dce3ed;
   --graph-edge: #8493ad;
   --shadow: 0 12px 45px #172c4e16;
+  --brand-glow: #87d6be33;
 }
 
 [data-theme='dark'] {
@@ -54,6 +55,7 @@
   --graph-dot: #2d3c51;
   --graph-edge: #8d9fb9;
   --shadow: 0 12px 45px #0005;
+  --brand-glow: #87d6be1f;
 }
 
 * {
@@ -183,26 +185,30 @@ input {
 }
 .brand {
   display: flex;
+  margin: 0 5px 42px;
+}
+.brand-lockup {
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  margin: 0 9px 45px;
+  gap: 8px;
   color: var(--heading);
 }
-.brand svg {
-  width: 29px;
-  height: 29px;
+.brand-lockup img {
+  width: 36px;
+  height: auto;
 }
-.brand span {
-  font-size: 21px;
+.brand-lockup > span {
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: -0.6px;
-  line-height: 1.3;
+  letter-spacing: -0.4px;
+  line-height: 1.25;
+  white-space: nowrap;
 }
-.brand small {
-  font-size: 10px;
+.brand-lockup small {
+  font-size: 10.5px;
   font-weight: 450;
   letter-spacing: 0.25px;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 .nav-label {
   font-size: 9px;
@@ -1492,9 +1498,6 @@ tbody tr:hover {
   .brand {
     margin: 0 0 15px;
   }
-  .brand span {
-    font-size: 18px;
-  }
   .sidebar > .nav-label,
   .sidebar-bottom {
     display: none;
@@ -2226,17 +2229,90 @@ tbody tr:hover {
   color: var(--muted-foreground);
 }
 .entry-brand {
-  font-size: 1.35rem;
-  font-weight: 650;
-  color: var(--heading);
   margin-bottom: 2.5rem;
 }
-.entry-brand span {
-  display: block;
-  font-size: 0.8rem;
+.sign-in {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 16px;
+  background:
+    radial-gradient(60rem 30rem at 50% -8rem, var(--brand-glow), transparent 70%), var(--background);
+}
+.sign-in-panel {
+  width: min(100%, 420px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2.5rem 2rem 2rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+.sign-in-logo {
+  width: 168px;
+  height: auto;
+  margin-bottom: 1.5rem;
+}
+.sign-in h1 {
+  font-size: 22px;
+  letter-spacing: -0.5px;
+}
+.sign-in h1 span {
   color: var(--muted-foreground);
-  font-weight: 400;
-  margin-top: 0.15rem;
+  font-weight: 500;
+}
+.sign-in-panel > p {
+  color: var(--muted-foreground);
+  margin-top: 0.5rem;
+  max-width: 32ch;
+}
+.sign-in-panel > .sign-in-notice {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  width: 100%;
+  max-width: none;
+  margin-top: 1.5rem;
+  padding: 10px 12px;
+  border-radius: 6px;
+  text-align: left;
+  color: var(--foreground);
+}
+.sign-in-notice svg {
+  flex: none;
+  margin-top: 2px;
+}
+.sign-in-notice-info {
+  background: var(--accent-soft);
+}
+.sign-in-notice-info svg {
+  color: var(--accent);
+}
+.sign-in-notice-error {
+  background: var(--red-soft);
+}
+.sign-in-notice-error svg {
+  color: var(--red);
+}
+.sign-in-button {
+  width: 100%;
+  margin-top: 1.5rem;
+  padding: 11px 16px;
+  font-size: 13px;
+  font-weight: 550;
+}
+.sign-in-panel > .sign-in-footnote {
+  margin-top: 1.25rem;
+  font-size: 11.5px;
+}
+.sign-in-footnote svg {
+  display: inline;
+  vertical-align: -2px;
+  margin-right: 6px;
+  color: var(--green);
 }
 .initial-fleet {
   max-width: 680px;

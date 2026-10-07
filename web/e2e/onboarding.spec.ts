@@ -406,10 +406,10 @@ test('signed-out console presents sign in without an outage or fake profile', as
     route.fulfill({ status: 401, json: { code: 'unauthenticated', message: 'Sign in.' } }),
   )
   await page.goto('/fleet')
-  await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'OpenBao Operator Console' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Fleet evidence unavailable' })).not.toBeVisible()
   await expect(page.getByText('Platform team', { exact: true })).not.toBeVisible()
-  await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: 'Sign in with single sign-on' })).toHaveAttribute(
     'href',
     /returnTo=/,
   )

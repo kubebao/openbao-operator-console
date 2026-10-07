@@ -53,7 +53,9 @@ history retention. The UI removes relationships and scope grants that reference 
 
 Administrators can view all enrolled namespaces and change console settings. Other users receive only their assigned
 connection and namespace scopes. Match users by OIDC `sub`, and groups by an exact signed ID-token group value.
-The configured groups claim must contain a top-level array of strings. Unmapped groups grant no access.
+The configured groups claim must contain a top-level array of strings. Unmapped groups grant no access. A user who
+signs in without a matching subject or group returns to the sign-in page with a message to ask an administrator for
+access.
 
 Console access-rule changes affect existing sessions on their next request. Group membership is captured during login;
 identity-provider membership changes take effect after a new login or session expiration. Sessions expire no later than
