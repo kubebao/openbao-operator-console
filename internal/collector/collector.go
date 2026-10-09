@@ -46,7 +46,7 @@ func New(connection config.Connection, policy evidence.Policy) (*Reader, error) 
 		restConfig = &rest.Config{Host: credential.Server, BearerToken: credential.Token, TLSClientConfig: rest.TLSClientConfig{CAData: []byte(credential.CA), CertData: []byte(credential.Certificate), KeyData: []byte(credential.Key)}}
 	} else if connection.Kubeconfig == "" && connection.Context == "" {
 		if connection.Remote {
-			return nil, fmt.Errorf("remote connector has no reader credential")
+			return nil, errors.New("remote connector has no reader credential")
 		}
 		restConfig, err = rest.InClusterConfig()
 	} else {
@@ -82,7 +82,7 @@ func (r *Reader) list(ctx context.Context, namespace, resource string) ([]unstru
 		}
 		result = append(result, page.Items...)
 		if len(result) > 10000 {
-			return nil, fmt.Errorf("connector resource limit exceeded")
+			return nil, errors.New("connector resource limit exceeded")
 		}
 		continuation = page.GetContinue()
 		if continuation == "" {

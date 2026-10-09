@@ -97,7 +97,7 @@ func setupCallback(t *testing.T, fixture setupFixture, provider *httptest.Server
 		t.Fatal(err)
 	}
 	_ = response.Body.Close()
-	request := httptest.NewRequest("GET", response.Header.Get("Location"), nil)
+	request := httptest.NewRequest(http.MethodGet, response.Header.Get("Location"), nil)
 	for _, cookie := range trial.Result().Cookies() {
 		request.AddCookie(cookie)
 	}

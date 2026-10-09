@@ -3,6 +3,7 @@ package config
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -18,14 +19,14 @@ func WriteRBAC(w io.Writer, connection Connection, serviceAccount, serviceNamesp
 		return err
 	}
 	if len(validation.IsDNS1123Subdomain(serviceAccount)) != 0 || len(validation.IsDNS1123Label(serviceNamespace)) != 0 {
-		return fmt.Errorf("reader ServiceAccount and namespace must be Kubernetes names")
+		return errors.New("reader ServiceAccount and namespace must be Kubernetes names")
 	}
 	digest := sha256.Sum256([]byte(connection.ID))
 	suffix := "-reader-" + hex.EncodeToString(digest[:8])
 	prefix := strings.TrimRight(serviceAccount[:min(len(serviceAccount), 253-len(suffix))], ".-")
 	roleName := prefix + suffix
 	if len(validation.IsDNS1123Subdomain(roleName)) != 0 {
-		return fmt.Errorf("generated reader role name must be a Kubernetes name")
+		return errors.New("generated reader role name must be a Kubernetes name")
 	}
 	type rule struct {
 		APIGroups     []string `json:"apiGroups"`
@@ -36,7 +37,7 @@ func WriteRBAC(w io.Writer, connection Connection, serviceAccount, serviceNamesp
 	rules := make(map[string][]rule)
 	if connection.Renewal != nil {
 		if serviceAccount != connection.Renewal.ServiceAccount || serviceNamespace != connection.Renewal.Namespace {
-			return fmt.Errorf("reader identity must match the renewal ServiceAccount")
+			return errors.New("reader identity must match the renewal ServiceAccount")
 		}
 		rules[serviceNamespace] = append(rules[serviceNamespace], rule{APIGroups: []string{""}, Resources: []string{"serviceaccounts/token"}, Verbs: []string{"create"}, ResourceNames: []string{serviceAccount}})
 	}

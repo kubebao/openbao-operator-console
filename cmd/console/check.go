@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"os"
 	"time"
 
@@ -37,7 +37,7 @@ func checkConnections(ctx context.Context, enrollment config.Config) error {
 		return err
 	}
 	if failed {
-		return fmt.Errorf("connection check incomplete; inspect collection and capability states")
+		return errors.New("connection check incomplete; inspect collection and capability states")
 	}
 	return nil
 }

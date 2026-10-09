@@ -86,9 +86,9 @@ func (*batchRecorder) History(context.Context, string) ([]contract.Observation, 
 func (*batchRecorder) Close() {}
 func TestManagedCollectionAddsPausesAndReconfiguresReaders(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" || r.Header.Get("Authorization") != "Bearer reader" {
+		if r.Method != http.MethodGet || r.Header.Get("Authorization") != "Bearer reader" {
 			t.Error("reader made an unexpected request")
-			w.WriteHeader(403)
+			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")

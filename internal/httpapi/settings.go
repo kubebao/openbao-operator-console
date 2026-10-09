@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -64,7 +63,7 @@ func connectionInput(c contract.ManagedConnection, old *config.Connection) (conf
 			result.Credential = old.Credential
 		}
 	default:
-		return result, fmt.Errorf("choose local or remote authentication")
+		return result, errors.New("choose local or remote authentication")
 	}
 	if c.Renewal != nil {
 		result.Renewal = &config.TokenRenewal{Namespace: c.Renewal.Namespace, ServiceAccount: c.Renewal.ServiceAccount}
@@ -105,7 +104,7 @@ func configurationView(c config.Config) contract.Configuration {
 
 func credentialInput(credential *contract.ClusterCredential, kubeconfig, contextName *string) (*config.Credential, error) {
 	if credential != nil && kubeconfig != nil {
-		return nil, fmt.Errorf("supply structured credentials or a kubeconfig")
+		return nil, errors.New("supply structured credentials or a kubeconfig")
 	}
 	if credential != nil {
 		result := &config.Credential{Server: credential.Server, CA: credential.Ca, Token: credential.Token, Certificate: credential.Certificate, Key: credential.Key}
@@ -131,14 +130,14 @@ func configurationInput(input contract.SettingsUpdate, previous config.Config) (
 	credentials := map[string]contract.CredentialUpdate{}
 	for _, update := range input.Credentials {
 		if _, found := credentials[update.ConnectionId]; found {
-			return result, fmt.Errorf("duplicate credential update")
+			return result, errors.New("duplicate credential update")
 		}
 		credentials[update.ConnectionId] = update
 	}
 	for _, connection := range input.Configuration.Connections {
 		if existing, ok := old[connection.Id]; ok && connection.Authentication == "remote" && existing.Credential != nil && connection.Server != existing.Credential.Server {
 			if _, updated := credentials[connection.Id]; !updated {
-				return result, fmt.Errorf("supply complete credentials when changing the API server")
+				return result, errors.New("supply complete credentials when changing the API server")
 			}
 		}
 		existing := old[connection.Id]
@@ -148,7 +147,7 @@ func configurationInput(input contract.SettingsUpdate, previous config.Config) (
 		}
 		if update, found := credentials[connection.Id]; found {
 			if connection.Authentication != "remote" {
-				return result, fmt.Errorf("remote credentials require remote authentication")
+				return result, errors.New("remote credentials require remote authentication")
 			}
 			next.Credential, err = credentialInput(update.Credential, update.Kubeconfig, update.Context)
 			if err != nil {
@@ -157,12 +156,12 @@ func configurationInput(input contract.SettingsUpdate, previous config.Config) (
 			delete(credentials, connection.Id)
 		}
 		if connection.Authentication == "remote" && next.Credential == nil {
-			return result, fmt.Errorf("remote connection requires reader credentials")
+			return result, errors.New("remote connection requires reader credentials")
 		}
 		result.Connections = append(result.Connections, next)
 	}
 	if len(credentials) > 0 {
-		return result, fmt.Errorf("credential references an unknown connection")
+		return result, errors.New("credential references an unknown connection")
 	}
 	for _, user := range input.Configuration.Users {
 		result.Users = append(result.Users, config.User{Subject: user.Subject, Name: user.Name, Admin: user.Admin, Scopes: scopesInput(user.Scopes)})
@@ -195,19 +194,19 @@ func (s *Server) settingsView(ctx context.Context) (contract.Settings, error) {
 func (s *Server) administrator(w http.ResponseWriter, r *http.Request) (config.User, bool) {
 	user, allowed := s.Auth.Viewer(r)
 	if !allowed {
-		problem(w, 401, "unauthenticated", "Sign in to manage settings.")
+		problem(w, http.StatusUnauthorized, "unauthenticated", "Sign in to manage settings.")
 		return user, false
 	}
 	if !user.Admin {
-		problem(w, 403, "forbidden", "Console administrator access is required.")
+		problem(w, http.StatusForbidden, "forbidden", "Console administrator access is required.")
 		return user, false
 	}
 	if s.Settings == nil {
-		problem(w, 503, "unavailable", "Settings are unavailable.")
+		problem(w, http.StatusServiceUnavailable, "unavailable", "Settings are unavailable.")
 		return user, false
 	}
-	if r.Method != "GET" && r.Header.Get("Origin") != s.Origin {
-		problem(w, 403, "forbidden", "Invalid request origin.")
+	if r.Method != http.MethodGet && r.Header.Get("Origin") != s.Origin {
+		problem(w, http.StatusForbidden, "forbidden", "Invalid request origin.")
 		return user, false
 	}
 	return user, true
@@ -217,15 +216,15 @@ func decodeBody[T any](w http.ResponseWriter, r *http.Request) (T, error) {
 	var result T
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "application/json" {
-		return result, fmt.Errorf("use application/json")
+		return result, errors.New("use application/json")
 	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&result); err != nil {
-		return result, fmt.Errorf("request body is invalid or exceeds 1 MiB")
+		return result, errors.New("request body is invalid or exceeds 1 MiB")
 	}
 	if decoder.Decode(&struct{}{}) != io.EOF {
-		return result, fmt.Errorf("request must contain one JSON object")
+		return result, errors.New("request must contain one JSON object")
 	}
 	return result, nil
 }
@@ -267,7 +266,7 @@ func (s *Server) settingsRoutes(mux *http.ServeMux) {
 		defer cancel()
 		result, err := s.settingsView(ctx)
 		if err != nil {
-			problem(w, 503, "unavailable", "Settings could not be read.")
+			problem(w, http.StatusServiceUnavailable, "unavailable", "Settings could not be read.")
 			return
 		}
 		jsonResponse(w, 200, result)
@@ -279,17 +278,17 @@ func (s *Server) settingsRoutes(mux *http.ServeMux) {
 		}
 		input, err := decodeBody[contract.SettingsUpdate](w, r)
 		if err != nil {
-			problem(w, 400, "invalid", err.Error())
+			problem(w, http.StatusBadRequest, "invalid", err.Error())
 			return
 		}
 		previous, revision := s.Settings.Current()
 		if input.Revision != revision {
-			problem(w, 409, "conflict", "Settings changed. Reload before saving.")
+			problem(w, http.StatusConflict, "conflict", "Settings changed. Reload before saving.")
 			return
 		}
 		next, err := configurationInput(input, previous)
 		if err != nil {
-			problem(w, 400, "invalid", err.Error())
+			problem(w, http.StatusBadRequest, "invalid", err.Error())
 			return
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
@@ -300,17 +299,17 @@ func (s *Server) settingsRoutes(mux *http.ServeMux) {
 		}
 		if _, err := s.Settings.SaveReplacing(ctx, input.Revision, next, user.Subject, settings.Summary(previous, next), replacements); err != nil {
 			if errors.Is(err, settings.ErrConflict) {
-				problem(w, 409, "conflict", "Settings changed. Reload before saving.")
+				problem(w, http.StatusConflict, "conflict", "Settings changed. Reload before saving.")
 			} else if errors.Is(err, settings.ErrInvalid) {
-				problem(w, 400, "invalid", err.Error())
+				problem(w, http.StatusBadRequest, "invalid", err.Error())
 			} else {
-				problem(w, 503, "unavailable", "Settings could not be saved. Retry after the database is available.")
+				problem(w, http.StatusServiceUnavailable, "unavailable", "Settings could not be saved. Retry after the database is available.")
 			}
 			return
 		}
 		result, err := s.settingsView(ctx)
 		if err != nil {
-			problem(w, 503, "unavailable", "Settings saved; reload to read the result.")
+			problem(w, http.StatusServiceUnavailable, "unavailable", "Settings saved; reload to read the result.")
 			return
 		}
 		jsonResponse(w, 200, result)
@@ -321,17 +320,17 @@ func (s *Server) settingsRoutes(mux *http.ServeMux) {
 		}
 		input, err := decodeBody[contract.ReaderAccessInput](w, r)
 		if err != nil {
-			problem(w, 400, "invalid", err.Error())
+			problem(w, http.StatusBadRequest, "invalid", err.Error())
 			return
 		}
 		connection, err := connectionInput(input.Connection, nil)
 		if err != nil {
-			problem(w, 400, "invalid", err.Error())
+			problem(w, http.StatusBadRequest, "invalid", err.Error())
 			return
 		}
 		access, err := s.readerAccess(connection, input.Connection.Authentication)
 		if err != nil {
-			problem(w, 400, "invalid", err.Error())
+			problem(w, http.StatusBadRequest, "invalid", err.Error())
 			return
 		}
 		jsonResponse(w, 200, access)
@@ -342,7 +341,7 @@ func (s *Server) settingsRoutes(mux *http.ServeMux) {
 		}
 		input, err := decodeBody[contract.ConnectionCheck](w, r)
 		if err != nil {
-			problem(w, 400, "invalid", err.Error())
+			problem(w, http.StatusBadRequest, "invalid", err.Error())
 			return
 		}
 		current, _ := s.Settings.Current()
@@ -356,23 +355,23 @@ func (s *Server) settingsRoutes(mux *http.ServeMux) {
 		}
 		connection, err := connectionInput(input.Connection, old)
 		if err == nil && input.Connection.Authentication == "remote" && connection.Credential != nil && input.Credential == nil && input.Kubeconfig == nil && input.Connection.Server != connection.Credential.Server {
-			err = fmt.Errorf("supply complete credentials when changing the API server")
+			err = errors.New("supply complete credentials when changing the API server")
 		}
 		if err == nil && input.Connection.Authentication == "local" && (input.Credential != nil || input.Kubeconfig != nil) {
-			err = fmt.Errorf("remote credentials require remote authentication")
+			err = errors.New("remote credentials require remote authentication")
 		}
 		if err == nil && (input.Credential != nil || input.Kubeconfig != nil) {
 			connection.Credential, err = credentialInput(input.Credential, input.Kubeconfig, input.Context)
 		}
 		if err == nil && input.Connection.Authentication == "remote" && connection.Credential == nil {
-			err = fmt.Errorf("supply a remote reader credential")
+			err = errors.New("supply a remote reader credential")
 		}
 		checkConfig := config.Config{Connections: []config.Connection{connection}, MaxBackupAgeHours: current.MaxBackupAgeHours, StartupGraceMinutes: current.StartupGraceMinutes}
 		if err == nil {
 			err = checkConfig.Validate()
 		}
 		if err != nil {
-			problem(w, 400, "invalid", err.Error())
+			problem(w, http.StatusBadRequest, "invalid", err.Error())
 			return
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
@@ -381,7 +380,7 @@ func (s *Server) settingsRoutes(mux *http.ServeMux) {
 		batch, diagnostic := reader.Check(ctx, time.Now().UTC())
 		access, err := s.readerAccess(connection, input.Connection.Authentication)
 		if err != nil {
-			problem(w, 400, "invalid", "Reader RBAC could not be generated.")
+			problem(w, http.StatusBadRequest, "invalid", "Reader RBAC could not be generated.")
 			return
 		}
 		deployments := batch.Deployments
@@ -404,17 +403,17 @@ func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request) {
 	}
 	authentication, ok := s.Auth.(*auth.Authenticator)
 	if !ok {
-		problem(w, 503, "unavailable", "Identity setup is unavailable.")
+		problem(w, http.StatusServiceUnavailable, "unavailable", "Identity setup is unavailable.")
 		return
 	}
 	input, err := decodeBody[contract.IdentityTrial](w, r)
 	if err != nil {
-		problem(w, 400, "invalid", err.Error())
+		problem(w, http.StatusBadRequest, "invalid", err.Error())
 		return
 	}
 	current, revision := s.Settings.Current()
 	if input.Revision != revision {
-		problem(w, 409, "conflict", "Settings changed. Reload before testing.")
+		problem(w, http.StatusConflict, "conflict", "Settings changed. Reload before testing.")
 		return
 	}
 	secret := ""
@@ -429,25 +428,25 @@ func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	providerContext, err := auth.ProviderContextPEM(ctx, []byte(candidateIdentity.CA))
 	if err != nil {
-		problem(w, 400, "invalid", "Check the identity provider CA certificate.")
+		problem(w, http.StatusBadRequest, "invalid", "Check the identity provider CA certificate.")
 		return
 	}
 	candidate, err := auth.NewOIDC(providerContext, candidateIdentity.Issuer, candidateIdentity.ClientID, candidateIdentity.ClientSecret, s.Origin+"/auth/callback", nil)
 	if err != nil {
-		problem(w, 400, "invalid", "Identity discovery failed. Check the issuer, HTTPS trust, and client settings.")
+		problem(w, http.StatusBadRequest, "invalid", "Identity discovery failed. Check the issuer, HTTPS trust, and client settings.")
 		return
 	}
 	candidate.SetGroupsClaim(candidateIdentity.GroupsClaim)
 	location, err := authentication.BeginTrial(w, candidate, func(ctx context.Context, subject string, groups []string) error {
 		if candidateUser, allowed := s.Settings.Resolve(ctx, subject, groups); !allowed || !candidateUser.Admin {
-			return fmt.Errorf("candidate login is not an enrolled administrator")
+			return errors.New("candidate login is not an enrolled administrator")
 		}
 		latest, version := s.Settings.Current()
 		if version != revision {
 			return settings.ErrConflict
 		}
 		if original, allowed := s.Auth.Viewer(r); !allowed || !original.Admin {
-			return fmt.Errorf("initiating administrator is no longer authorized")
+			return errors.New("initiating administrator is no longer authorized")
 		}
 		latest.Identity = &candidateIdentity
 		if _, err := s.Settings.Save(ctx, revision, latest, actor.Subject, "Identity provider verified and activated"); err != nil {
@@ -457,7 +456,7 @@ func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request) {
 		return nil
 	})
 	if err != nil {
-		problem(w, 503, "unavailable", "Cannot begin identity verification.")
+		problem(w, http.StatusServiceUnavailable, "unavailable", "Cannot begin identity verification.")
 		return
 	}
 	jsonResponse(w, 200, contract.LoginRedirect{Url: location})

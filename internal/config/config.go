@@ -2,6 +2,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -111,10 +112,10 @@ func Load(path string) (Config, error) {
 
 func (c Config) Validate() error {
 	if c.MaxBackupAgeHours <= 0 || c.MaxBackupAgeHours > 87600 || c.StartupGraceMinutes < 0 || c.StartupGraceMinutes > 1440 {
-		return fmt.Errorf("backup age must be 1–87600 hours and startup grace must be 0–1440 minutes")
+		return errors.New("backup age must be 1–87600 hours and startup grace must be 0–1440 minutes")
 	}
 	if len(c.Connections) > 1000 || len(c.Users) > 10000 || len(c.Groups) > 1000 || len(c.Relationships) > 10000 {
-		return fmt.Errorf("configuration exceeds the supported enrollment limits")
+		return errors.New("configuration exceeds the supported enrollment limits")
 	}
 	identifier := regexp.MustCompile(`^[a-zA-Z0-9_-]{1,100}$`)
 	connections := make(map[string]map[string]bool, len(c.Connections))
@@ -123,7 +124,7 @@ func (c Config) Validate() error {
 			return err
 		}
 		if !identifier.MatchString(connection.ID) || connection.Name == "" || len(connection.Namespaces) == 0 || len(connection.Namespaces) > 1000 {
-			return fmt.Errorf("connection requires id, name, and at least one namespace")
+			return errors.New("connection requires id, name, and at least one namespace")
 		}
 		if _, exists := connections[connection.ID]; exists {
 			return fmt.Errorf("duplicate connection id %q", connection.ID)
@@ -150,11 +151,11 @@ func (c Config) Validate() error {
 		assigned := make(map[string]bool)
 		for _, operator := range connection.Operators {
 			if operator.ID == "" || operators[operator.ID] || operator.Namespace == "" || operator.Deployment == "" || operator.Container == "" || len(operator.Namespaces) == 0 {
-				return fmt.Errorf("operator requires a unique id, namespace, deployment, container, and managed namespaces")
+				return errors.New("operator requires a unique id, namespace, deployment, container, and managed namespaces")
 			}
 			operators[operator.ID] = true
 			if len(validation.IsDNS1123Label(operator.Namespace)) != 0 || len(validation.IsDNS1123Subdomain(operator.Deployment)) != 0 || len(validation.IsDNS1123Label(operator.Container)) != 0 {
-				return fmt.Errorf("operator enrollment requires valid Kubernetes names")
+				return errors.New("operator enrollment requires valid Kubernetes names")
 			}
 			for _, namespace := range operator.Namespaces {
 				if !namespaces[namespace] || assigned[namespace] {
@@ -167,13 +168,13 @@ func (c Config) Validate() error {
 	users := make(map[string]bool)
 	for _, user := range c.Users {
 		if user.Subject == "" || len(user.Subject) > 1024 || users[user.Subject] {
-			return fmt.Errorf("invalid or duplicate subject")
+			return errors.New("invalid or duplicate subject")
 		}
 		users[user.Subject] = true
 		for _, scope := range user.Scopes {
 			for _, namespace := range scope.Namespaces {
 				if !connections[scope.ConnectionID][namespace] {
-					return fmt.Errorf("user scope references an unenrolled namespace")
+					return errors.New("user scope references an unenrolled namespace")
 				}
 			}
 		}
@@ -181,13 +182,13 @@ func (c Config) Validate() error {
 	groups := make(map[string]bool)
 	for _, group := range c.Groups {
 		if group.Name == "" || len(group.Name) > 1024 || groups[group.Name] {
-			return fmt.Errorf("group requires a unique name")
+			return errors.New("group requires a unique name")
 		}
 		groups[group.Name] = true
 		for _, scope := range group.Scopes {
 			for _, namespace := range scope.Namespaces {
 				if !connections[scope.ConnectionID][namespace] {
-					return fmt.Errorf("group scope references an unenrolled namespace")
+					return errors.New("group scope references an unenrolled namespace")
 				}
 			}
 		}
@@ -195,19 +196,19 @@ func (c Config) Validate() error {
 	routes := make(map[string]bool)
 	for _, route := range c.Relationships {
 		if !identifier.MatchString(route.ID) || routes[route.ID] || route.Source == route.Target {
-			return fmt.Errorf("invalid or duplicate relationship id")
+			return errors.New("invalid or duplicate relationship id")
 		}
 		routes[route.ID] = true
 		if route.Kind != "replication" && route.Kind != "snapshotRecovery" {
-			return fmt.Errorf("invalid relationship kind")
+			return errors.New("invalid relationship kind")
 		}
 		for _, resource := range []ResourceRef{route.Source, route.Target} {
 			if resource.Name == "" || resource.UID == "" || !connections[resource.ConnectionID][resource.Namespace] {
-				return fmt.Errorf("relationship requires enrolled resource identities and UIDs")
+				return errors.New("relationship requires enrolled resource identities and UIDs")
 			}
 		}
 		if strings.Contains(route.Repository, "@") || strings.Contains(route.Repository, "?") {
-			return fmt.Errorf("repository display value must not contain userinfo or query parameters")
+			return errors.New("repository display value must not contain userinfo or query parameters")
 		}
 	}
 	return nil

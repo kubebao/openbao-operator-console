@@ -62,7 +62,7 @@ func New(ctx context.Context, repository Repository, key []byte, initial config.
 // until a verified first administrator initializes it.
 func Open(ctx context.Context, repository Repository, key []byte, initial *config.Config) (*Service, error) {
 	if len(key) != 32 {
-		return nil, fmt.Errorf("configuration key must contain 32 bytes")
+		return nil, errors.New("configuration key must contain 32 bytes")
 	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -83,7 +83,7 @@ func Open(ctx context.Context, repository Repository, key []byte, initial *confi
 			return nil, err
 		}
 		if !hasAdmin(seed) {
-			return nil, fmt.Errorf("enroll at least one bootstrap console administrator")
+			return nil, errors.New("enroll at least one bootstrap console administrator")
 		}
 		if err := importReaders(&seed); err != nil {
 			return nil, err
@@ -101,7 +101,7 @@ func Open(ctx context.Context, repository Repository, key []byte, initial *confi
 	}
 	configuration, err := result.decrypt(stored.Payload)
 	if err != nil {
-		return nil, fmt.Errorf("configuration cannot be decrypted with the supplied key")
+		return nil, errors.New("configuration cannot be decrypted with the supplied key")
 	}
 	rows, err := repository.LoadCredentials(ctx)
 	if err != nil {
@@ -110,7 +110,7 @@ func Open(ctx context.Context, repository Repository, key []byte, initial *confi
 	for _, row := range rows {
 		state, err := result.decryptCredential(row)
 		if err != nil {
-			return nil, fmt.Errorf("reader credential cannot be decrypted with the supplied key")
+			return nil, errors.New("reader credential cannot be decrypted with the supplied key")
 		}
 		result.credentials[row.ConnectionID] = StoredCredential{Revision: row.Revision, State: state}
 	}
@@ -125,17 +125,17 @@ func Open(ctx context.Context, repository Repository, key []byte, initial *confi
 		if connection.Remote {
 			stored, found := result.credentials[connection.ID]
 			if !found {
-				return nil, fmt.Errorf("stored remote connection has no reader credential")
+				return nil, errors.New("stored remote connection has no reader credential")
 			}
 			credential := stored.State.Credential
 			connection.Credential = &credential
 		}
 	}
 	if err := configuration.Validate(); err != nil {
-		return nil, fmt.Errorf("stored configuration is invalid")
+		return nil, errors.New("stored configuration is invalid")
 	}
 	if !hasAdmin(configuration) {
-		return nil, fmt.Errorf("stored configuration has no administrator")
+		return nil, errors.New("stored configuration has no administrator")
 	}
 	result.configuration = configuration
 	result.revision = stored.Revision
@@ -373,7 +373,7 @@ func (s *Service) encrypt(configuration config.Config) ([]byte, error) {
 func (s *Service) decrypt(payload []byte) (config.Config, error) {
 	var result config.Config
 	if len(payload) < s.cipher.NonceSize() {
-		return result, fmt.Errorf("invalid ciphertext")
+		return result, errors.New("invalid ciphertext")
 	}
 	plaintext, err := s.cipher.Open(nil, payload[:s.cipher.NonceSize()], payload[s.cipher.NonceSize():], []byte("console-configuration-v1"))
 	if err != nil {
@@ -404,5 +404,5 @@ func Summary(previous, next config.Config) string {
 	if len(areas) == 0 {
 		return "Configuration saved"
 	}
-	return fmt.Sprintf("Updated %s", strings.Join(areas, ", "))
+	return "Updated " + strings.Join(areas, ", ")
 }

@@ -67,13 +67,13 @@ func (KubernetesIssuer) Issue(ctx context.Context, connection config.Connection,
 		return fail(settings.RenewalRetrying)
 	}
 	defer response.Body.Close()
-	if response.StatusCode == 401 {
+	if response.StatusCode == http.StatusUnauthorized {
 		return fail(settings.RenewalReconnectRequired)
 	}
-	if response.StatusCode == 403 {
+	if response.StatusCode == http.StatusForbidden {
 		return fail(settings.RenewalPermissionDenied)
 	}
-	if response.StatusCode != 200 && response.StatusCode != 201 {
+	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusCreated {
 		return fail(settings.RenewalRetrying)
 	}
 	data, err := io.ReadAll(io.LimitReader(response.Body, 65537))

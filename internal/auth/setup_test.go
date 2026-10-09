@@ -11,7 +11,7 @@ import (
 func TestPendingLoginAndExpiredSetupCallbackReturnToSetup(t *testing.T) {
 	a := NewPending()
 	login := httptest.NewRecorder()
-	a.Login(login, httptest.NewRequest("GET", "https://console.example/auth/login", nil))
+	a.Login(login, httptest.NewRequest(http.MethodGet, "https://console.example/auth/login", nil))
 	if login.Code != http.StatusSeeOther || login.Header().Get("Location") != "/setup" {
 		t.Fatal("pending console attempted normal authentication")
 	}
@@ -20,7 +20,7 @@ func TestPendingLoginAndExpiredSetupCallbackReturnToSetup(t *testing.T) {
 		activated = true
 		return nil
 	}}
-	request := httptest.NewRequest("GET", "https://console.example/auth/callback?state=expired-state", nil)
+	request := httptest.NewRequest(http.MethodGet, "https://console.example/auth/callback?state=expired-state", nil)
 	request.AddCookie(&http.Cookie{Name: "__Host-console-state", Value: "expired-state"})
 	for range 2 {
 		callback := httptest.NewRecorder()
@@ -30,7 +30,7 @@ func TestPendingLoginAndExpiredSetupCallbackReturnToSetup(t *testing.T) {
 		}
 	}
 	invalid := httptest.NewRecorder()
-	a.Callback(invalid, httptest.NewRequest("GET", "https://console.example/auth/callback?state=wrong", nil))
+	a.Callback(invalid, httptest.NewRequest(http.MethodGet, "https://console.example/auth/callback?state=wrong", nil))
 	if invalid.Code != http.StatusSeeOther || invalid.Header().Get("Location") != "/setup?result=failed" {
 		t.Fatal("pending callback failure exposed provider details or left setup")
 	}

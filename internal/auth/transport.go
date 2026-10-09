@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/url"
 	"os"
@@ -21,7 +21,7 @@ func ProviderContext(ctx context.Context, caFile string) (context.Context, error
 		var err error
 		data, err = os.ReadFile(caFile)
 		if err != nil {
-			return nil, fmt.Errorf("read OIDC CA file")
+			return nil, errors.New("read OIDC CA file")
 		}
 	}
 	return ProviderContextPEM(ctx, data)
@@ -33,16 +33,16 @@ func ProviderContextPEM(ctx context.Context, data []byte) (context.Context, erro
 	if len(data) > 0 {
 		roots, err := x509.SystemCertPool()
 		if err != nil {
-			return nil, fmt.Errorf("load system certificate roots")
+			return nil, errors.New("load system certificate roots")
 		}
 		if !roots.AppendCertsFromPEM(data) {
-			return nil, fmt.Errorf("OIDC CA file contains no certificates")
+			return nil, errors.New("OIDC CA file contains no certificates")
 		}
 		transport.TLSClientConfig.RootCAs = roots
 	}
 	client := &http.Client{Transport: transport, Timeout: 10 * time.Second, CheckRedirect: func(request *http.Request, _ []*http.Request) error {
 		if !httpsEndpoint(request.URL) {
-			return fmt.Errorf("OIDC redirect must use HTTPS")
+			return errors.New("OIDC redirect must use HTTPS")
 		}
 		return nil
 	}}

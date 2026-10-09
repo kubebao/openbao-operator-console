@@ -40,7 +40,7 @@ func TestExistingSessionUsesCurrentAccessRules(t *testing.T) {
 	a.SetResolver(func(context.Context, string, []string) (config.User, bool) {
 		return config.User{Subject: "reader", Admin: enabled}, enabled
 	})
-	request := httptest.NewRequest("GET", "https://console.example/api/v1/settings", nil)
+	request := httptest.NewRequest(http.MethodGet, "https://console.example/api/v1/settings", nil)
 	request.AddCookie(&http.Cookie{Name: "__Host-console-session", Value: "session"})
 	if user, ok := a.Viewer(request); !ok || !user.Admin {
 		t.Fatal("existing session did not resolve access")

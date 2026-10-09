@@ -38,7 +38,7 @@ func repeatableRead() pgx.TxOptions {
 
 func Open(ctx context.Context, dsn string, retention time.Duration) (*Postgres, error) {
 	if retention <= 0 {
-		return nil, fmt.Errorf("observation retention must be positive")
+		return nil, errors.New("observation retention must be positive")
 	}
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
@@ -69,7 +69,7 @@ func Open(ctx context.Context, dsn string, retention time.Duration) (*Postgres, 
 		return nil, err
 	}
 	if version > 3 {
-		return nil, fmt.Errorf("database schema is newer than this application")
+		return nil, errors.New("database schema is newer than this application")
 	}
 	if version == 0 {
 		if _, err := tx.Exec(ctx, schema); err != nil {

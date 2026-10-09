@@ -47,7 +47,7 @@ func TestReaderAccessBeforeCredentialsIsScopedAndAdministratorOnly(t *testing.T)
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			handler := (&Server{Repository: &memoryRepository{}, Auth: test.auth, Settings: service, Origin: "https://console.example", ReaderName: "chart-reader", ReaderNamespace: "console"}).Handler()
-			request := httptest.NewRequest("POST", "/api/v1/settings/connections/rbac", bytes.NewReader(payload))
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/settings/connections/rbac", bytes.NewReader(payload))
 			request.Header.Set("Content-Type", "application/json")
 			request.Header.Set("Origin", test.origin)
 			response := httptest.NewRecorder()
@@ -76,7 +76,7 @@ func TestReaderAccessBeforeCredentialsIsScopedAndAdministratorOnly(t *testing.T)
 		t.Fatal(err)
 	}
 	handler := (&Server{Repository: &memoryRepository{}, Auth: viewerAuth{user: config.User{Subject: "admin", Admin: true}, allowed: true}, Settings: service, Origin: "https://console.example", ReaderName: "chart-reader", ReaderNamespace: "console"}).Handler()
-	request := httptest.NewRequest("POST", "/api/v1/settings/connections/rbac", bytes.NewReader(payload))
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/settings/connections/rbac", bytes.NewReader(payload))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Origin", "https://console.example")
 	response := httptest.NewRecorder()
@@ -97,7 +97,7 @@ func TestConnectionCheckProjectsPreviewWithoutPersistingOrExposingCredentials(t 
 	now := time.Now().UTC()
 	resources := fmt.Sprintf(`{"apiVersion":"openbao.org/v1alpha1","kind":"OpenBaoClusterList","metadata":{},"items":[{"apiVersion":"openbao.org/v1alpha1","kind":"OpenBaoCluster","metadata":{"name":"bao","namespace":"team","uid":"bao-uid"},"spec":{"replicas":3,"backup":{},"unapprovedPrivateField":"private-resource-field"},"status":{"readyReplicas":3,"backup":{"lastBackupTime":"%s"}}},{"apiVersion":"openbao.org/v1alpha1","kind":"OpenBaoCluster","metadata":{"name":"starting","namespace":"team","uid":"starting-uid","creationTimestamp":"%s"},"spec":{"replicas":3},"status":{"readyReplicas":0}}]}`, now.Add(-14*time.Hour).Format(time.RFC3339), now.Add(-5*time.Minute).Format(time.RFC3339))
 	cluster := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		if request.Method != "GET" || request.Header.Get("Authorization") != "Bearer private-reader-token" {
+		if request.Method != http.MethodGet || request.Header.Get("Authorization") != "Bearer private-reader-token" {
 			t.Error("check used a mutation or the wrong credential")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
@@ -121,7 +121,7 @@ func TestConnectionCheckProjectsPreviewWithoutPersistingOrExposingCredentials(t 
 		t.Fatal(err)
 	}
 	handler := (&Server{Repository: &memoryRepository{}, Auth: viewerAuth{user: config.User{Subject: "admin", Admin: true}, allowed: true}, Settings: service, Origin: "https://console.example"}).Handler()
-	request := httptest.NewRequest("POST", "/api/v1/settings/connections/check", bytes.NewReader(payload))
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/settings/connections/check", bytes.NewReader(payload))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Origin", "https://console.example")
 	response := httptest.NewRecorder()
@@ -275,7 +275,7 @@ func TestSettingsAuthorizationRedactionConflictAndCredentialPreservation(t *test
 	for _, principal := range []viewerAuth{{allowed: false}, {user: config.User{Subject: "reader"}, allowed: true}} {
 		denied := (&Server{Repository: &memoryRepository{}, Auth: principal, Settings: service}).Handler()
 		response := httptest.NewRecorder()
-		denied.ServeHTTP(response, httptest.NewRequest("GET", "/api/v1/settings", nil))
+		denied.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/settings", nil))
 		if response.Code != 401 && response.Code != 403 {
 			t.Fatal("settings visible without administrator access")
 		}
@@ -309,13 +309,13 @@ func TestIdentityTrialCommitsOnlyAfterVerifiedAdministratorLogin(t *testing.T) {
 	authentication := testAuthenticator(t, provider, service)
 	handler := (&Server{Repository: &memoryRepository{}, Auth: authentication, Settings: service, Origin: "https://console.example"}).Handler()
 	login := httptest.NewRecorder()
-	authentication.Login(login, httptest.NewRequest("GET", "https://console.example/auth/login", nil))
+	authentication.Login(login, httptest.NewRequest(http.MethodGet, "https://console.example/auth/login", nil))
 	// Complete the signed test provider login through its HTTPS endpoints.
 	sessionCookie := completeTestLogin(t, provider, authentication, login.Header().Get("Location"), login.Result().Cookies())
 	current, revision = service.Current()
 	ca := testProviderCA(provider)
 	payload, _ := json.Marshal(contract.IdentityTrial{Revision: revision, Identity: contract.IdentityInput{Issuer: provider.URL, ClientId: "console", Ca: ca, GroupsClaim: "groups", ClientSecret: new("candidate-secret")}})
-	request := httptest.NewRequest("POST", "/api/v1/settings/identity/trial", bytes.NewReader(payload))
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/settings/identity/trial", bytes.NewReader(payload))
 	request.AddCookie(sessionCookie)
 	request.Header.Set("Origin", "https://console.example")
 	request.Header.Set("Content-Type", "application/json")
@@ -337,7 +337,7 @@ func TestIdentityTrialCommitsOnlyAfterVerifiedAdministratorLogin(t *testing.T) {
 	if after.Identity.Issuer != provider.URL || afterRevision != revision+1 {
 		t.Fatal("verified trial did not activate")
 	}
-	previousRequest := httptest.NewRequest("GET", "/", nil)
+	previousRequest := httptest.NewRequest(http.MethodGet, "/", nil)
 	previousRequest.AddCookie(sessionCookie)
 	if _, allowed := authentication.Viewer(previousRequest); allowed {
 		t.Fatal("provider activation retained old sessions")

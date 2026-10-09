@@ -199,7 +199,7 @@ func testLiveSession(t *testing.T, keycloak bool) {
 	// The onboarding API tests the real enrolled reader without Kubernetes mutations.
 	current, revision := configuration.Current()
 	checkPayload, _ := json.Marshal(contract.ConnectionCheck{Connection: connectionView(current.Connections[0])})
-	post, _ := http.NewRequest("POST", application.URL+"/api/v1/settings/connections/check", bytes.NewReader(checkPayload))
+	post, _ := http.NewRequest(http.MethodPost, application.URL+"/api/v1/settings/connections/check", bytes.NewReader(checkPayload))
 	post.Header.Set("Content-Type", "application/json")
 	post.Header.Set("Origin", application.URL)
 	response, err = client.Do(post)
@@ -207,13 +207,13 @@ func testLiveSession(t *testing.T, keycloak bool) {
 		t.Fatal(err)
 	}
 	var checkResult contract.ConnectionCheckResult
-	if response.StatusCode != 200 || json.NewDecoder(response.Body).Decode(&checkResult) != nil || checkResult.Connection.Collection != "current" || len(checkResult.Connection.Operators) != 1 {
+	if response.StatusCode != http.StatusOK || json.NewDecoder(response.Body).Decode(&checkResult) != nil || checkResult.Connection.Collection != "current" || len(checkResult.Connection.Operators) != 1 {
 		t.Fatal("real onboarding access check failed")
 	}
 	_ = response.Body.Close()
 	current.Connections[0].Disabled = true
 	updatePayload, _ := json.Marshal(contract.SettingsUpdate{Revision: revision, Configuration: configurationView(current), Credentials: []contract.CredentialUpdate{}})
-	put, _ := http.NewRequest("PUT", application.URL+"/api/v1/settings", bytes.NewReader(updatePayload))
+	put, _ := http.NewRequest(http.MethodPut, application.URL+"/api/v1/settings", bytes.NewReader(updatePayload))
 	put.Header.Set("Content-Type", "application/json")
 	put.Header.Set("Origin", application.URL)
 	response, err = client.Do(put)
@@ -221,7 +221,7 @@ func testLiveSession(t *testing.T, keycloak bool) {
 		t.Fatal(err)
 	}
 	_ = response.Body.Close()
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		t.Fatal("real session could not save configuration")
 	}
 	snapshot = read()

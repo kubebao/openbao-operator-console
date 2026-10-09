@@ -145,14 +145,14 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/snapshot", func(w http.ResponseWriter, r *http.Request) {
 		user, allowed := s.Auth.Viewer(r)
 		if !allowed {
-			problem(w, 401, "unauthenticated", "Sign in to view this fleet.")
+			problem(w, http.StatusUnauthorized, "unauthenticated", "Sign in to view this fleet.")
 			return
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 		result, err := s.snapshot(ctx)
 		if err != nil {
-			problem(w, 503, "unavailable", "Fleet evidence is temporarily unavailable.")
+			problem(w, http.StatusServiceUnavailable, "unavailable", "Fleet evidence is temporarily unavailable.")
 			return
 		}
 		jsonResponse(w, 200, auth.Scope(result, user, s.Demo))
@@ -160,14 +160,14 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/deployments/{id}/history", func(w http.ResponseWriter, r *http.Request) {
 		user, allowed := s.Auth.Viewer(r)
 		if !allowed {
-			problem(w, 401, "unauthenticated", "Sign in to view this fleet.")
+			problem(w, http.StatusUnauthorized, "unauthenticated", "Sign in to view this fleet.")
 			return
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 		result, err := s.snapshot(ctx)
 		if err != nil {
-			problem(w, 503, "unavailable", "Fleet evidence is temporarily unavailable.")
+			problem(w, http.StatusServiceUnavailable, "unavailable", "Fleet evidence is temporarily unavailable.")
 			return
 		}
 		id := r.PathValue("id")
@@ -179,17 +179,19 @@ func (s *Server) Handler() http.Handler {
 			}
 		}
 		if !visible {
-			problem(w, 404, "not_found", "Deployment not found.")
+			problem(w, http.StatusNotFound, "not_found", "Deployment not found.")
 			return
 		}
 		observations, err := s.Repository.History(ctx, id)
 		if err != nil {
-			problem(w, 503, "unavailable", "Observation history is temporarily unavailable.")
+			problem(w, http.StatusServiceUnavailable, "unavailable", "Observation history is temporarily unavailable.")
 			return
 		}
 		jsonResponse(w, 200, contract.History{Observations: observations})
 	})
-	mux.HandleFunc("GET /api/", func(w http.ResponseWriter, _ *http.Request) { problem(w, 404, "not_found", "Endpoint not found.") })
+	mux.HandleFunc("GET /api/", func(w http.ResponseWriter, _ *http.Request) {
+		problem(w, http.StatusNotFound, "not_found", "Endpoint not found.")
+	})
 	static, _ := fs.Sub(assets, "assets")
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		name := strings.TrimPrefix(r.URL.Path, "/")

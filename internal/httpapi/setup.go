@@ -7,7 +7,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
+	"errors"
 	"net"
 	"net/http"
 	"net/url"
@@ -55,17 +55,17 @@ type Setup struct {
 func NewSetup(service *settings.Service, authentication *auth.Authenticator, token []byte, callback string, seed config.Config) (*Setup, error) {
 	value := strings.TrimSpace(string(token))
 	if !validSetupToken(value) {
-		return nil, fmt.Errorf("setup token must contain 32 random bytes encoded as 64 hexadecimal or 43 URL-safe base64 characters")
+		return nil, errors.New("setup token must contain 32 random bytes encoded as 64 hexadecimal or 43 URL-safe base64 characters")
 	}
 	parsed, err := url.Parse(callback)
 	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.Path != "/auth/callback" || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.User != nil {
-		return nil, fmt.Errorf("OIDC callback must be an HTTPS URL ending in /auth/callback")
+		return nil, errors.New("OIDC callback must be an HTTPS URL ending in /auth/callback")
 	}
 	if service == nil || authentication == nil || service.Initialized() {
-		return nil, fmt.Errorf("browser setup requires an uninitialized configuration")
+		return nil, errors.New("browser setup requires an uninitialized configuration")
 	}
 	if err := seed.Validate(); err != nil {
-		return nil, fmt.Errorf("setup enrollment is invalid")
+		return nil, errors.New("setup enrollment is invalid")
 	}
 	return &Setup{settings: service, authentication: authentication, seed: seed, tokenDigest: sha256.Sum256([]byte(value)), expires: time.Now().Add(setupTokenLifetime), callback: callback, sessions: map[string]setupSession{}, peers: map[string]setupRate{}, now: time.Now}, nil
 }
@@ -168,7 +168,7 @@ func (s *Setup) available(w http.ResponseWriter, request *http.Request) bool {
 func (s *Setup) unlock(w http.ResponseWriter, request *http.Request) {
 	input, err := decodeBody[contract.SetupUnlock](w, request)
 	if err != nil {
-		problem(w, 400, "invalid", "Enter a valid setup token.")
+		problem(w, http.StatusBadRequest, "invalid", "Enter a valid setup token.")
 		return
 	}
 	s.mu.Lock()
@@ -201,7 +201,7 @@ func (s *Setup) unlock(w http.ResponseWriter, request *http.Request) {
 	}
 	data := make([]byte, 32)
 	if _, err := rand.Read(data); err != nil {
-		problem(w, 503, "unavailable", "Setup could not be opened. Retry.")
+		problem(w, http.StatusServiceUnavailable, "unavailable", "Setup could not be opened. Retry.")
 		return
 	}
 	id := base64.RawURLEncoding.EncodeToString(data)
@@ -227,12 +227,12 @@ func (s *Setup) lock(w http.ResponseWriter, request *http.Request) {
 func (s *Setup) identity(w http.ResponseWriter, request *http.Request) {
 	input, err := decodeBody[contract.IdentityInput](w, request)
 	if err != nil {
-		problem(w, 400, "invalid", "Check the identity provider fields.")
+		problem(w, http.StatusBadRequest, "invalid", "Check the identity provider fields.")
 		return
 	}
 	cookie, err := request.Cookie(setupCookie)
 	if err != nil {
-		problem(w, 401, "setup_locked", "Enter the setup token before configuring the identity provider.")
+		problem(w, http.StatusUnauthorized, "setup_locked", "Enter the setup token before configuring the identity provider.")
 		return
 	}
 	s.mu.Lock()
@@ -244,20 +244,20 @@ func (s *Setup) identity(w http.ResponseWriter, request *http.Request) {
 	now := s.now()
 	if !found || !now.Before(session.expires) {
 		s.mu.Unlock()
-		problem(w, 401, "setup_locked", "The setup session expired. Enter the setup token again.")
+		problem(w, http.StatusUnauthorized, "setup_locked", "The setup session expired. Enter the setup token again.")
 		return
 	}
 	if !s.rateAllowed(setupPeer(request), now) {
 		s.mu.Unlock()
 		w.Header().Set("Retry-After", "60")
-		problem(w, 429, "rate_limited", "Too many setup attempts. Retry in one minute.")
+		problem(w, http.StatusTooManyRequests, "rate_limited", "Too many setup attempts. Retry in one minute.")
 		return
 	}
 	session.trial++
 	s.sessions[cookie.Value] = session
 	s.mu.Unlock()
 	if len(input.Issuer) > 4096 || len(input.ClientId) > 1024 || len(input.GroupsClaim) > 1024 || len(input.Ca) > 256<<10 || input.ClientSecret == nil || *input.ClientSecret == "" || len(*input.ClientSecret) > 64<<10 {
-		problem(w, 400, "invalid", "Supply an issuer, client ID, and client secret within the supported limits.")
+		problem(w, http.StatusBadRequest, "invalid", "Supply an issuer, client ID, and client secret within the supported limits.")
 		return
 	}
 	identity := config.Identity{Issuer: input.Issuer, ClientID: input.ClientId, ClientSecret: *input.ClientSecret, CA: input.Ca, GroupsClaim: input.GroupsClaim}
@@ -265,12 +265,12 @@ func (s *Setup) identity(w http.ResponseWriter, request *http.Request) {
 	defer cancel()
 	providerContext, err := auth.ProviderContextPEM(ctx, []byte(identity.CA))
 	if err != nil {
-		problem(w, 400, "invalid", "Check the identity provider CA certificate.")
+		problem(w, http.StatusBadRequest, "invalid", "Check the identity provider CA certificate.")
 		return
 	}
 	candidate, err := auth.NewOIDC(providerContext, identity.Issuer, identity.ClientID, identity.ClientSecret, s.callback, nil)
 	if err != nil {
-		problem(w, 400, "invalid", "Identity discovery failed. Check the issuer, HTTPS trust, and client settings.")
+		problem(w, http.StatusBadRequest, "invalid", "Identity discovery failed. Check the issuer, HTTPS trust, and client settings.")
 		return
 	}
 	candidate.SetGroupsClaim(identity.GroupsClaim)
@@ -279,7 +279,7 @@ func (s *Setup) identity(w http.ResponseWriter, request *http.Request) {
 		defer s.mu.Unlock()
 		active, found := s.sessions[cookie.Value]
 		if !found || active.trial != session.trial || !s.now().Before(active.expires) || !s.now().Before(s.expires) || s.settings.Initialized() {
-			return fmt.Errorf("setup claim is no longer available")
+			return errors.New("setup claim is no longer available")
 		}
 		configuration := s.seed
 		configuration.Identity = &identity
@@ -304,7 +304,7 @@ func (s *Setup) identity(w http.ResponseWriter, request *http.Request) {
 		return nil
 	})
 	if err != nil {
-		problem(w, 503, "unavailable", "Cannot begin identity verification. Retry.")
+		problem(w, http.StatusServiceUnavailable, "unavailable", "Cannot begin identity verification. Retry.")
 		return
 	}
 	jsonResponse(w, 200, contract.LoginRedirect{Url: location})
@@ -321,11 +321,11 @@ func (s *Server) setupRoutes(mux *http.ServeMux) {
 	guard := func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, request *http.Request) {
 			if s.Setup == nil || s.Settings == nil || s.Settings.Initialized() {
-				problem(w, 409, "setup_complete", "Console setup is already complete.")
+				problem(w, http.StatusConflict, "setup_complete", "Console setup is already complete.")
 				return
 			}
 			if request.Header.Get("Origin") != s.Origin {
-				problem(w, 403, "forbidden", "Invalid request origin.")
+				problem(w, http.StatusForbidden, "forbidden", "Invalid request origin.")
 				return
 			}
 			next(w, request)

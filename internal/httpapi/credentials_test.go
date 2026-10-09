@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -19,7 +20,7 @@ func TestCredentialStatusesAuthorizeAndProjectOnlyLifecycleEvidence(t *testing.T
 	for _, auth := range []viewerAuth{{allowed: false}, {allowed: true, user: config.User{Subject: "reader"}}} {
 		handler := (&Server{Repository: &memoryRepository{}, Auth: auth, Settings: service}).Handler()
 		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, httptest.NewRequest("GET", "/api/v1/settings/connections/credentials", nil))
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/settings/connections/credentials", nil))
 		if response.Code != 401 && response.Code != 403 {
 			t.Fatal("credential status exposed to a non-administrator")
 		}
@@ -41,7 +42,7 @@ func TestCredentialStatusesAuthorizeAndProjectOnlyLifecycleEvidence(t *testing.T
 	}
 	handler := (&Server{Repository: &memoryRepository{}, Auth: viewerAuth{allowed: true, user: config.User{Subject: "admin", Admin: true}}, Settings: service}).Handler()
 	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, httptest.NewRequest("GET", "/api/v1/settings/connections/credentials", nil))
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/settings/connections/credentials", nil))
 	if response.Code != 200 || strings.Contains(response.Body.String(), state.Credential.Token) || strings.Contains(response.Body.String(), "private-client-secret") || strings.Contains(response.Body.String(), "api.example") {
 		t.Fatal("lifecycle projection exposed credential material")
 	}

@@ -50,13 +50,13 @@ func TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay(t *testing.T) {
 			mux.HandleFunc("POST /token", func(w http.ResponseWriter, r *http.Request) {
 				if err := r.ParseForm(); err != nil {
 					t.Error(err)
-					w.WriteHeader(400)
+					w.WriteHeader(http.StatusBadRequest)
 					return
 				}
 				sum := sha256.Sum256([]byte(r.Form.Get("code_verifier")))
 				if base64.RawURLEncoding.EncodeToString(sum[:]) != challenge {
 					t.Error("PKCE verifier did not match login challenge")
-					w.WriteHeader(400)
+					w.WriteHeader(http.StatusBadRequest)
 					return
 				}
 				claimNonce := nonce
@@ -66,7 +66,7 @@ func TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay(t *testing.T) {
 				token, err := jwt.Signed(signer).Claims(map[string]interface{}{"iss": issuer, "aud": "console", "sub": scenario.subject, "nonce": claimNonce, "exp": time.Now().Add(time.Hour).Unix(), "iat": time.Now().Unix()}).Serialize()
 				if err != nil {
 					t.Error(err)
-					w.WriteHeader(500)
+					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 				w.Header().Set("Content-Type", "application/json")
@@ -81,7 +81,7 @@ func TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay(t *testing.T) {
 				t.Fatal(err)
 			}
 			login := httptest.NewRecorder()
-			a.Login(login, httptest.NewRequest("GET", "https://console.example/auth/login", nil))
+			a.Login(login, httptest.NewRequest(http.MethodGet, "https://console.example/auth/login", nil))
 			location, err := url.Parse(login.Header().Get("Location"))
 			if err != nil {
 				t.Fatal(err)
@@ -95,7 +95,7 @@ func TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay(t *testing.T) {
 			if len(cookies) != 1 || !cookies[0].Secure || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteLaxMode {
 				t.Fatal("state cookie protections missing")
 			}
-			request := httptest.NewRequest("GET", "https://console.example/auth/callback?code=valid&state="+query.Get("state"), nil).WithContext(ctx)
+			request := httptest.NewRequest(http.MethodGet, "https://console.example/auth/callback?code=valid&state="+query.Get("state"), nil).WithContext(ctx)
 			request.AddCookie(cookies[0])
 			callback := httptest.NewRecorder()
 			a.Callback(callback, request)
@@ -112,7 +112,7 @@ func TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay(t *testing.T) {
 				if sessionCookie == nil || !sessionCookie.Secure || !sessionCookie.HttpOnly {
 					t.Fatal("session cookie missing protections")
 				}
-				view := httptest.NewRequest("GET", "https://console.example/api/v1/snapshot", nil)
+				view := httptest.NewRequest(http.MethodGet, "https://console.example/api/v1/snapshot", nil)
 				view.AddCookie(sessionCookie)
 				if user, ok := a.Viewer(view); !ok || user.Subject != "operator" {
 					t.Fatal("session did not authenticate enrolled subject")

@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"io"
 	"os"
 	"strings"
@@ -15,16 +15,16 @@ import (
 func readSetupToken(path string) ([]byte, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("CONSOLE_SETUP_TOKEN_FILE must reference a readable private setup token")
+		return nil, errors.New("CONSOLE_SETUP_TOKEN_FILE must reference a readable private setup token")
 	}
 	defer func() { _ = file.Close() }()
 	info, err := file.Stat()
 	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o007 != 0 {
-		return nil, fmt.Errorf("setup token file must be a regular file without permissions for other users")
+		return nil, errors.New("setup token file must be a regular file without permissions for other users")
 	}
 	data, err := io.ReadAll(io.LimitReader(file, 257))
 	if err != nil || len(data) > 256 {
-		return nil, fmt.Errorf("setup token file must contain at most 256 bytes")
+		return nil, errors.New("setup token file must contain at most 256 bytes")
 	}
 	return data, nil
 }
@@ -57,12 +57,12 @@ func enrollAdministrators(configuration *config.Config, subjects []string) {
 func bootstrapIdentity() (*config.Identity, error) {
 	identity := &config.Identity{Issuer: os.Getenv("CONSOLE_OIDC_ISSUER"), ClientID: os.Getenv("CONSOLE_OIDC_CLIENT_ID"), ClientSecret: os.Getenv("CONSOLE_OIDC_CLIENT_SECRET"), GroupsClaim: "groups"}
 	if identity.Issuer == "" || identity.ClientID == "" || identity.ClientSecret == "" {
-		return nil, fmt.Errorf("bootstrap identity requires OIDC issuer, client ID, and client secret")
+		return nil, errors.New("bootstrap identity requires OIDC issuer, client ID, and client secret")
 	}
 	if file := os.Getenv("CONSOLE_OIDC_CA_FILE"); file != "" {
 		data, err := os.ReadFile(file)
 		if err != nil {
-			return nil, fmt.Errorf("read bootstrap identity CA")
+			return nil, errors.New("read bootstrap identity CA")
 		}
 		identity.CA = string(data)
 	}
@@ -96,7 +96,7 @@ func bootstrapSeed(path string) (config.Config, error) {
 func recoverConfiguration(ctx context.Context, service *settings.Service) error {
 	subjects := bootstrapAdministrators()
 	if len(subjects) == 0 {
-		return fmt.Errorf("identity recovery requires CONSOLE_BOOTSTRAP_ADMIN_SUBJECTS")
+		return errors.New("identity recovery requires CONSOLE_BOOTSTRAP_ADMIN_SUBJECTS")
 	}
 	identity, err := bootstrapIdentity()
 	if err != nil {
@@ -107,7 +107,7 @@ func recoverConfiguration(ctx context.Context, service *settings.Service) error 
 		return err
 	}
 	if _, err := auth.NewOIDC(providerContext, identity.Issuer, identity.ClientID, identity.ClientSecret, os.Getenv("CONSOLE_OIDC_REDIRECT_URL"), nil); err != nil {
-		return fmt.Errorf("recovery identity discovery failed")
+		return errors.New("recovery identity discovery failed")
 	}
 	configuration, revision := service.Current()
 	enrollAdministrators(&configuration, subjects)

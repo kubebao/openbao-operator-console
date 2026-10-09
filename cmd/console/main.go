@@ -39,7 +39,7 @@ func run() error {
 	tlsKey := flag.String("tls-key", "", "optional HTTPS server private key PEM file")
 	flag.Parse()
 	if (*tlsCertificate == "") != (*tlsKey == "") {
-		return fmt.Errorf("tls-cert and tls-key must be supplied together")
+		return errors.New("tls-cert and tls-key must be supplied together")
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -55,7 +55,7 @@ func run() error {
 					return config.WriteRBAC(os.Stdout, connection, *readerName, *readerNamespace)
 				}
 			}
-			return fmt.Errorf("connection is not enrolled")
+			return errors.New("connection is not enrolled")
 		}
 		return checkConnections(ctx, enrollment)
 	}
@@ -71,11 +71,11 @@ func run() error {
 	switch *mode {
 	case "demo":
 		if *recoverIdentity {
-			return fmt.Errorf("recover-identity requires live mode")
+			return errors.New("recover-identity requires live mode")
 		}
 		host, _, err := net.SplitHostPort(*address)
 		if err != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
-			return fmt.Errorf("demo mode must listen on a loopback IP")
+			return errors.New("demo mode must listen on a loopback IP")
 		}
 		repository = demo.New(time.Now().UTC())
 		defer repository.Close()
@@ -83,30 +83,30 @@ func run() error {
 	case "live":
 		dsn := os.Getenv("CONSOLE_DATABASE_URL")
 		if dsn == "" {
-			return fmt.Errorf("CONSOLE_DATABASE_URL is required in live mode")
+			return errors.New("CONSOLE_DATABASE_URL is required in live mode")
 		}
 		startup, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 		pg, err := store.Open(startup, dsn, 7*24*time.Hour)
 		if err != nil {
-			return fmt.Errorf("database startup failed")
+			return errors.New("database startup failed")
 		}
 		repository = pg
 		defer pg.Close()
 		key, err := os.ReadFile(os.Getenv("CONSOLE_CONFIG_KEY_FILE"))
 		if err != nil {
-			return fmt.Errorf("CONSOLE_CONFIG_KEY_FILE must reference a readable 32-byte key")
+			return errors.New("CONSOLE_CONFIG_KEY_FILE must reference a readable 32-byte key")
 		}
 		if _, loadErr := pg.LoadSettings(startup); errors.Is(loadErr, settings.ErrMissing) {
 			if *recoverIdentity {
-				return fmt.Errorf("identity recovery requires stored configuration")
+				return errors.New("identity recovery requires stored configuration")
 			}
 			enrollment, err = bootstrapSeed(*path)
 			if err != nil {
 				return err
 			}
 		} else if loadErr != nil {
-			return fmt.Errorf("read stored configuration")
+			return errors.New("read stored configuration")
 		}
 		var seed *config.Config
 		if enrollment.Identity != nil {
@@ -128,7 +128,7 @@ func run() error {
 		if configuration.Initialized() {
 			enrollment, _ = configuration.Current()
 			if enrollment.Identity == nil {
-				return fmt.Errorf("identity provider is not configured")
+				return errors.New("identity provider is not configured")
 			}
 			identity := enrollment.Identity
 			providerContext, err := auth.ProviderContextPEM(startup, []byte(identity.CA))
@@ -137,7 +137,7 @@ func run() error {
 			}
 			authentication, err = auth.NewOIDC(providerContext, identity.Issuer, identity.ClientID, identity.ClientSecret, callback, enrollment.Users)
 			if err != nil {
-				return fmt.Errorf("authentication startup failed")
+				return errors.New("authentication startup failed")
 			}
 			authentication.SetGroupsClaim(identity.GroupsClaim)
 		} else {
@@ -161,7 +161,7 @@ func run() error {
 			(renewal.Manager{Repository: configuration, Issuer: renewal.KubernetesIssuer{}, Logger: logger}).Run(ctx)
 		}()
 	default:
-		return fmt.Errorf("mode must be demo or live")
+		return errors.New("mode must be demo or live")
 	}
 	defer func() {
 		stop()

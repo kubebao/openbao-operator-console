@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -49,21 +50,21 @@ type RenewalTarget struct {
 
 func (state CredentialState) validate() error {
 	if err := state.Credential.Validate(); err != nil {
-		return fmt.Errorf("invalid reader credential")
+		return errors.New("invalid reader credential")
 	}
 	switch state.State {
 	case RenewalPending, RenewalHealthy, RenewalRetrying, RenewalPermissionDenied, RenewalReconnectRequired:
 	default:
-		return fmt.Errorf("invalid credential renewal state")
+		return errors.New("invalid credential renewal state")
 	}
 	if state.Failures < 0 || state.Failures > 10 || (state.ExpiryVerified && state.ExpiresAt == nil) {
-		return fmt.Errorf("invalid credential renewal evidence")
+		return errors.New("invalid credential renewal evidence")
 	}
 	if state.State == RenewalHealthy && (!state.ExpiryVerified || state.LastSuccessAt == nil || state.NextAttemptAt == nil || !state.NextAttemptAt.Before(*state.ExpiresAt)) {
-		return fmt.Errorf("healthy credential requires a verified expiry and renewal schedule")
+		return errors.New("healthy credential requires a verified expiry and renewal schedule")
 	}
 	if state.State == RenewalReconnectRequired && state.NextAttemptAt != nil {
-		return fmt.Errorf("reconnection cannot have a renewal schedule")
+		return errors.New("reconnection cannot have a renewal schedule")
 	}
 	return nil
 }
@@ -185,7 +186,7 @@ func (s *Service) encryptCredential(id string, stored StoredCredential) (Credent
 func (s *Service) decryptCredential(row CredentialRecord) (CredentialState, error) {
 	var state CredentialState
 	if row.Revision < 1 || len(row.Payload) < s.cipher.NonceSize() {
-		return state, fmt.Errorf("invalid reader ciphertext")
+		return state, errors.New("invalid reader ciphertext")
 	}
 	plaintext, err := s.cipher.Open(nil, row.Payload[:s.cipher.NonceSize()], row.Payload[s.cipher.NonceSize():], []byte("console-reader-credential-v1:"+row.ConnectionID))
 	if err != nil {

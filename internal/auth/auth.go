@@ -7,7 +7,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
@@ -66,26 +66,26 @@ func NewPending() *Authenticator {
 func NewOIDC(ctx context.Context, issuer, clientID, clientSecret, redirect string, users []config.User) (*Authenticator, error) {
 	callback, err := url.Parse(redirect)
 	if err != nil || callback.Scheme != "https" || callback.Host == "" || callback.Path != "/auth/callback" || callback.RawQuery != "" || callback.Fragment != "" || callback.User != nil {
-		return nil, fmt.Errorf("OIDC callback must be an HTTPS URL ending in /auth/callback")
+		return nil, errors.New("OIDC callback must be an HTTPS URL ending in /auth/callback")
 	}
 	identity, err := url.Parse(issuer)
 	if err != nil || !httpsEndpoint(identity) || identity.RawQuery != "" || identity.Fragment != "" || clientID == "" {
-		return nil, fmt.Errorf("OIDC requires an HTTPS issuer and client ID")
+		return nil, errors.New("OIDC requires an HTTPS issuer and client ID")
 	}
 	provider, err := oidc.NewProvider(ctx, issuer)
 	if err != nil {
-		return nil, fmt.Errorf("discover OIDC provider")
+		return nil, errors.New("discover OIDC provider")
 	}
 	var discovery struct {
 		JWKS string `json:"jwks_uri"`
 	}
 	if err := provider.Claims(&discovery); err != nil {
-		return nil, fmt.Errorf("decode OIDC discovery")
+		return nil, errors.New("decode OIDC discovery")
 	}
 	for _, endpoint := range []string{provider.Endpoint().AuthURL, provider.Endpoint().TokenURL, discovery.JWKS} {
 		parsed, err := url.Parse(endpoint)
 		if err != nil || !httpsEndpoint(parsed) {
-			return nil, fmt.Errorf("OIDC endpoints must use HTTPS")
+			return nil, errors.New("OIDC endpoints must use HTTPS")
 		}
 	}
 	client, ok := ctx.Value(oauth2.HTTPClient).(*http.Client)
@@ -190,7 +190,7 @@ func (a *Authenticator) begin(w http.ResponseWriter, provider providerState, ret
 		}
 	}
 	if len(a.transactions) >= 1000 || len(a.sessions) >= 10000 {
-		return "", fmt.Errorf("login capacity reached")
+		return "", errors.New("login capacity reached")
 	}
 	verifier := oauth2.GenerateVerifier()
 	a.transactions[state] = transaction{verifier: verifier, nonce: nonce, expires: now.Add(5 * time.Minute), provider: provider, generation: a.generation, returnTo: safeReturn(returnTo), activate: activate, setup: setup}

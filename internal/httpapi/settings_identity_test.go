@@ -41,7 +41,7 @@ func completeTestLogin(t *testing.T, provider *httptest.Server, a *auth.Authenti
 	if err != nil {
 		t.Fatal(err)
 	}
-	request := httptest.NewRequest("GET", callbackURL.String(), nil)
+	request := httptest.NewRequest(http.MethodGet, callbackURL.String(), nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}

@@ -54,7 +54,7 @@ func TestServerAuthorizesBeforeHistoryAndFiltersEverySurface(t *testing.T) {
 	authentication := viewerAuth{user: config.User{Subject: "engineer", Scopes: []config.Scope{{ConnectionID: "one", Namespaces: []string{"team-a"}}}}, allowed: true}
 	handler := (&Server{Repository: repository, Auth: authentication}).Handler()
 	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, httptest.NewRequest("GET", "/api/v1/snapshot", nil))
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/snapshot", nil))
 	if response.Code != 200 {
 		t.Fatalf("snapshot = %d", response.Code)
 	}
@@ -66,7 +66,7 @@ func TestServerAuthorizesBeforeHistoryAndFiltersEverySurface(t *testing.T) {
 		t.Fatal("hidden inventory leaked")
 	}
 	hidden := httptest.NewRecorder()
-	handler.ServeHTTP(hidden, httptest.NewRequest("GET", "/api/v1/deployments/hidden/history", nil))
+	handler.ServeHTTP(hidden, httptest.NewRequest(http.MethodGet, "/api/v1/deployments/hidden/history", nil))
 	if hidden.Code != 404 || repository.historyReads != 0 {
 		t.Fatal("history read before authorization")
 	}
@@ -79,7 +79,7 @@ func TestServerAuthorizesBeforeHistoryAndFiltersEverySurface(t *testing.T) {
 	}
 	unauthorized := (&Server{Repository: repository, Auth: viewerAuth{allowed: false}}).Handler()
 	w := httptest.NewRecorder()
-	unauthorized.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/snapshot", nil))
+	unauthorized.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/snapshot", nil))
 	if w.Code != 401 {
 		t.Fatal("anonymous live API request accepted")
 	}
