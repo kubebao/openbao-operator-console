@@ -1,6 +1,9 @@
 <div align="center">
 
-<img src="web/public/logo.svg" alt="" width="160">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="web/public/brand/kubebao-logo-dark.png">
+  <img src="web/public/brand/kubebao-logo.png" alt="KubeBao" width="160">
+</picture>
 
 # OpenBao Operator Console
 

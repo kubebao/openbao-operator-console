@@ -1,4 +1,5 @@
 import { CircleAlert, Info, LogIn } from 'lucide-react'
+import { BrandLogo } from './brand'
 
 // Bounded reasons set by the backend after a failed or ended login. Provider errors never
 // reach the browser.
@@ -35,7 +36,7 @@ export function SignIn() {
   return (
     <main className="sign-in">
       <div className="sign-in-panel">
-        <img className="sign-in-logo" src="/logo.svg" alt="" width={168} height={80} />
+        <BrandLogo className="sign-in-logo" />
         <h1>
           OpenBao Operator <span>Console</span>
         </h1>
