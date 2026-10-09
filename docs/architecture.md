@@ -39,7 +39,8 @@ flowchart LR
 ```
 
 Go owns interpretation, authorization, and persistence. React owns presentation and view filters. OpenAPI generates
-both Go DTOs and TypeScript types. Kubernetes unstructured objects remain inside the collector package.
+both Go DTOs and TypeScript types. Kubernetes unstructured objects remain inside the collector package. The collector,
+evidence rules, and store share the `fleet` domain model; only the HTTP layer maps it to the generated API types.
 
 Resource identity includes enrollment ID, namespace, name, and UID. Relationships are administrator-defined and
 bound to authorized resource identities. An endpoint match alone does not establish a relationship.

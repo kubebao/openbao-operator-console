@@ -9,7 +9,6 @@ import (
 
 	"github.com/kubebao/openbao-operator-console/internal/evidence"
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
-	"github.com/kubebao/openbao-operator-console/internal/store"
 )
 
 type Repository struct {
@@ -488,8 +487,7 @@ func sortEvents(events []demoEvent) []demoEvent {
 }
 
 func (r *Repository) Snapshot(context.Context) (fleet.Snapshot, error) { return r.snapshot, nil }
-func (r *Repository) Apply(context.Context, store.Batch) error         { return nil }
-func (r *Repository) Close()                                           {}
+
 func (r *Repository) History(_ context.Context, id string) ([]fleet.Observation, error) {
 	if observations, ok := r.history[id]; ok {
 		return observations, nil

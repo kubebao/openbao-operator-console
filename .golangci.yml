@@ -61,10 +61,10 @@ linters:
         text: "func `Evaluate`"
       - linters: [gocognit]
         path: internal/httpapi/server.go
-        text: "func `\\(\\*Server\\).(snapshot|Handler)`"
+        text: "func `\\(\\*Server\\).Handler`"
       - linters: [gocognit]
         path: internal/httpapi/settings.go
-        text: "func `(\\(\\*Server\\).settingsRoutes|filterEnrollment)`"
+        text: "func `\\(\\*Server\\).settingsRoutes`"
       - linters: [gocognit]
         path: internal/settings/settings.go
         text: "func `Open`"

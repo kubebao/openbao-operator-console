@@ -18,7 +18,7 @@ import (
 func TestCredentialStatusesAuthorizeAndProjectOnlyLifecycleEvidence(t *testing.T) {
 	service := configurationService(t)
 	for _, auth := range []viewerAuth{{allowed: false}, {allowed: true, user: config.User{Subject: "reader"}}} {
-		handler := (&Server{Repository: &memoryRepository{}, Auth: auth, Settings: service}).Handler()
+		handler := (&Server{Fleet: &memoryFleet{}, Auth: auth, Settings: service}).Handler()
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/settings/connections/credentials", nil))
 		if response.Code != 401 && response.Code != 403 {
@@ -50,9 +50,9 @@ func TestCredentialStatusesAuthorizeAndProjectOnlyLifecycleEvidence(t *testing.T
 		t.Fatal(err)
 	}
 	handler := (&Server{
-		Repository: &memoryRepository{},
-		Auth:       viewerAuth{allowed: true, user: config.User{Subject: "admin", Admin: true}},
-		Settings:   service,
+		Fleet:    &memoryFleet{},
+		Auth:     viewerAuth{allowed: true, user: config.User{Subject: "admin", Admin: true}},
+		Settings: service,
 	}).Handler()
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/settings/connections/credentials", nil))

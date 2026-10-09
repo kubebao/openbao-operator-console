@@ -33,6 +33,7 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	consolesettings "github.com/kubebao/openbao-operator-console/internal/settings"
 	"github.com/kubebao/openbao-operator-console/internal/store"
+	"github.com/kubebao/openbao-operator-console/internal/view"
 )
 
 // This optional integration test exercises the real reader, database, OIDC
@@ -176,7 +177,13 @@ func testLiveSession(t *testing.T, keycloak bool) {
 		t.Fatal(err)
 	}
 	authentication.SetResolver(configuration.Resolve)
-	mux.Handle("/", (&Server{Repository: repository, Auth: authentication, Settings: configuration, Origin: application.URL}).Handler())
+	server := &Server{
+		Fleet:    view.Live{Observations: repository, Enrollment: configuration},
+		Auth:     authentication,
+		Settings: configuration,
+		Origin:   application.URL,
+	}
+	mux.Handle("/", server.Handler())
 
 	client := application.Client()
 	if keycloak && !client.Transport.(*http.Transport).TLSClientConfig.RootCAs.AppendCertsFromPEM(ca) {

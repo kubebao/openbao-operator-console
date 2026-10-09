@@ -14,7 +14,6 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/collector"
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/contract"
-	"github.com/kubebao/openbao-operator-console/internal/evidence"
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
@@ -596,81 +595,4 @@ func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonResponse(w, 200, contract.LoginRedirect{Url: location})
-}
-
-func filterEnrollment(snapshot fleet.Snapshot, c config.Config) fleet.Snapshot {
-	enrolled := map[string]config.Connection{}
-	for _, connection := range c.Connections {
-		enrolled[connection.ID] = connection
-	}
-	connections := []fleet.Connection{}
-	for _, connection := range snapshot.Connections {
-		if current, ok := enrolled[connection.ID]; ok {
-			connection.Name = current.Name
-			connection.Region = current.Region
-			connection.Namespaces = []string{}
-			for _, ns := range current.Namespaces {
-				connection.Namespaces = append(connection.Namespaces, ns.Name)
-			}
-			operators := []fleet.Operator{}
-			for _, declared := range current.Operators {
-				observation := fleet.Operator{
-					ID:            declared.ID,
-					Namespace:     declared.Namespace,
-					Name:          declared.Deployment,
-					Container:     declared.Container,
-					Collection:    fleet.OperatorCollectionPending,
-					Health:        fleet.OperatorHealthUnknown,
-					LastAttemptAt: connection.LastAttemptAt,
-				}
-				for _, previous := range connection.Operators {
-					if previous.ID == declared.ID && previous.Namespace == declared.Namespace && previous.Name == declared.Deployment &&
-						previous.Container == declared.Container {
-						observation = previous
-						break
-					}
-				}
-				observation.Namespaces = append([]string{}, declared.Namespaces...)
-				if current.Disabled {
-					observation.Collection = fleet.OperatorCollectionStale
-				}
-				operators = append(operators, observation)
-			}
-			connection.Operators = operators
-			capabilities := []fleet.Capability{}
-			for _, capability := range connection.Capabilities {
-				for _, namespace := range current.Namespaces {
-					if capability.Namespace == namespace.Name {
-						capabilities = append(capabilities, capability)
-						break
-					}
-				}
-			}
-			connection.Capabilities = capabilities
-			if current.Disabled {
-				connection.Collection = fleet.ConnectionCollectionStale
-			}
-			connections = append(connections, connection)
-		}
-	}
-	deployments := []fleet.Deployment{}
-	for _, deployment := range snapshot.Deployments {
-		if connection, ok := enrolled[deployment.ConnectionID]; ok {
-			for _, ns := range connection.Namespaces {
-				if ns.Name == deployment.Namespace {
-					deployment.Team = ns.Team
-					deployment.Environment = ns.Environment
-					deployment.Location = ns.Location
-					if connection.Disabled {
-						evidence.CollectionFailure(&deployment, fleet.EvidenceCollectionStale, deployment.Evidence.LastAttemptAt)
-					}
-					deployments = append(deployments, deployment)
-					break
-				}
-			}
-		}
-	}
-	snapshot.Connections = connections
-	snapshot.Deployments = deployments
-	return snapshot
 }

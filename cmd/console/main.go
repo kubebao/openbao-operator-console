@@ -24,6 +24,7 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/renewal"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 	"github.com/kubebao/openbao-operator-console/internal/store"
+	"github.com/kubebao/openbao-operator-console/internal/view"
 )
 
 func run() error {
@@ -63,7 +64,7 @@ func run() error {
 		}
 		return checkConnections(ctx, enrollment)
 	}
-	var repository store.Repository
+	var observed httpapi.Fleet
 	var authentication *auth.Authenticator
 	var enrollment config.Config
 	var configuration *settings.Service
@@ -81,8 +82,7 @@ func run() error {
 		if err != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
 			return errors.New("demo mode must listen on a loopback IP")
 		}
-		repository = demo.New(time.Now().UTC())
-		defer repository.Close()
+		observed = demo.New(time.Now().UTC())
 		authentication = auth.NewDemo()
 	case "live":
 		dsn := os.Getenv("CONSOLE_DATABASE_URL")
@@ -95,7 +95,6 @@ func run() error {
 		if err != nil {
 			return errors.New("database startup failed")
 		}
-		repository = pg
 		defer pg.Close()
 		key, err := os.ReadFile(os.Getenv("CONSOLE_CONFIG_KEY_FILE"))
 		if err != nil {
@@ -164,8 +163,9 @@ func run() error {
 			}
 		}
 		authentication.SetResolver(configuration.Resolve)
+		observed = view.Live{Observations: pg, Enrollment: configuration}
 		collectorStopped = make(chan struct{})
-		go func() { defer close(collectorStopped); collector.RunManaged(ctx, configuration, repository, logger) }()
+		go func() { defer close(collectorStopped); collector.RunManaged(ctx, configuration, pg, logger) }()
 		renewalStopped = make(chan struct{})
 		go func() {
 			defer close(renewalStopped)
@@ -187,9 +187,8 @@ func run() error {
 		}
 	}()
 	application := &httpapi.Server{
-		Repository:      repository,
+		Fleet:           observed,
 		Auth:            authentication,
-		Config:          enrollment,
 		Settings:        configuration,
 		Setup:           browserSetup,
 		Demo:            *mode == "demo",

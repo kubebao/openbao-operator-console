@@ -16,7 +16,6 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/collector"
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/contract"
-	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
@@ -55,7 +54,7 @@ func TestReaderAccessBeforeCredentialsIsScopedAndAdministratorOnly(t *testing.T)
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			handler := (&Server{
-				Repository:      &memoryRepository{},
+				Fleet:           &memoryFleet{},
 				Auth:            test.auth,
 				Settings:        service,
 				Origin:          "https://console.example",
@@ -94,7 +93,7 @@ func TestReaderAccessBeforeCredentialsIsScopedAndAdministratorOnly(t *testing.T)
 		t.Fatal(err)
 	}
 	handler := (&Server{
-		Repository:      &memoryRepository{},
+		Fleet:           &memoryFleet{},
 		Auth:            viewerAuth{user: config.User{Subject: "admin", Admin: true}, allowed: true},
 		Settings:        service,
 		Origin:          "https://console.example",
@@ -186,10 +185,10 @@ func TestConnectionCheckProjectsPreviewWithoutPersistingOrExposingCredentials(t 
 		t.Fatal(err)
 	}
 	handler := (&Server{
-		Repository: &memoryRepository{},
-		Auth:       viewerAuth{user: config.User{Subject: "admin", Admin: true}, allowed: true},
-		Settings:   service,
-		Origin:     "https://console.example",
+		Fleet:    &memoryFleet{},
+		Auth:     viewerAuth{user: config.User{Subject: "admin", Admin: true}, allowed: true},
+		Settings: service,
+		Origin:   "https://console.example",
 	}).Handler()
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/settings/connections/check", bytes.NewReader(payload))
 	request.Header.Set("Content-Type", "application/json")
@@ -344,10 +343,10 @@ func configurationService(t *testing.T) *settings.Service {
 func TestSettingsAuthorizationRedactionConflictAndCredentialPreservation(t *testing.T) {
 	service := configurationService(t)
 	handler := (&Server{
-		Repository: &memoryRepository{},
-		Auth:       viewerAuth{user: config.User{Subject: "admin", Admin: true}, allowed: true},
-		Settings:   service,
-		Origin:     "https://console.example",
+		Fleet:    &memoryFleet{},
+		Auth:     viewerAuth{user: config.User{Subject: "admin", Admin: true}, allowed: true},
+		Settings: service,
+		Origin:   "https://console.example",
 	}).Handler()
 	request := func(method, path, body, origin string) *httptest.ResponseRecorder {
 		t.Helper()
@@ -399,67 +398,12 @@ func TestSettingsAuthorizationRedactionConflictAndCredentialPreservation(t *test
 		t.Fatal("last administrator removed")
 	}
 	for _, principal := range []viewerAuth{{allowed: false}, {user: config.User{Subject: "reader"}, allowed: true}} {
-		denied := (&Server{Repository: &memoryRepository{}, Auth: principal, Settings: service}).Handler()
+		denied := (&Server{Fleet: &memoryFleet{}, Auth: principal, Settings: service}).Handler()
 		response := httptest.NewRecorder()
 		denied.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/settings", nil))
 		if response.Code != 401 && response.Code != 403 {
 			t.Fatal("settings visible without administrator access")
 		}
-	}
-}
-
-func TestEnrollmentChangesImmediatelyFilterOldObservations(t *testing.T) {
-	now := time.Now()
-	c := config.Config{
-		Connections: []config.Connection{
-			{
-				ID:         "cluster",
-				Name:       "New name",
-				Disabled:   true,
-				Namespaces: []config.Namespace{{Name: "team", Environment: "production"}},
-				Operators: []config.Operator{
-					{ID: "operator", Namespace: "system", Deployment: "new-controller", Container: "manager", Namespaces: []string{"team"}},
-				},
-			},
-		},
-	}
-	snapshot := fleet.Snapshot{
-		Connections: []fleet.Connection{
-			{
-				ID:         "cluster",
-				Namespaces: []string{"team", "removed"},
-				Operators: []fleet.Operator{
-					{
-						ID:         "operator",
-						Namespace:  "system",
-						Name:       "old-controller",
-						Namespaces: []string{"removed"},
-						Collection: fleet.OperatorCollectionCurrent,
-						Health:     fleet.OperatorHealthAvailable,
-					},
-				},
-				Capabilities:  []fleet.Capability{{Namespace: "removed"}, {Namespace: "team"}},
-				Collection:    "current",
-				LastAttemptAt: now,
-			},
-			{ID: "removed"},
-		},
-		Deployments: []fleet.Deployment{
-			{ID: "one", ConnectionID: "cluster", Namespace: "team", Evidence: fleet.Evidence{LastAttemptAt: now}},
-			{ID: "two", ConnectionID: "cluster", Namespace: "removed"},
-			{ID: "three", ConnectionID: "removed"},
-		},
-	}
-	got := filterEnrollment(snapshot, c)
-	if len(got.Connections) != 1 || len(got.Deployments) != 1 || got.Connections[0].Name != "New name" ||
-		len(got.Connections[0].Capabilities) != 1 ||
-		got.Deployments[0].Evidence.Collection != "stale" {
-		t.Fatal("removed enrollment or current state leaked")
-	}
-	operator := got.Connections[0].Operators[0]
-	if operator.Name != "new-controller" || operator.Health != "unknown" || len(operator.Namespaces) != 1 ||
-		operator.Namespaces[0] != "team" {
-		t.Fatal("old controller observation inherited a new enrollment")
 	}
 }
 
@@ -475,10 +419,10 @@ func TestIdentityTrialCommitsOnlyAfterVerifiedAdministratorLogin(t *testing.T) {
 	}
 	authentication := testAuthenticator(t, provider, service)
 	handler := (&Server{
-		Repository: &memoryRepository{},
-		Auth:       authentication,
-		Settings:   service,
-		Origin:     "https://console.example",
+		Fleet:    &memoryFleet{},
+		Auth:     authentication,
+		Settings: service,
+		Origin:   "https://console.example",
 	}).Handler()
 	login := httptest.NewRecorder()
 	authentication.Login(login, httptest.NewRequest(http.MethodGet, "https://console.example/auth/login", nil))

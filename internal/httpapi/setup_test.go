@@ -46,11 +46,11 @@ func pendingSetup(t *testing.T) setupFixture {
 		t.Fatal(err)
 	}
 	server := &Server{
-		Repository: &memoryRepository{},
-		Auth:       authentication,
-		Settings:   service,
-		Setup:      setup,
-		Origin:     "https://console.example",
+		Fleet:    &memoryFleet{},
+		Auth:     authentication,
+		Settings: service,
+		Setup:    setup,
+		Origin:   "https://console.example",
 	}
 	return setupFixture{setup: setup, service: service, repository: repository, authentication: authentication, handler: server.Handler()}
 }

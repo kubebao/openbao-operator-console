@@ -13,25 +13,28 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/auth"
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/contract"
-	"github.com/kubebao/openbao-operator-console/internal/evidence"
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
-	"github.com/kubebao/openbao-operator-console/internal/store"
 )
 
 //go:embed all:assets
 var assets embed.FS
 
 type Server struct {
-	Repository      store.Repository
+	Fleet           Fleet
 	Auth            Authentication
-	Config          config.Config
 	Settings        *settings.Service
 	Demo            bool
 	Origin          string
 	ReaderName      string
 	ReaderNamespace string
 	Setup           *Setup
+}
+
+// Fleet provides the fleet as presented to viewers and its retained history.
+type Fleet interface {
+	Snapshot(context.Context) (fleet.Snapshot, error)
+	History(context.Context, string) ([]fleet.Observation, error)
 }
 
 type Authentication interface {
@@ -54,99 +57,6 @@ func problem(w http.ResponseWriter, status int, code, message string) {
 	jsonResponse(w, status, contract.Problem{Code: code, Message: message})
 }
 
-func (s *Server) snapshot(ctx context.Context) (fleet.Snapshot, error) {
-	result, err := s.Repository.Snapshot(ctx)
-	if err != nil {
-		return result, err
-	}
-	if !s.Demo {
-		configuration := s.Config
-		if s.Settings != nil {
-			configuration, _ = s.Settings.Current()
-			result = filterEnrollment(result, configuration)
-		}
-		result.Policy = configuration.Policy()
-		now := time.Now().UTC()
-		for _, enrolled := range configuration.Connections {
-			found := false
-			for _, connection := range result.Connections {
-				found = found || connection.ID == enrolled.ID
-			}
-			if !found {
-				connection := fleet.Connection{
-					ID:            enrolled.ID,
-					Name:          enrolled.Name,
-					Region:        enrolled.Region,
-					Collection:    fleet.ConnectionCollectionPending,
-					LastAttemptAt: now,
-					Namespaces:    []string{},
-					Operators:     []fleet.Operator{},
-					Capabilities:  []fleet.Capability{},
-				}
-				for _, namespace := range enrolled.Namespaces {
-					connection.Namespaces = append(connection.Namespaces, namespace.Name)
-				}
-				result.Connections = append(result.Connections, connection)
-			}
-		}
-		for i := range result.Connections {
-			if result.Connections[i].Collection == fleet.ConnectionCollectionCurrent &&
-				now.Sub(result.Connections[i].LastAttemptAt) > 2*time.Minute {
-				result.Connections[i].Collection = fleet.ConnectionCollectionStale
-			}
-			for j := range result.Connections[i].Operators {
-				operator := &result.Connections[i].Operators[j]
-				if operator.Collection == fleet.OperatorCollectionCurrent && now.Sub(operator.LastAttemptAt) > 2*time.Minute {
-					operator.Collection = fleet.OperatorCollectionStale
-				}
-			}
-		}
-		for i := range result.Deployments {
-			for _, connection := range result.Connections {
-				if connection.ID == result.Deployments[i].ConnectionID {
-					fleet.AssignOperator(&result.Deployments[i], connection.Operators)
-				}
-			}
-			if result.Deployments[i].Evidence.Collection == fleet.EvidenceCollectionCurrent &&
-				now.Sub(result.Deployments[i].Evidence.LastAttemptAt) > 2*time.Minute {
-				evidence.CollectionFailure(
-					&result.Deployments[i],
-					fleet.EvidenceCollectionStale,
-					result.Deployments[i].Evidence.LastAttemptAt.Add(2*time.Minute),
-				)
-			}
-		}
-		known := make(map[string]bool)
-		for _, d := range result.Deployments {
-			known[d.ID] = true
-		}
-		for _, route := range configuration.Relationships {
-			source := fleet.DeploymentID(route.Source.ConnectionID, route.Source.Namespace, route.Source.Name, route.Source.UID)
-			target := fleet.DeploymentID(route.Target.ConnectionID, route.Target.Namespace, route.Target.Name, route.Target.UID)
-			if !known[source] || !known[target] {
-				continue
-			}
-			var repository *string
-			if route.Repository != "" {
-				label := route.Repository
-				repository = &label
-			}
-			result.Relationships = append(
-				result.Relationships,
-				fleet.Relationship{
-					ID:         route.ID,
-					SourceID:   source,
-					TargetID:   target,
-					Kind:       route.Kind,
-					Repository: repository,
-					Provenance: fleet.ProvenanceDeclared,
-				},
-			)
-		}
-	}
-	return result, nil
-}
-
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	s.setupRoutes(mux)
@@ -155,7 +65,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 		defer cancel()
-		if _, err := s.Repository.Snapshot(ctx); err != nil {
+		if _, err := s.Fleet.Snapshot(ctx); err != nil {
 			http.Error(w, "Database unavailable", http.StatusServiceUnavailable)
 			return
 		}
@@ -178,7 +88,7 @@ func (s *Server) Handler() http.Handler {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
-		result, err := s.snapshot(ctx)
+		result, err := s.Fleet.Snapshot(ctx)
 		if err != nil {
 			problem(w, http.StatusServiceUnavailable, "unavailable", "Fleet evidence is temporarily unavailable.")
 			return
@@ -193,7 +103,7 @@ func (s *Server) Handler() http.Handler {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
-		result, err := s.snapshot(ctx)
+		result, err := s.Fleet.Snapshot(ctx)
 		if err != nil {
 			problem(w, http.StatusServiceUnavailable, "unavailable", "Fleet evidence is temporarily unavailable.")
 			return
@@ -210,7 +120,7 @@ func (s *Server) Handler() http.Handler {
 			problem(w, http.StatusNotFound, "not_found", "Deployment not found.")
 			return
 		}
-		observations, err := s.Repository.History(ctx, id)
+		observations, err := s.Fleet.History(ctx, id)
 		if err != nil {
 			problem(w, http.StatusServiceUnavailable, "unavailable", "Observation history is temporarily unavailable.")
 			return
