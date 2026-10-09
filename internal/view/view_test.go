@@ -91,6 +91,14 @@ func TestStoppedCollectorMakesLastKnownEvidenceStale(t *testing.T) {
 	if got.Connections[0].Collection != fleet.ConnectionCollectionStale {
 		t.Fatal("stopped collector left the connection current")
 	}
+	// Staleness is a state transition, not a collection attempt.
+	if !deployment.Evidence.LastAttemptAt.Equal(old) {
+		t.Fatalf("last attempt = %s, want the last real attempt %s", deployment.Evidence.LastAttemptAt, old)
+	}
+	finding := deployment.Issues[1]
+	if finding.Rule != fleet.RuleCollection || !finding.FirstSeenAt.Equal(old.Add(StaleAfter)) || !finding.LastCheckedAt.Equal(now) {
+		t.Fatalf("collection finding = %+v", finding)
+	}
 }
 
 func TestEnrollmentIsVisibleBeforeFirstCollection(t *testing.T) {

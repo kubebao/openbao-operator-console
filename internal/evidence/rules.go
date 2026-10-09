@@ -140,19 +140,36 @@ func Evaluate(deployment *fleet.Deployment, createdAt time.Time, paused bool, po
 	}
 }
 
-func CollectionFailure(deployment *fleet.Deployment, state fleet.EvidenceCollection, now time.Time) {
+// CollectionFailure records a failed collection attempt. Workload facts and unresolved
+// findings remain last known.
+func CollectionFailure(deployment *fleet.Deployment, state fleet.EvidenceCollection, attemptedAt time.Time) {
+	deployment.Evidence.LastAttemptAt = attemptedAt
+	incomplete(deployment, state, attemptedAt, attemptedAt)
+}
+
+// Stale marks evidence that has not been refreshed since it became stale. It records no
+// collection attempt: the last attempt time stays the time of the last real attempt.
+func Stale(deployment *fleet.Deployment, since, now time.Time) {
+	incomplete(deployment, fleet.EvidenceCollectionStale, since, now)
+}
+
+func incomplete(deployment *fleet.Deployment, state fleet.EvidenceCollection, since, checked time.Time) {
 	deployment.Evidence.Collection = state
-	deployment.Evidence.LastAttemptAt = now
 	for i := range deployment.Issues {
 		if deployment.Issues[i].Rule == fleet.RuleCollection {
-			deployment.Issues[i].LastCheckedAt = now
+			deployment.Issues[i].LastCheckedAt = checked
 			return
 		}
 	}
 	deployment.Issues = append(deployment.Issues, fleet.Issue{
-		ID: deployment.ID + ":" + string(fleet.RuleCollection), DeploymentID: deployment.ID, Rule: fleet.RuleCollection,
-		Severity: fleet.SeverityHigh, Category: fleet.CategoryVisibility, Title: "Collection is incomplete",
-		Detail:      "The connector cannot refresh this deployment. Workload state and unresolved findings are last known.",
-		FirstSeenAt: now, LastCheckedAt: now,
+		ID:            deployment.ID + ":" + string(fleet.RuleCollection),
+		DeploymentID:  deployment.ID,
+		Rule:          fleet.RuleCollection,
+		Severity:      fleet.SeverityHigh,
+		Category:      fleet.CategoryVisibility,
+		Title:         "Collection is incomplete",
+		Detail:        "The connector cannot refresh this deployment. Workload state and unresolved findings are last known.",
+		FirstSeenAt:   since,
+		LastCheckedAt: checked,
 	})
 }

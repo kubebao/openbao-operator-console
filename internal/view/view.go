@@ -197,13 +197,14 @@ func buildDeployments(
 			continue
 		}
 		deployment.Team, deployment.Environment, deployment.Location = namespace.Team, namespace.Environment, namespace.Location
-		if connection.Disabled {
-			evidence.CollectionFailure(&deployment, fleet.EvidenceCollectionStale, deployment.Evidence.LastAttemptAt)
+		lastAttemptAt := deployment.Evidence.LastAttemptAt
+		switch {
+		case connection.Disabled:
+			evidence.Stale(&deployment, lastAttemptAt, now)
+		case deployment.Evidence.Collection == fleet.EvidenceCollectionCurrent && stale(lastAttemptAt, now):
+			evidence.Stale(&deployment, lastAttemptAt.Add(StaleAfter), now)
 		}
 		fleet.AssignOperator(&deployment, operators[deployment.ConnectionID])
-		if deployment.Evidence.Collection == fleet.EvidenceCollectionCurrent && stale(deployment.Evidence.LastAttemptAt, now) {
-			evidence.CollectionFailure(&deployment, fleet.EvidenceCollectionStale, deployment.Evidence.LastAttemptAt.Add(StaleAfter))
-		}
 		result = append(result, deployment)
 	}
 	return result
