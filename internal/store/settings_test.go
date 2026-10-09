@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 )

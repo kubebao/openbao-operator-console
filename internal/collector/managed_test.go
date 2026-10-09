@@ -33,6 +33,7 @@ func (r *managedConfiguration) LoadSettings(context.Context) (settings.Record, e
 	}
 	return r.record, nil
 }
+
 func (r *managedConfiguration) SaveSettings(_ context.Context, revision int64, payload []byte, _, _ string, writes []settings.CredentialRecord, keep []string) (settings.Record, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -63,6 +64,7 @@ func (r *managedConfiguration) SaveSettings(_ context.Context, revision int64, p
 	r.record = settings.Record{Revision: revision + 1, Payload: payload}
 	return r.record, nil
 }
+
 func (*managedConfiguration) SettingsHistory(context.Context) ([]settings.Change, error) {
 	return nil, nil
 }
@@ -73,9 +75,11 @@ func (r *batchRecorder) Apply(_ context.Context, batch store.Batch) error {
 	r.batches <- batch
 	return nil
 }
+
 func (*batchRecorder) Snapshot(context.Context) (contract.Snapshot, error) {
 	return contract.Snapshot{}, nil
 }
+
 func (*batchRecorder) History(context.Context, string) ([]contract.Observation, error) {
 	return nil, nil
 }
@@ -156,6 +160,7 @@ func (r *managedConfiguration) LoadCredentials(context.Context) ([]settings.Cred
 	}
 	return rows, nil
 }
+
 func (r *managedConfiguration) SaveCredential(_ context.Context, revision int64, row settings.CredentialRecord) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

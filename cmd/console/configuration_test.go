@@ -9,22 +9,22 @@ import (
 
 func TestReadSetupTokenRequiresPrivateBoundedRegularFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "setup-token")
-	if err := os.WriteFile(path, []byte("private-token\n"), 0600); err != nil {
+	if err := os.WriteFile(path, []byte("private-token\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if data, err := readSetupToken(path); err != nil || string(data) != "private-token\n" {
 		t.Fatal("private token file was not read")
 	}
-	if err := os.Chmod(path, 0644); err != nil {
+	if err := os.Chmod(path, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := readSetupToken(path); err == nil {
 		t.Fatal("public token file was accepted")
 	}
-	if err := os.Chmod(path, 0600); err != nil {
+	if err := os.Chmod(path, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path, []byte(strings.Repeat("x", 257)), 0600); err != nil {
+	if err := os.WriteFile(path, []byte(strings.Repeat("x", 257)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := readSetupToken(path); err == nil {
@@ -64,7 +64,7 @@ func TestBootstrapSeedPermitsBrowserSetupAndRejectsPartialIdentity(t *testing.T)
 func TestBootstrapSeedRetainsCompleteYAMLIdentity(t *testing.T) {
 	clearBootstrapEnvironment(t)
 	path := filepath.Join(t.TempDir(), "seed.yaml")
-	if err := os.WriteFile(path, []byte("maxBackupAgeHours: 24\nstartupGraceMinutes: 10\nidentity:\n  issuer: https://identity.example\n  clientId: console\n  clientSecret: seed-secret\n  groupsClaim: groups\nusers:\n  - subject: seeded-admin\n    admin: true\n"), 0600); err != nil {
+	if err := os.WriteFile(path, []byte("maxBackupAgeHours: 24\nstartupGraceMinutes: 10\nidentity:\n  issuer: https://identity.example\n  clientId: console\n  clientSecret: seed-secret\n  groupsClaim: groups\nusers:\n  - subject: seeded-admin\n    admin: true\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	seed, err := bootstrapSeed(path)

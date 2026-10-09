@@ -19,9 +19,11 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/config"
 )
 
-var ErrConflict = errors.New("configuration revision changed")
-var ErrMissing = errors.New("configuration is not initialized")
-var ErrInvalid = errors.New("configuration is invalid")
+var (
+	ErrConflict = errors.New("configuration revision changed")
+	ErrMissing  = errors.New("configuration is not initialized")
+	ErrInvalid  = errors.New("configuration is invalid")
+)
 
 type Record struct {
 	Revision int64
@@ -196,6 +198,7 @@ func hasAdmin(c config.Config) bool {
 	}
 	return false
 }
+
 func clone(c config.Config) config.Config {
 	result := c
 	result.Connections = slices.Clone(c.Connections)
@@ -230,6 +233,7 @@ func clone(c config.Config) config.Config {
 	}
 	return result
 }
+
 func cloneScopes(scopes []config.Scope) []config.Scope {
 	result := slices.Clone(scopes)
 	for i := range result {
@@ -237,6 +241,7 @@ func cloneScopes(scopes []config.Scope) []config.Scope {
 	}
 	return result
 }
+
 func (s *Service) Current() (config.Config, int64) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -248,6 +253,7 @@ func (s *Service) Resolve(_ context.Context, subject string, groups []string) (c
 	defer s.mu.RUnlock()
 	return s.configuration.Resolve(subject, groups)
 }
+
 func (s *Service) History(ctx context.Context) ([]Change, error) {
 	return s.repository.SettingsHistory(ctx)
 }
@@ -350,6 +356,7 @@ func (s *Service) Apply(ctx context.Context, revision int64, write func(context.
 	}
 	return write(ctx)
 }
+
 func (s *Service) encrypt(configuration config.Config) ([]byte, error) {
 	plaintext, err := json.Marshal(configuration)
 	if err != nil {
@@ -362,6 +369,7 @@ func (s *Service) encrypt(configuration config.Config) ([]byte, error) {
 	}
 	return s.cipher.Seal(nonce, nonce, plaintext, []byte("console-configuration-v1")), nil
 }
+
 func (s *Service) decrypt(payload []byte) (config.Config, error) {
 	var result config.Config
 	if len(payload) < s.cipher.NonceSize() {

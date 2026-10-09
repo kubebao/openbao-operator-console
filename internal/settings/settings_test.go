@@ -77,6 +77,7 @@ func (r *memoryRepository) LoadSettings(context.Context) (Record, error) {
 	}
 	return r.record, nil
 }
+
 func (r *memoryRepository) SaveSettings(_ context.Context, revision int64, payload []byte, actor, summary string, writes []CredentialRecord, keep []string) (Record, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -108,14 +109,17 @@ func (r *memoryRepository) SaveSettings(_ context.Context, revision int64, paylo
 	r.changes = append(r.changes, Change{Revision: revision + 1, Actor: actor, Summary: summary, At: time.Now()})
 	return r.record, nil
 }
+
 func (r *memoryRepository) SettingsHistory(context.Context) ([]Change, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return append([]Change{}, r.changes...), nil
 }
+
 func seed() config.Config {
 	return config.Config{MaxBackupAgeHours: 24, Users: []config.User{{Subject: "admin", Admin: true}, {Subject: "reader", Scopes: []config.Scope{{ConnectionID: "cluster", Namespaces: []string{"team"}}}}}, Connections: []config.Connection{{ID: "cluster", Name: "Cluster", Namespaces: []config.Namespace{{Name: "team", Environment: "production"}}, Credential: &config.Credential{Server: "https://api.example", Token: "credential-never-plaintext"}}}}
 }
+
 func TestEncryptionRestartConflictAndRevocation(t *testing.T) {
 	ctx := context.Background()
 	repository := &memoryRepository{}
@@ -158,6 +162,7 @@ func TestEncryptionRestartConflictAndRevocation(t *testing.T) {
 		t.Fatal("last administrator removed")
 	}
 }
+
 func TestCurrentReturnsAnIndependentConfiguration(t *testing.T) {
 	service, err := New(context.Background(), &memoryRepository{}, bytes.Repeat([]byte{1}, 32), seed())
 	if err != nil {
@@ -181,6 +186,7 @@ func (r *memoryRepository) LoadCredentials(context.Context) ([]CredentialRecord,
 	}
 	return rows, nil
 }
+
 func (r *memoryRepository) SaveCredential(_ context.Context, revision int64, row CredentialRecord) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

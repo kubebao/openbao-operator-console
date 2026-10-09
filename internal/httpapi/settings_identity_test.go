@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+
 	"github.com/kubebao/openbao-operator-console/internal/auth"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
@@ -16,6 +17,7 @@ import (
 func testProviderCA(provider *httptest.Server) string {
 	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: provider.Certificate().Raw}))
 }
+
 func testAuthenticator(t *testing.T, provider *httptest.Server, service *settings.Service) *auth.Authenticator {
 	t.Helper()
 	a, err := auth.NewOIDC(oidc.ClientContext(context.Background(), provider.Client()), provider.URL, "console", "secret", "https://console.example/auth/callback", nil)
@@ -25,6 +27,7 @@ func testAuthenticator(t *testing.T, provider *httptest.Server, service *setting
 	a.SetResolver(service.Resolve)
 	return a
 }
+
 func completeTestLogin(t *testing.T, provider *httptest.Server, a *auth.Authenticator, location string, cookies []*http.Cookie) *http.Cookie {
 	t.Helper()
 	client := provider.Client()

@@ -25,6 +25,7 @@ func (r *lifecycleRepository) CredentialTargets() []settings.RenewalTarget {
 	defer r.mu.Unlock()
 	return []settings.RenewalTarget{r.target}
 }
+
 func (r *lifecycleRepository) UpdateCredential(_ context.Context, target settings.RenewalTarget, state settings.CredentialState) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -52,12 +53,14 @@ func (i *lifecycleIssuer) Issue(_ context.Context, c config.Connection, now time
 	credential.Token = "replacement"
 	return credential, now.Add(24 * time.Hour), i.err
 }
+
 func lifecycle() (*lifecycleRepository, *lifecycleIssuer, Manager) {
 	credential := config.Credential{Server: "https://api.example", Token: "initial"}
 	r := &lifecycleRepository{target: settings.RenewalTarget{ConfigurationRevision: 1, CredentialRevision: 1, Connection: config.Connection{ID: "one", Credential: &credential, Renewal: &config.TokenRenewal{Namespace: "reader-system", ServiceAccount: "reader"}}, State: settings.CredentialState{Credential: credential, State: settings.RenewalPending}}}
 	issuer := &lifecycleIssuer{}
 	return r, issuer, Manager{Repository: r, Issuer: issuer, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 }
+
 func TestRenewalSchedulePersistsAndRetainsCredentialOnFailure(t *testing.T) {
 	r, issuer, manager := lifecycle()
 	now := time.Now().UTC()
@@ -85,6 +88,7 @@ func TestRenewalSchedulePersistsAndRetainsCredentialOnFailure(t *testing.T) {
 		t.Fatal("renewal did not recover before expiry")
 	}
 }
+
 func TestExpiredAndRejectedTokensStopUntilReconnect(t *testing.T) {
 	for _, verified := range []bool{true, false} {
 		r, issuer, manager := lifecycle()
@@ -108,6 +112,7 @@ func TestExpiredAndRejectedTokensStopUntilReconnect(t *testing.T) {
 		}
 	}
 }
+
 func TestPausedManualAndFailedPersistenceNeverReplaceCredentials(t *testing.T) {
 	r, issuer, manager := lifecycle()
 	now := time.Now().UTC()

@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kubebao/openbao-operator-console/internal/config"
 	"k8s.io/client-go/rest"
+
+	"github.com/kubebao/openbao-operator-console/internal/config"
 )
 
 func TestRealServiceAccountSelfRenewalAndNamedPermissionBoundary(t *testing.T) {

@@ -18,9 +18,11 @@ import (
 var imageReference = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/:-]*(?:@sha256:[a-f0-9]{64})?$`)
 
 func (r *Reader) operator(ctx context.Context, enrolled config.Operator, now time.Time) contract.Operator {
-	result := contract.Operator{Id: enrolled.ID, Namespace: enrolled.Namespace, Name: enrolled.Deployment,
+	result := contract.Operator{
+		Id: enrolled.ID, Namespace: enrolled.Namespace, Name: enrolled.Deployment,
 		Container: enrolled.Container, Namespaces: append([]string{}, enrolled.Namespaces...),
-		Collection: "current", LastAttemptAt: now, Health: "unknown"}
+		Collection: "current", LastAttemptAt: now, Health: "unknown",
+	}
 	workload, err := r.client.Resource(schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}).
 		Namespace(enrolled.Namespace).Get(ctx, enrolled.Deployment, metav1.GetOptions{})
 	if err != nil {

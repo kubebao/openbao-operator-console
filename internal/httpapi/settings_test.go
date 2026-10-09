@@ -180,6 +180,7 @@ func (r *configurationRepository) LoadSettings(context.Context) (settings.Record
 	}
 	return r.record, nil
 }
+
 func (r *configurationRepository) SaveSettings(_ context.Context, revision int64, payload []byte, actor, summary string, writes []settings.CredentialRecord, keep []string) (settings.Record, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -211,11 +212,13 @@ func (r *configurationRepository) SaveSettings(_ context.Context, revision int64
 	r.changes = append(r.changes, settings.Change{Revision: revision + 1, Actor: actor, Summary: summary, At: time.Now()})
 	return r.record, nil
 }
+
 func (r *configurationRepository) SettingsHistory(context.Context) ([]settings.Change, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return append([]settings.Change{}, r.changes...), nil
 }
+
 func configurationService(t *testing.T) *settings.Service {
 	t.Helper()
 	service, err := settings.New(context.Background(), &configurationRepository{}, bytes.Repeat([]byte{5}, 32), config.Config{MaxBackupAgeHours: 24, Users: []config.User{{Subject: "admin", Admin: true}, {Subject: "reader"}}, Identity: &config.Identity{Issuer: "https://identity.example", ClientID: "console", ClientSecret: "private-client-secret"}, Connections: []config.Connection{{ID: "cluster", Name: "Cluster", Namespaces: []config.Namespace{{Name: "team", Environment: "production"}}, Credential: &config.Credential{Server: "https://api.example", Token: "private-reader-token"}}}})
@@ -224,6 +227,7 @@ func configurationService(t *testing.T) *settings.Service {
 	}
 	return service
 }
+
 func TestSettingsAuthorizationRedactionConflictAndCredentialPreservation(t *testing.T) {
 	service := configurationService(t)
 	handler := (&Server{Repository: &memoryRepository{}, Auth: viewerAuth{user: config.User{Subject: "admin", Admin: true}, allowed: true}, Settings: service, Origin: "https://console.example"}).Handler()
@@ -277,6 +281,7 @@ func TestSettingsAuthorizationRedactionConflictAndCredentialPreservation(t *test
 		}
 	}
 }
+
 func TestEnrollmentChangesImmediatelyFilterOldObservations(t *testing.T) {
 	now := time.Now()
 	c := config.Config{Connections: []config.Connection{{ID: "cluster", Name: "New name", Disabled: true, Namespaces: []config.Namespace{{Name: "team", Environment: "production"}}, Operators: []config.Operator{{ID: "operator", Namespace: "system", Deployment: "new-controller", Container: "manager", Namespaces: []string{"team"}}}}}}
@@ -348,6 +353,7 @@ func (r *configurationRepository) LoadCredentials(context.Context) ([]settings.C
 	}
 	return rows, nil
 }
+
 func (r *configurationRepository) SaveCredential(_ context.Context, revision int64, row settings.CredentialRecord) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

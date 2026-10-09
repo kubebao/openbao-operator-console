@@ -24,9 +24,11 @@ func (r recordingRepository) Apply(_ context.Context, batch store.Batch) error {
 	r.applied <- batch.Connection.Id
 	return nil
 }
+
 func (recordingRepository) Snapshot(context.Context) (contract.Snapshot, error) {
 	return contract.Snapshot{}, nil
 }
+
 func (recordingRepository) History(context.Context, string) ([]contract.Observation, error) {
 	return nil, nil
 }

@@ -21,9 +21,11 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
-const setupCookie = "__Host-console-setup"
-const setupSessionLifetime = 15 * time.Minute
-const setupTokenLifetime = time.Hour
+const (
+	setupCookie          = "__Host-console-setup"
+	setupSessionLifetime = 15 * time.Minute
+	setupTokenLifetime   = time.Hour
+)
 
 type setupSession struct {
 	expires time.Time

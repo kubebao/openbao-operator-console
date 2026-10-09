@@ -33,6 +33,7 @@ users:
 		t.Fatal("unused executable context accepted")
 	}
 }
+
 func TestGroupBindingsNeverGrantUnenrolledNamespaces(t *testing.T) {
 	c := Config{Connections: []Connection{{ID: "cluster", Namespaces: []Namespace{{Name: "team"}}}}, Groups: []Group{{Name: "platform", Scopes: []Scope{{ConnectionID: "cluster", Namespaces: []string{"team", "hidden"}}}}}}
 	user, allowed := c.Resolve("subject", []string{"platform"})

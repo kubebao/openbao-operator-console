@@ -26,6 +26,7 @@ func scopesView(scopes []config.Scope) []contract.Scope {
 	}
 	return result
 }
+
 func scopesInput(scopes []contract.Scope) []config.Scope {
 	result := []config.Scope{}
 	for _, scope := range scopes {
@@ -33,6 +34,7 @@ func scopesInput(scopes []contract.Scope) []config.Scope {
 	}
 	return result
 }
+
 func connectionView(c config.Connection) contract.ManagedConnection {
 	result := contract.ManagedConnection{Id: c.ID, Name: c.Name, Region: c.Region, Disabled: c.Disabled, Authentication: "local", Namespaces: []contract.ManagedNamespace{}, Operators: []contract.ManagedOperator{}}
 	if c.Credential != nil {
@@ -51,6 +53,7 @@ func connectionView(c config.Connection) contract.ManagedConnection {
 	}
 	return result
 }
+
 func connectionInput(c contract.ManagedConnection, old *config.Connection) (config.Connection, error) {
 	result := config.Connection{ID: c.Id, Name: c.Name, Region: c.Region, Disabled: c.Disabled, Namespaces: []config.Namespace{}, Operators: []config.Operator{}}
 	switch c.Authentication {
@@ -74,12 +77,15 @@ func connectionInput(c contract.ManagedConnection, old *config.Connection) (conf
 	}
 	return result, nil
 }
+
 func resourceView(r config.ResourceRef) contract.ResourceRef {
 	return contract.ResourceRef{ConnectionId: r.ConnectionID, Namespace: r.Namespace, Name: r.Name, Uid: r.UID}
 }
+
 func resourceInput(r contract.ResourceRef) config.ResourceRef {
 	return config.ResourceRef{ConnectionID: r.ConnectionId, Namespace: r.Namespace, Name: r.Name, UID: r.Uid}
 }
+
 func configurationView(c config.Config) contract.Configuration {
 	result := contract.Configuration{Connections: []contract.ManagedConnection{}, Users: []contract.ManagedUser{}, Groups: []contract.GroupBinding{}, Relationships: []contract.ManagedRelationship{}, MaxBackupAgeHours: c.MaxBackupAgeHours, StartupGraceMinutes: c.StartupGraceMinutes}
 	for _, connection := range c.Connections {
@@ -96,6 +102,7 @@ func configurationView(c config.Config) contract.Configuration {
 	}
 	return result
 }
+
 func credentialInput(credential *contract.ClusterCredential, kubeconfig, contextName *string) (*config.Credential, error) {
 	if credential != nil && kubeconfig != nil {
 		return nil, fmt.Errorf("supply structured credentials or a kubeconfig")
@@ -114,6 +121,7 @@ func credentialInput(credential *contract.ClusterCredential, kubeconfig, context
 	}
 	return nil, nil
 }
+
 func configurationInput(input contract.SettingsUpdate, previous config.Config) (config.Config, error) {
 	result := config.Config{Connections: []config.Connection{}, Users: []config.User{}, Groups: []config.Group{}, Relationships: []config.Relationship{}, MaxBackupAgeHours: input.Configuration.MaxBackupAgeHours, StartupGraceMinutes: input.Configuration.StartupGraceMinutes, Identity: previous.Identity}
 	old := map[string]config.Connection{}
@@ -167,6 +175,7 @@ func configurationInput(input contract.SettingsUpdate, previous config.Config) (
 	}
 	return result, result.Validate()
 }
+
 func (s *Server) settingsView(ctx context.Context) (contract.Settings, error) {
 	configuration, revision := s.Settings.Current()
 	result := contract.Settings{Revision: revision, Configuration: configurationView(configuration), Changes: []contract.SettingsChange{}}
@@ -182,6 +191,7 @@ func (s *Server) settingsView(ctx context.Context) (contract.Settings, error) {
 	}
 	return result, nil
 }
+
 func (s *Server) administrator(w http.ResponseWriter, r *http.Request) (config.User, bool) {
 	user, allowed := s.Auth.Viewer(r)
 	if !allowed {
@@ -202,6 +212,7 @@ func (s *Server) administrator(w http.ResponseWriter, r *http.Request) (config.U
 	}
 	return user, true
 }
+
 func decodeBody[T any](w http.ResponseWriter, r *http.Request) (T, error) {
 	var result T
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
@@ -377,12 +388,15 @@ func (s *Server) settingsRoutes(mux *http.ServeMux) {
 		if deployments == nil {
 			deployments = []contract.Deployment{}
 		}
-		jsonResponse(w, 200, contract.ConnectionCheckResult{Connection: batch.Connection, Rbac: access.Rbac, Deployments: deployments,
+		jsonResponse(w, 200, contract.ConnectionCheckResult{
+			Connection: batch.Connection, Rbac: access.Rbac, Deployments: deployments,
 			Diagnostics:      contract.ConnectionDiagnostic{State: diagnostic.State, Message: diagnostic.Message},
-			CredentialExpiry: credentialExpiryView(connection.Credential)})
+			CredentialExpiry: credentialExpiryView(connection.Credential),
+		})
 	})
 	mux.HandleFunc("POST /api/v1/settings/identity/trial", s.identityTrial)
 }
+
 func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request) {
 	actor, ok := s.administrator(w, r)
 	if !ok {

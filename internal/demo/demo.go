@@ -20,7 +20,8 @@ type Repository struct {
 func ptr[T any](value T) *T { return &value }
 
 func New(now time.Time) *Repository {
-	snapshot := contract.Snapshot{Mode: "demo", CollectedAt: now, Policy: contract.AttentionPolicy{MaxBackupAgeHours: 24, StartupGraceMinutes: 10},
+	snapshot := contract.Snapshot{
+		Mode: "demo", CollectedAt: now, Policy: contract.AttentionPolicy{MaxBackupAgeHours: 24, StartupGraceMinutes: 10},
 		Deployments: []contract.Deployment{}, Relationships: []contract.Relationship{}, Activity: []contract.Activity{},
 		Connections: []contract.Connection{
 			{Id: "prod-eu-1", Name: "prod-eu-1", Region: "eu-west-1", Collection: "current", LastAttemptAt: now, LastSuccessAt: &now, Namespaces: []string{"payments", "identity", "platform"}},
@@ -70,14 +71,17 @@ func New(now time.Time) *Repository {
 		{"edge", "edge-bao", "edge", "edge", "Edge", "Rotterdam", "other", "primary"},
 	}
 	for _, row := range rows {
-		d := contract.Deployment{Id: row.id, Uid: "demo-" + row.id, Name: row.name, Namespace: row.namespace,
+		d := contract.Deployment{
+			Id: row.id, Uid: "demo-" + row.id, Name: row.name, Namespace: row.namespace,
 			ConnectionId: row.connection, Location: row.location, Team: row.team, Environment: row.environment,
 			Version: "2.7.0", DesiredVersion: "2.7.0", OperatorVersion: ptr("development"), Role: row.role,
 			Generation: 3, ResourceVersion: "demo-42", ReadyReplicas: ptr(int32(3)), DesiredReplicas: ptr(int32(3)),
 			Evidence:   contract.Evidence{CollectedAt: now, LastAttemptAt: now, Collection: "current", ProducerFreshness: "unknown"},
 			Conditions: []contract.Condition{{Type: "Available", Status: "True", Reason: "AllReplicasReady", Message: "All configured replicas are ready.", ObservedGeneration: 3, LastTransitionAt: ptr(now.Add(-48 * time.Hour))}},
-			Backup: &contract.Backup{LastSuccessAt: ptr(now.Add(-14 * time.Minute)), NextAt: ptr(now.Add(24 * time.Hour)), Key: ptr(row.namespace + "/" + now.Format("2006-01-02") + ".snapshot"), Digest: ptr("sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"), SizeBytes: ptr(int64(1288490188)),
-				RestoreTest: &contract.RestoreTest{Outcome: "passed", FinishedAt: ptr(now.Add(-72 * time.Hour)), LastSuccessAt: ptr(now.Add(-72 * time.Hour)), Key: ptr(row.namespace + "/restore-test.snapshot"), Reason: "SnapshotApplied"}},
+			Backup: &contract.Backup{
+				LastSuccessAt: ptr(now.Add(-14 * time.Minute)), NextAt: ptr(now.Add(24 * time.Hour)), Key: ptr(row.namespace + "/" + now.Format("2006-01-02") + ".snapshot"), Digest: ptr("sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"), SizeBytes: ptr(int64(1288490188)),
+				RestoreTest: &contract.RestoreTest{Outcome: "passed", FinishedAt: ptr(now.Add(-72 * time.Hour)), LastSuccessAt: ptr(now.Add(-72 * time.Hour)), Key: ptr(row.namespace + "/restore-test.snapshot"), Reason: "SnapshotApplied"},
+			},
 		}
 		if row.role == "replica" {
 			d.Backup = nil

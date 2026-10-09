@@ -159,6 +159,7 @@ func (s *Service) ReaderConfiguration() (config.Config, int64, uint64) {
 	defer s.mu.RUnlock()
 	return clone(s.configuration), s.revision, s.readerGeneration
 }
+
 func (s *Service) ApplyCollection(ctx context.Context, revision int64, generation uint64, write func(context.Context) error) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -180,6 +181,7 @@ func (s *Service) encryptCredential(id string, stored StoredCredential) (Credent
 	}
 	return CredentialRecord{ConnectionID: id, Revision: stored.Revision, Payload: s.cipher.Seal(nonce, nonce, plaintext, []byte("console-reader-credential-v1:"+id))}, nil
 }
+
 func (s *Service) decryptCredential(row CredentialRecord) (CredentialState, error) {
 	var state CredentialState
 	if row.Revision < 1 || len(row.Payload) < s.cipher.NonceSize() {

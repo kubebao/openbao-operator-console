@@ -84,9 +84,11 @@ func testLiveSession(t *testing.T, keycloak bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	id := fmt.Sprintf("qualification-%d", time.Now().UnixNano())
-	connection := config.Connection{ID: id, Name: "Qualification", Kubeconfig: kubeconfig, Context: "kind-console-dev",
+	connection := config.Connection{
+		ID: id, Name: "Qualification", Kubeconfig: kubeconfig, Context: "kind-console-dev",
 		Namespaces: []config.Namespace{{Name: "console-sample", Environment: "development"}},
-		Operators:  []config.Operator{{ID: "operator", Namespace: "console-system", Deployment: "console-operator-openbao-operator-controller", Container: "manager", Namespaces: []string{"console-sample"}}}}
+		Operators:  []config.Operator{{ID: "operator", Namespace: "console-system", Deployment: "console-operator-openbao-operator-controller", Container: "manager", Namespaces: []string{"console-sample"}}},
+	}
 	reader, err := collector.New(connection, evidence.Policy{MaxBackupAge: 24 * time.Hour})
 	if err != nil {
 		t.Fatal(err)

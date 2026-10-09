@@ -15,9 +15,10 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"golang.org/x/oauth2"
+
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/contract"
-	"golang.org/x/oauth2"
 )
 
 type session struct {
@@ -40,18 +41,20 @@ type transaction struct {
 	activate        func(context.Context, string, []string) error
 	setup           bool
 }
-type Resolver func(context.Context, string, []string) (config.User, bool)
-type Authenticator struct {
-	mu           sync.Mutex
-	demo         bool
-	users        map[string]config.User
-	sessions     map[string]session
-	transactions map[string]transaction
-	provider     providerState
-	generation   int64
-	resolver     Resolver
-	pending      bool
-}
+type (
+	Resolver      func(context.Context, string, []string) (config.User, bool)
+	Authenticator struct {
+		mu           sync.Mutex
+		demo         bool
+		users        map[string]config.User
+		sessions     map[string]session
+		transactions map[string]transaction
+		provider     providerState
+		generation   int64
+		resolver     Resolver
+		pending      bool
+	}
+)
 
 func NewDemo() *Authenticator { return &Authenticator{demo: true} }
 
@@ -95,16 +98,19 @@ func NewOIDC(ctx context.Context, issuer, clientID, clientSecret, redirect strin
 	}
 	return result, nil
 }
+
 func (a *Authenticator) SetResolver(resolver Resolver) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.resolver = resolver
 }
+
 func (a *Authenticator) SetGroupsClaim(claim string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.provider.groupsClaim = claim
 }
+
 func (a *Authenticator) ReplaceProvider(candidate *Authenticator) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -114,6 +120,7 @@ func (a *Authenticator) ReplaceProvider(candidate *Authenticator) {
 	a.sessions = map[string]session{}
 	a.transactions = map[string]transaction{}
 }
+
 func (a *Authenticator) resolve(ctx context.Context, subject string, groups []string) (config.User, bool) {
 	a.mu.Lock()
 	resolver := a.resolver
@@ -124,6 +131,7 @@ func (a *Authenticator) resolve(ctx context.Context, subject string, groups []st
 	}
 	return user, allowed
 }
+
 func (a *Authenticator) Viewer(request *http.Request) (config.User, bool) {
 	if a.demo {
 		return config.User{Subject: "local-demo", Name: "Platform team"}, true
@@ -142,6 +150,7 @@ func (a *Authenticator) Viewer(request *http.Request) (config.User, bool) {
 	a.mu.Unlock()
 	return a.resolve(request.Context(), s.subject, s.groups)
 }
+
 func randomToken() (string, error) {
 	data := make([]byte, 32)
 	if _, err := rand.Read(data); err != nil {
@@ -149,6 +158,7 @@ func randomToken() (string, error) {
 	}
 	return base64.RawURLEncoding.EncodeToString(data), nil
 }
+
 func safeReturn(value string) string {
 	parsed, err := url.Parse(value)
 	if err != nil || !strings.HasPrefix(value, "/") || strings.HasPrefix(value, "//") || parsed.Host != "" || parsed.IsAbs() || strings.ContainsAny(value, "\\\r\n") || strings.HasPrefix(parsed.Path, "/auth/") {
@@ -156,6 +166,7 @@ func safeReturn(value string) string {
 	}
 	return value
 }
+
 func (a *Authenticator) begin(w http.ResponseWriter, provider providerState, returnTo string, setup bool, activate func(context.Context, string, []string) error) (string, error) {
 	state, err := randomToken()
 	if err != nil {
@@ -186,6 +197,7 @@ func (a *Authenticator) begin(w http.ResponseWriter, provider providerState, ret
 	http.SetCookie(w, &http.Cookie{Name: "__Host-console-state", Value: state, Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 300})
 	return provider.oauth.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier), oidc.Nonce(nonce)), nil
 }
+
 func (a *Authenticator) Login(w http.ResponseWriter, request *http.Request) {
 	if a.demo {
 		http.Redirect(w, request, "/", http.StatusSeeOther)
@@ -241,6 +253,7 @@ func callbackFailure(w http.ResponseWriter, request *http.Request, setup bool, r
 	}
 	http.Redirect(w, request, "/?signin="+string(result), http.StatusSeeOther)
 }
+
 func (a *Authenticator) Callback(w http.ResponseWriter, request *http.Request) {
 	if a.demo {
 		http.NotFound(w, request)
@@ -341,12 +354,14 @@ func (tx transaction) fail(w http.ResponseWriter, request *http.Request, status 
 	}
 	callbackFailure(w, request, tx.setup, result)
 }
+
 func verifiedNonce(token *oidc.IDToken) string {
 	if token == nil {
 		return ""
 	}
 	return token.Nonce
 }
+
 func (a *Authenticator) Logout(w http.ResponseWriter, request *http.Request) {
 	if cookie, err := request.Cookie("__Host-console-session"); err == nil {
 		a.mu.Lock()
@@ -356,6 +371,7 @@ func (a *Authenticator) Logout(w http.ResponseWriter, request *http.Request) {
 	http.SetCookie(w, &http.Cookie{Name: "__Host-console-session", Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: -1})
 	http.Redirect(w, request, "/?signin="+string(SignInSignedOut), http.StatusSeeOther)
 }
+
 func Allowed(user config.User, deployment contract.Deployment) bool {
 	for _, scope := range user.Scopes {
 		if scope.ConnectionID != deployment.ConnectionId {
@@ -371,7 +387,8 @@ func Allowed(user config.User, deployment contract.Deployment) bool {
 }
 
 func Scope(snapshot contract.Snapshot, user config.User, demo bool) contract.Snapshot {
-	result := contract.Snapshot{Mode: snapshot.Mode, CollectedAt: snapshot.CollectedAt, Policy: snapshot.Policy,
+	result := contract.Snapshot{
+		Mode: snapshot.Mode, CollectedAt: snapshot.CollectedAt, Policy: snapshot.Policy,
 		Deployments: []contract.Deployment{}, Connections: []contract.Connection{}, Relationships: []contract.Relationship{}, Activity: []contract.Activity{},
 		Viewer: contract.Viewer{Name: user.Name, Subject: user.Subject, Admin: user.Admin, ConnectionIds: []string{}},
 	}

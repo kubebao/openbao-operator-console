@@ -19,6 +19,7 @@ import (
 func serviceToken(marker string) string {
 	return "e30." + base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"system:serviceaccount:reader-system:reader","marker":"`+marker+`"}`)) + ".signature"
 }
+
 func TestIssuerOnlyCreatesNamedTokenThenValidatesScopedReads(t *testing.T) {
 	for _, responseCode := range []int{201, 401, 403, 500} {
 		t.Run(http.StatusText(responseCode), func(t *testing.T) {
@@ -78,6 +79,7 @@ func TestIssuerOnlyCreatesNamedTokenThenValidatesScopedReads(t *testing.T) {
 		})
 	}
 }
+
 func TestIssuerNeverFollowsCredentialBearingRedirect(t *testing.T) {
 	reached := false
 	destination := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { reached = true }))

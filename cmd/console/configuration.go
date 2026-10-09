@@ -19,7 +19,7 @@ func readSetupToken(path string) ([]byte, error) {
 	}
 	defer func() { _ = file.Close() }()
 	info, err := file.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0007 != 0 {
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o007 != 0 {
 		return nil, fmt.Errorf("setup token file must be a regular file without permissions for other users")
 	}
 	data, err := io.ReadAll(io.LimitReader(file, 257))

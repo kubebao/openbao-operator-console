@@ -3,7 +3,9 @@ package store
 import (
 	"context"
 	"errors"
+
 	"github.com/jackc/pgx/v5"
+
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 	"github.com/kubebao/openbao-operator-console/internal/store/database"
 )
@@ -15,6 +17,7 @@ func (p *Postgres) LoadSettings(ctx context.Context) (settings.Record, error) {
 	}
 	return settings.Record{Revision: row.Revision, Payload: row.Ciphertext}, err
 }
+
 func (p *Postgres) SaveSettings(ctx context.Context, revision int64, payload []byte, actor, summary string, credentials []settings.CredentialRecord, keep []string) (settings.Record, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
@@ -50,6 +53,7 @@ func (p *Postgres) SaveSettings(ctx context.Context, revision int64, payload []b
 	}
 	return settings.Record{Revision: revision + 1, Payload: payload}, nil
 }
+
 func (p *Postgres) SettingsHistory(ctx context.Context) ([]settings.Change, error) {
 	rows, err := database.New(p.pool).ListSettingsChanges(ctx)
 	if err != nil {

@@ -11,11 +11,12 @@ import (
 	"net/url"
 	"time"
 
+	"k8s.io/client-go/rest"
+
 	"github.com/kubebao/openbao-operator-console/internal/collector"
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/evidence"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
-	"k8s.io/client-go/rest"
 )
 
 type Failure struct{ State settings.RenewalState }

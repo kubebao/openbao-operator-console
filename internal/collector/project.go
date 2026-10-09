@@ -17,9 +17,11 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/evidence"
 )
 
-var identifier = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$`)
-var digestPattern = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
-var decimalIndex = regexp.MustCompile(`^(0|[1-9][0-9]{0,19})$`)
+var (
+	identifier    = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$`)
+	digestPattern = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
+	decimalIndex  = regexp.MustCompile(`^(0|[1-9][0-9]{0,19})$`)
+)
 
 func ResourceID(connection, namespace, name, uid string) string {
 	sum := sha256.Sum256([]byte(strings.Join([]string{connection, namespace, name, uid}, "\x00")))

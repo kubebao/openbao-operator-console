@@ -33,6 +33,7 @@ func (*memoryRepository) Apply(context.Context, store.Batch) error { return nil 
 func (m *memoryRepository) Snapshot(context.Context) (contract.Snapshot, error) {
 	return m.snapshot, nil
 }
+
 func (m *memoryRepository) History(context.Context, string) ([]contract.Observation, error) {
 	m.historyReads++
 	return []contract.Observation{}, nil

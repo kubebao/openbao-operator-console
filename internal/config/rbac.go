@@ -72,9 +72,11 @@ func WriteRBAC(w io.Writer, connection Connection, serviceAccount, serviceNamesp
 		if err := emit(map[string]interface{}{"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "Role", "metadata": metadata, "rules": rules[namespace]}); err != nil {
 			return err
 		}
-		if err := emit(map[string]interface{}{"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "RoleBinding", "metadata": metadata,
+		if err := emit(map[string]interface{}{
+			"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "RoleBinding", "metadata": metadata,
 			"subjects": []map[string]string{{"kind": "ServiceAccount", "name": serviceAccount, "namespace": serviceNamespace}},
-			"roleRef":  map[string]string{"apiGroup": "rbac.authorization.k8s.io", "kind": "Role", "name": roleName}}); err != nil {
+			"roleRef":  map[string]string{"apiGroup": "rbac.authorization.k8s.io", "kind": "Role", "name": roleName},
+		}); err != nil {
 			return err
 		}
 	}
