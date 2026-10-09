@@ -10,23 +10,24 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/store"
 )
 
-type revisionRepository struct {
-	store.Repository
+// revisionSink drops a batch when the configuration that produced it was superseded.
+type revisionSink struct {
+	sink       Sink
 	settings   *settings.Service
 	revision   int64
 	generation uint64
 }
 
-func (r revisionRepository) Apply(ctx context.Context, batch store.Batch) error {
+func (r revisionSink) Apply(ctx context.Context, batch store.Batch) error {
 	return r.settings.ApplyCollection(
 		ctx,
 		r.revision,
 		r.generation,
-		func(ctx context.Context) error { return r.Repository.Apply(ctx, batch) },
+		func(ctx context.Context) error { return r.sink.Apply(ctx, batch) },
 	)
 }
 
-func RunManaged(ctx context.Context, configuration *settings.Service, repository store.Repository, logger *slog.Logger) {
+func RunManaged(ctx context.Context, configuration *settings.Service, sink Sink, logger *slog.Logger) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	previous := map[string]*Reader{}
@@ -50,7 +51,7 @@ func RunManaged(ctx context.Context, configuration *settings.Service, repository
 		collectRound(
 			ctx,
 			readers,
-			revisionRepository{Repository: repository, settings: configuration, revision: revision, generation: generation},
+			revisionSink{sink: sink, settings: configuration, revision: revision, generation: generation},
 			logger,
 		)
 		select {

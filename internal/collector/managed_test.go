@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/kubebao/openbao-operator-console/internal/config"
-	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 	"github.com/kubebao/openbao-operator-console/internal/store"
 )
@@ -83,14 +82,6 @@ func (r *batchRecorder) Apply(_ context.Context, batch store.Batch) error {
 	return nil
 }
 
-func (*batchRecorder) Snapshot(context.Context) (fleet.Snapshot, error) {
-	return fleet.Snapshot{}, nil
-}
-
-func (*batchRecorder) History(context.Context, string) ([]fleet.Observation, error) {
-	return nil, nil
-}
-func (*batchRecorder) Close() {}
 func TestManagedCollectionAddsPausesAndReconfiguresReaders(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || r.Header.Get("Authorization") != "Bearer reader" {

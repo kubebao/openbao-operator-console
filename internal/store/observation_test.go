@@ -45,7 +45,7 @@ func TestObservationChangedIgnoresStatusChurn(t *testing.T) {
 	current.Evidence.CollectedAt, current.Evidence.LastAttemptAt = later, later
 	current.Replica = &fleet.Replica{ObservedAt: &later, LocalIndex: ptrString("11"), SourceIndex: ptrString("13")}
 	current.Issues[0].LastCheckedAt = later
-	if ObservationChanged(current, previous) {
+	if observationChanged(current, previous) {
 		t.Fatal("resource version, collection times, replica progress, and check times must not record an observation")
 	}
 }
@@ -70,7 +70,7 @@ func TestObservationChangedDetectsDisplayedChanges(t *testing.T) {
 		previous := observationFixture()
 		current := observationFixture()
 		change(&current)
-		if !ObservationChanged(current, previous) {
+		if !observationChanged(current, previous) {
 			t.Fatalf("%s change was not recorded", name)
 		}
 	}

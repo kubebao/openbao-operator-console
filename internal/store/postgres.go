@@ -13,7 +13,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/kubebao/openbao-operator-console/internal/evidence"
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	"github.com/kubebao/openbao-operator-console/internal/store/database"
 )
@@ -135,6 +134,8 @@ func connect(ctx context.Context, pool *pgxpool.Pool) error {
 
 func (p *Postgres) Close() { p.pool.Close() }
 
+// Apply merges a collection batch with the stored state of its connection in one
+// transaction. A per-connection advisory lock serializes concurrent batches.
 func (p *Postgres) Apply(ctx context.Context, batch Batch) error {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
@@ -145,97 +146,12 @@ func (p *Postgres) Apply(ctx context.Context, batch Batch) error {
 		return err
 	}
 	queries := database.New(tx)
-	storedConnection, err := queries.GetConnection(ctx, batch.Connection.ID)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return err
-	}
-	if err == nil {
-		var previousConnection fleet.Connection
-		if err := json.Unmarshal(storedConnection, &previousConnection); err != nil {
-			return fmt.Errorf("decode stored connection: %w", err)
-		}
-		if batch.Connection.Collection != fleet.ConnectionCollectionCurrent {
-			batch.Connection.LastSuccessAt = previousConnection.LastSuccessAt
-		}
-		PreserveOperatorEvidence(&batch.Connection, previousConnection)
-	}
-	previousRows, err := queries.GetConnectionDeployments(ctx, batch.Connection.ID)
+	previous, stored, err := loadConnection(ctx, queries, batch.Connection.ID)
 	if err != nil {
 		return err
 	}
-	previous := make(map[string]fleet.Deployment)
-	for _, row := range previousRows {
-		var d fleet.Deployment
-		if err := json.Unmarshal(row, &d); err != nil {
-			return fmt.Errorf("decode stored deployment: %w", err)
-		}
-		previous[d.ID] = d
-	}
-	if batch.Connection.Collection != fleet.ConnectionCollectionCurrent {
-		batch.Deployments = []fleet.Deployment{}
-		for _, d := range previous {
-			evidence.CollectionFailure(&d, fleet.EvidenceCollection(batch.Connection.Collection), batch.Connection.LastAttemptAt)
-			batch.Deployments = append(batch.Deployments, d)
-			if batch.Connection.LastSuccessAt == nil || d.Evidence.CollectedAt.After(*batch.Connection.LastSuccessAt) {
-				stamp := d.Evidence.CollectedAt
-				batch.Connection.LastSuccessAt = &stamp
-			}
-		}
-	}
-	connection, err := json.Marshal(batch.Connection)
-	if err != nil {
+	if err := writeChanges(ctx, queries, merge(batch, previous, stored)); err != nil {
 		return err
-	}
-	if err := queries.UpsertConnection(ctx, database.UpsertConnectionParams{ID: batch.Connection.ID, Projection: connection}); err != nil {
-		return err
-	}
-	ids := []string{}
-	for _, current := range batch.Deployments {
-		old, exists := previous[current.ID]
-		if exists {
-			PreserveFirstSeen(&current, old)
-		}
-		projection, err := json.Marshal(current)
-		if err != nil {
-			return err
-		}
-		ids = append(ids, current.ID)
-		if err := queries.UpsertDeployment(
-			ctx,
-			database.UpsertDeploymentParams{ID: current.ID, ConnectionID: current.ConnectionID, Projection: projection},
-		); err != nil {
-			return err
-		}
-		stamp := pgtype.Timestamptz{Time: batch.Connection.LastAttemptAt, Valid: true}
-		// Record an observation only for a displayed change, not for resource version churn.
-		if !exists || ObservationChanged(current, old) {
-			if err := queries.InsertObservation(
-				ctx,
-				database.InsertObservationParams{DeploymentID: current.ID, RecordedAt: stamp, Projection: projection},
-			); err != nil {
-				return err
-			}
-			if activity := Transition(current, old, stamp.Time); exists && activity != nil {
-				encoded, err := json.Marshal(activity)
-				if err != nil {
-					return err
-				}
-				if err := queries.InsertActivity(
-					ctx,
-					database.InsertActivityParams{ID: activity.ID, RecordedAt: stamp, Projection: encoded},
-				); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	if batch.Connection.Collection == fleet.ConnectionCollectionCurrent {
-		if err := queries.DeleteMissingDeployments(
-			ctx,
-			database.DeleteMissingDeploymentsParams{ConnectionID: batch.Connection.ID, Column2: ids},
-		); err != nil {
-			return err
-		}
 	}
 	cutoff := pgtype.Timestamptz{Time: time.Now().Add(-p.retention), Valid: true}
 	if err := queries.PruneObservations(ctx, cutoff); err != nil {
@@ -245,6 +161,92 @@ func (p *Postgres) Apply(ctx context.Context, batch Batch) error {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// loadConnection returns the stored connection, or nil before its first batch, and its
+// deployments ordered by ID.
+func loadConnection(ctx context.Context, queries *database.Queries, id string) (*fleet.Connection, []fleet.Deployment, error) {
+	var previous *fleet.Connection
+	row, err := queries.GetConnection(ctx, id)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+	case err != nil:
+		return nil, nil, err
+	default:
+		previous = &fleet.Connection{}
+		if err := json.Unmarshal(row, previous); err != nil {
+			return nil, nil, fmt.Errorf("decode stored connection: %w", err)
+		}
+	}
+	rows, err := queries.GetConnectionDeployments(ctx, id)
+	if err != nil {
+		return nil, nil, err
+	}
+	stored := make([]fleet.Deployment, 0, len(rows))
+	for _, row := range rows {
+		var deployment fleet.Deployment
+		if err := json.Unmarshal(row, &deployment); err != nil {
+			return nil, nil, fmt.Errorf("decode stored deployment: %w", err)
+		}
+		stored = append(stored, deployment)
+	}
+	return previous, stored, nil
+}
+
+func writeChanges(ctx context.Context, queries *database.Queries, changes changes) error {
+	connection, err := json.Marshal(changes.connection)
+	if err != nil {
+		return err
+	}
+	if err := queries.UpsertConnection(
+		ctx,
+		database.UpsertConnectionParams{ID: changes.connection.ID, Projection: connection},
+	); err != nil {
+		return err
+	}
+	ids := make([]string, 0, len(changes.deployments))
+	for _, deployment := range changes.deployments {
+		projection, err := json.Marshal(deployment)
+		if err != nil {
+			return err
+		}
+		ids = append(ids, deployment.ID)
+		if err := queries.UpsertDeployment(
+			ctx,
+			database.UpsertDeploymentParams{ID: deployment.ID, ConnectionID: deployment.ConnectionID, Projection: projection},
+		); err != nil {
+			return err
+		}
+	}
+	recordedAt := pgtype.Timestamptz{Time: changes.connection.LastAttemptAt, Valid: true}
+	for _, deployment := range changes.observations {
+		projection, err := json.Marshal(deployment)
+		if err != nil {
+			return err
+		}
+		if err := queries.InsertObservation(
+			ctx,
+			database.InsertObservationParams{DeploymentID: deployment.ID, RecordedAt: recordedAt, Projection: projection},
+		); err != nil {
+			return err
+		}
+	}
+	for _, activity := range changes.activity {
+		projection, err := json.Marshal(activity)
+		if err != nil {
+			return err
+		}
+		if err := queries.InsertActivity(
+			ctx,
+			database.InsertActivityParams{ID: activity.ID, RecordedAt: recordedAt, Projection: projection},
+		); err != nil {
+			return err
+		}
+	}
+	if !changes.complete {
+		return nil
+	}
+	return queries.DeleteMissingDeployments(ctx, database.DeleteMissingDeploymentsParams{ConnectionID: changes.connection.ID, Column2: ids})
 }
 
 func (p *Postgres) Snapshot(ctx context.Context) (fleet.Snapshot, error) {

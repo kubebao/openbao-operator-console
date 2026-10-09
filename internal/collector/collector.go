@@ -276,11 +276,16 @@ func latestRecovery(requests []unstructured.Unstructured, deployment fleet.Deplo
 	return result
 }
 
-func Run(ctx context.Context, readers []*Reader, repository store.Repository, logger *slog.Logger) {
+// Sink persists collection batches.
+type Sink interface {
+	Apply(context.Context, store.Batch) error
+}
+
+func Run(ctx context.Context, readers []*Reader, sink Sink, logger *slog.Logger) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	for {
-		collectRound(ctx, readers, repository, logger)
+		collectRound(ctx, readers, sink, logger)
 		select {
 		case <-ctx.Done():
 			return
@@ -291,7 +296,7 @@ func Run(ctx context.Context, readers []*Reader, repository store.Repository, lo
 
 // A bounded pool prevents one slow connection from delaying the whole fleet.
 // Rounds do not overlap, so each connection has at most one in-flight collection.
-func collectRound(ctx context.Context, readers []*Reader, repository store.Repository, logger *slog.Logger) {
+func collectRound(ctx context.Context, readers []*Reader, sink Sink, logger *slog.Logger) {
 	jobs := make(chan *Reader)
 	var workers sync.WaitGroup
 	for range min(4, len(readers)) {
@@ -304,7 +309,7 @@ func collectRound(ctx context.Context, readers []*Reader, repository store.Repos
 				batch := reader.Collect(collectCtx, time.Now().UTC())
 				cancel()
 				writeCtx, writeCancel := context.WithTimeout(ctx, 10*time.Second)
-				if err := repository.Apply(writeCtx, batch); err != nil && !errors.Is(err, settings.ErrConflict) && ctx.Err() == nil {
+				if err := sink.Apply(writeCtx, batch); err != nil && !errors.Is(err, settings.ErrConflict) && ctx.Err() == nil {
 					logger.Error("Persist collection failed", "connection", reader.connection.ID)
 				}
 				writeCancel()

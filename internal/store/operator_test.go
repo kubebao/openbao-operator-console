@@ -39,13 +39,13 @@ func TestOperatorFailurePreservesFactsWithoutRestoringAssignments(t *testing.T) 
 			},
 		},
 	}
-	PreserveOperatorEvidence(&current, previous)
+	preserveOperatorEvidence(&current, previous)
 	result := current.Operators[0]
 	if result.Collection != "denied" || result.Version == nil || result.LastSuccessAt == nil || result.Namespaces[0] != "team" {
 		t.Fatal("failed read lost last-known facts or revived old assignments")
 	}
 	current.Operators[0].Name, current.Operators[0].Version = "replacement", nil
-	PreserveOperatorEvidence(&current, previous)
+	preserveOperatorEvidence(&current, previous)
 	if current.Operators[0].Version != nil {
 		t.Fatal("new enrolled workload inherited old evidence")
 	}

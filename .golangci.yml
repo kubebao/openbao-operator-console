@@ -69,9 +69,6 @@ linters:
         path: internal/settings/settings.go
         text: "func `Open`"
       - linters: [gocognit]
-        path: internal/store/postgres.go
-        text: "func `\\(\\*Postgres\\).Apply`"
-      - linters: [gocognit]
         path: _test\.go
         text: "func `(TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay|TestReaderRBACNamesAreStableAndConnectionScoped|testLiveSession|TestConnectionCheckProjectsPreviewWithoutPersistingOrExposingCredentials|TestIssuerOnlyCreatesNamedTokenThenValidatesScopedReads|TestPostgresConfigurationRestartAndConcurrentRevision)`"
 
