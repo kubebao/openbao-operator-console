@@ -82,8 +82,9 @@ func run() error {
 		if err != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
 			return errors.New("demo mode must listen on a loopback IP")
 		}
-		observed = demo.New(time.Now().UTC())
-		authentication = auth.NewDemo()
+		fixtures := demo.New(time.Now().UTC())
+		observed = fixtures
+		authentication = auth.NewDemo(fixtures.Viewer())
 	case "live":
 		dsn := os.Getenv("CONSOLE_DATABASE_URL")
 		if dsn == "" {

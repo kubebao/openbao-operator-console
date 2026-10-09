@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/evidence"
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
 )
@@ -487,6 +488,19 @@ func sortEvents(events []demoEvent) []demoEvent {
 }
 
 func (r *Repository) Snapshot(context.Context) (fleet.Snapshot, error) { return r.snapshot, nil }
+
+// Viewer is the demonstration viewer. Its scopes cover every fixture namespace, so demo
+// mode uses the same authorization path as live mode.
+func (r *Repository) Viewer() config.User {
+	viewer := config.User{Subject: "local-demo", Name: "Platform team", Scopes: []config.Scope{}}
+	for _, connection := range r.snapshot.Connections {
+		viewer.Scopes = append(
+			viewer.Scopes,
+			config.Scope{ConnectionID: connection.ID, Namespaces: append([]string{}, connection.Namespaces...)},
+		)
+	}
+	return viewer
+}
 
 func (r *Repository) History(_ context.Context, id string) ([]fleet.Observation, error) {
 	if observations, ok := r.history[id]; ok {

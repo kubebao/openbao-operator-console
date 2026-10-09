@@ -93,7 +93,7 @@ func (s *Server) Handler() http.Handler {
 			problem(w, http.StatusServiceUnavailable, "unavailable", "Fleet evidence is temporarily unavailable.")
 			return
 		}
-		jsonResponse(w, http.StatusOK, snapshotContract(auth.Scope(result, user, s.Demo), user, s.Demo))
+		jsonResponse(w, http.StatusOK, snapshotContract(auth.Scope(result, user), user, s.Demo))
 	})
 	mux.HandleFunc("GET /api/v1/deployments/{id}/history", func(w http.ResponseWriter, r *http.Request) {
 		user, allowed := s.Auth.Viewer(r)
@@ -111,7 +111,7 @@ func (s *Server) Handler() http.Handler {
 		id := r.PathValue("id")
 		visible := false
 		for _, d := range result.Deployments {
-			if d.ID == id && (s.Demo || user.CanView(d.ConnectionID, d.Namespace)) {
+			if d.ID == id && user.CanView(d.ConnectionID, d.Namespace) {
 				visible = true
 				break
 			}

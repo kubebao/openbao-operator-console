@@ -46,7 +46,7 @@ type (
 	Resolver      func(context.Context, string, []string) (config.User, bool)
 	Authenticator struct {
 		mu           sync.Mutex
-		demo         bool
+		demo         *config.User
 		users        map[string]config.User
 		sessions     map[string]session
 		transactions map[string]transaction
@@ -57,7 +57,8 @@ type (
 	}
 )
 
-func NewDemo() *Authenticator { return &Authenticator{demo: true} }
+// NewDemo signs every request in as a fixed, scoped demonstration viewer.
+func NewDemo(viewer config.User) *Authenticator { return &Authenticator{demo: &viewer} }
 
 // NewPending rejects fleet access until browser setup installs a verified provider.
 func NewPending() *Authenticator {
@@ -157,8 +158,8 @@ func (a *Authenticator) resolve(ctx context.Context, subject string, groups []st
 }
 
 func (a *Authenticator) Viewer(request *http.Request) (config.User, bool) {
-	if a.demo {
-		return config.User{Subject: "local-demo", Name: "Platform team"}, true
+	if a.demo != nil {
+		return *a.demo, true
 	}
 	cookie, err := request.Cookie("__Host-console-session")
 	if err != nil {
@@ -251,7 +252,7 @@ func (a *Authenticator) begin(
 }
 
 func (a *Authenticator) Login(w http.ResponseWriter, request *http.Request) {
-	if a.demo {
+	if a.demo != nil {
 		http.Redirect(w, request, "/", http.StatusSeeOther)
 		return
 	}
@@ -315,7 +316,7 @@ func callbackFailure(w http.ResponseWriter, request *http.Request, setup bool, r
 }
 
 func (a *Authenticator) Callback(w http.ResponseWriter, request *http.Request) {
-	if a.demo {
+	if a.demo != nil {
 		http.NotFound(w, request)
 		return
 	}
@@ -457,8 +458,8 @@ func (a *Authenticator) Logout(w http.ResponseWriter, request *http.Request) {
 
 // Scope removes every resource the viewer may not see, including counts that would
 // reveal hidden namespaces, relationships to hidden deployments, and their activity.
-func Scope(snapshot fleet.Snapshot, user config.User, demo bool) fleet.Snapshot {
-	visible := func(connectionID, namespace string) bool { return demo || user.CanView(connectionID, namespace) }
+func Scope(snapshot fleet.Snapshot, user config.User) fleet.Snapshot {
+	visible := user.CanView
 	result := fleet.Snapshot{
 		CollectedAt:   snapshot.CollectedAt,
 		Policy:        snapshot.Policy,

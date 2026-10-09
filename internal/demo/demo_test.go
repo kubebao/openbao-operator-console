@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/kubebao/openbao-operator-console/internal/auth"
 )
 
 func TestHistoryEndsInCurrentFixtureState(t *testing.T) {
@@ -41,5 +43,21 @@ func TestHistoryEndsInCurrentFixtureState(t *testing.T) {
 		if len(observations) < minimum {
 			t.Fatalf("%s has %d observations, want at least %d", id, len(observations), minimum)
 		}
+	}
+}
+
+func TestViewerSeesEveryFixtureThroughNormalAuthorization(t *testing.T) {
+	repository := New(time.Now().UTC())
+	snapshot, err := repository.Snapshot(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	scoped := auth.Scope(snapshot, repository.Viewer())
+	if len(scoped.Deployments) != len(snapshot.Deployments) || len(scoped.Connections) != len(snapshot.Connections) ||
+		len(scoped.Relationships) != len(snapshot.Relationships) || len(scoped.Activity) != len(snapshot.Activity) {
+		t.Fatal("the demonstration viewer cannot see the whole fixture fleet")
+	}
+	if repository.Viewer().Admin {
+		t.Fatal("the demonstration viewer must not administer settings")
 	}
 }
