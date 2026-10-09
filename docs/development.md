@@ -46,7 +46,7 @@ Open <http://127.0.0.1:8090>.
 
 | Command | Coverage |
 | --- | --- |
-| `make check` | `make lint`, Go race tests; TypeScript strict checking; ESLint; Prettier; unit tests; frontend build |
+| `make check` | `make lint`, Go race tests; TypeScript strict checking; oxlint with type-aware rules; Prettier; unit tests; frontend build |
 | `make lint` | golangci-lint with the pinned version and `.golangci.yml`, including gofumpt, goimports, and golines |
 | `make lint-fix` | Applies the Go formatters and automatic golangci-lint fixes |
 | `make check-generated` | OpenAPI Go/TypeScript and sqlc output drift |

@@ -23,7 +23,7 @@ Run the full check before opening a pull request:
 make check
 ```
 
-It runs Go formatting, vet, and race tests, strict TypeScript checking, ESLint, Prettier, unit tests, and the frontend
+It runs golangci-lint, Go race tests, strict TypeScript checking, oxlint, Prettier, unit tests, and the frontend
 build. Depending on the change, also run:
 
 | Change | Command |

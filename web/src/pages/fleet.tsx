@@ -116,7 +116,7 @@ export function FleetPage() {
     [snapshot, search],
   )
   // React Compiler is not enabled; TanStack owns its mutable table callbacks.
-  // eslint-disable-next-line react-hooks/incompatible-library
+  // oxlint-disable-next-line react/incompatible-library
   const table = useReactTable({
     data,
     columns,

@@ -11,10 +11,9 @@ export default defineConfig({
     },
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('/@xyflow/') || id.includes('/d3-')) return 'topology-vendor'
           if (id.includes('/@tanstack/')) return 'tanstack-vendor'
           if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/'))
             return 'react-vendor'
