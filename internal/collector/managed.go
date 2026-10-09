@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/kubebao/openbao-operator-console/internal/evidence"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 	"github.com/kubebao/openbao-operator-console/internal/store"
 )
@@ -33,10 +32,7 @@ func RunManaged(ctx context.Context, configuration *settings.Service, repository
 	previous := map[string]*Reader{}
 	for {
 		current, revision, generation := configuration.ReaderConfiguration()
-		policy := evidence.Policy{
-			MaxBackupAge: time.Duration(current.MaxBackupAgeHours) * time.Hour,
-			StartupGrace: time.Duration(current.StartupGraceMinutes) * time.Minute,
-		}
+		policy := current.Policy()
 		readers := []*Reader{}
 		next := map[string]*Reader{}
 		for _, connection := range current.Connections {

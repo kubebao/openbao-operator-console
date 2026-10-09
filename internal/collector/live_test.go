@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/kubebao/openbao-operator-console/internal/config"
-	"github.com/kubebao/openbao-operator-console/internal/evidence"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 )
 
 // This test reads only the explicitly named disposable development namespace.
@@ -33,7 +33,7 @@ func TestKindOperatorProjection(t *testing.T) {
 				},
 			},
 		},
-		evidence.Policy{MaxBackupAge: 24 * time.Hour, StartupGrace: 10 * time.Minute},
+		fleet.Policy{MaxBackupAge: 24 * time.Hour, StartupGrace: 10 * time.Minute},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -45,7 +45,7 @@ func TestKindOperatorProjection(t *testing.T) {
 		t.Fatalf("collection = %s", batch.Connection.Collection)
 	}
 	if len(batch.Connection.Operators) != 1 || batch.Connection.Operators[0].Collection != "current" ||
-		batch.Connection.Operators[0].Uid == nil ||
+		batch.Connection.Operators[0].UID == nil ||
 		batch.Connection.Operators[0].Image == nil {
 		t.Fatal("enrolled controller Deployment could not be observed")
 	}
@@ -53,11 +53,11 @@ func TestKindOperatorProjection(t *testing.T) {
 		if d.Name != "console-bao" {
 			continue
 		}
-		if d.Uid == "" || d.DesiredVersion != "2.7.0" || d.DesiredReplicas == nil || *d.DesiredReplicas != 1 || d.ResourceVersion == "" ||
+		if d.UID == "" || d.DesiredVersion != "2.7.0" || d.DesiredReplicas == nil || *d.DesiredReplicas != 1 || d.ResourceVersion == "" ||
 			len(d.Conditions) == 0 ||
 			d.Evidence.Collection != "current" ||
-			d.OperatorId == nil ||
-			*d.OperatorId != "operator" {
+			d.OperatorID == nil ||
+			*d.OperatorID != "operator" {
 			t.Fatalf("unexpected real operator projection: %#v", d)
 		}
 		return

@@ -4,13 +4,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 )
 
 func TestMissingReadinessRemainsUnknown(t *testing.T) {
 	now := time.Now()
-	d := contract.Deployment{Id: "test", Generation: 2}
-	Evaluate(&d, now.Add(-time.Hour), false, Policy{StartupGrace: time.Minute, MaxBackupAge: 24 * time.Hour}, now)
+	d := fleet.Deployment{ID: "test", Generation: 2}
+	Evaluate(&d, now.Add(-time.Hour), false, fleet.Policy{StartupGrace: time.Minute, MaxBackupAge: 24 * time.Hour}, now)
 	if d.Health != "unknown" || len(d.Issues) != 0 {
 		t.Fatalf("missing status became a concrete finding: %#v", d)
 	}
@@ -18,12 +18,12 @@ func TestMissingReadinessRemainsUnknown(t *testing.T) {
 
 func TestStaleSealedConditionDoesNotCreateCurrentIncident(t *testing.T) {
 	now := time.Now()
-	d := contract.Deployment{
-		Id:         "test",
+	d := fleet.Deployment{
+		ID:         "test",
 		Generation: 2,
-		Conditions: []contract.Condition{{Type: "OpenBaoSealed", Status: "True", ObservedGeneration: 1}},
+		Conditions: []fleet.Condition{{Type: "OpenBaoSealed", Status: "True", ObservedGeneration: 1}},
 	}
-	Evaluate(&d, now.Add(-time.Hour), false, Policy{StartupGrace: time.Minute, MaxBackupAge: 24 * time.Hour}, now)
+	Evaluate(&d, now.Add(-time.Hour), false, fleet.Policy{StartupGrace: time.Minute, MaxBackupAge: 24 * time.Hour}, now)
 	if len(d.Issues) != 0 {
 		t.Fatal("stale generation created a current sealed incident")
 	}
@@ -33,8 +33,8 @@ func TestPauseAndStartupGraceAvoidReadinessIncident(t *testing.T) {
 	now := time.Now()
 	zero, three := int32(0), int32(3)
 	for _, paused := range []bool{true, false} {
-		d := contract.Deployment{Id: "test", ReadyReplicas: &zero, DesiredReplicas: &three}
-		Evaluate(&d, now, paused, Policy{StartupGrace: 10 * time.Minute}, now)
+		d := fleet.Deployment{ID: "test", ReadyReplicas: &zero, DesiredReplicas: &three}
+		Evaluate(&d, now, paused, fleet.Policy{StartupGrace: 10 * time.Minute}, now)
 		if len(d.Issues) != 0 {
 			t.Fatalf("paused=%t or startup grace created incident", paused)
 		}
@@ -43,10 +43,10 @@ func TestPauseAndStartupGraceAvoidReadinessIncident(t *testing.T) {
 
 func TestCollectionFailurePreservesCriticalEvidence(t *testing.T) {
 	now := time.Now()
-	d := contract.Deployment{
-		Id:     "test",
+	d := fleet.Deployment{
+		ID:     "test",
 		Health: "critical",
-		Issues: []contract.Issue{{Id: "test:sealed", Rule: "sealed", Severity: "critical", FirstSeenAt: now.Add(-time.Hour)}},
+		Issues: []fleet.Issue{{ID: "test:sealed", Rule: "sealed", Severity: "critical", FirstSeenAt: now.Add(-time.Hour)}},
 	}
 	CollectionFailure(&d, "denied", now)
 	CollectionFailure(&d, "denied", now.Add(time.Minute))

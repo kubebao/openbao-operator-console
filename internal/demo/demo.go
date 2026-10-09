@@ -7,64 +7,67 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kubebao/openbao-operator-console/internal/contract"
 	"github.com/kubebao/openbao-operator-console/internal/evidence"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	"github.com/kubebao/openbao-operator-console/internal/store"
 )
 
 type Repository struct {
-	snapshot contract.Snapshot
-	history  map[string][]contract.Observation
+	snapshot fleet.Snapshot
+	history  map[string][]fleet.Observation
 }
 
 func ptr[T any](value T) *T { return &value }
 
+// policy matches the default enrollment thresholds.
+var policy = fleet.Policy{MaxBackupAge: 24 * time.Hour, StartupGrace: 10 * time.Minute}
+
 func New(now time.Time) *Repository {
-	snapshot := contract.Snapshot{
-		Mode: "demo", CollectedAt: now, Policy: contract.AttentionPolicy{MaxBackupAgeHours: 24, StartupGraceMinutes: 10},
-		Deployments: []contract.Deployment{}, Relationships: []contract.Relationship{}, Activity: []contract.Activity{},
-		Connections: []contract.Connection{
+	snapshot := fleet.Snapshot{
+		CollectedAt: now, Policy: policy,
+		Deployments: []fleet.Deployment{}, Relationships: []fleet.Relationship{}, Activity: []fleet.Activity{},
+		Connections: []fleet.Connection{
 			{
-				Id:            "prod-eu-1",
+				ID:            "prod-eu-1",
 				Name:          "prod-eu-1",
 				Region:        "eu-west-1",
-				Collection:    "current",
+				Collection:    fleet.ConnectionCollectionCurrent,
 				LastAttemptAt: now,
 				LastSuccessAt: &now,
 				Namespaces:    []string{"payments", "identity", "platform"},
 			},
 			{
-				Id:            "prod-eu-2",
+				ID:            "prod-eu-2",
 				Name:          "prod-eu-2",
 				Region:        "eu-central-1",
-				Collection:    "current",
+				Collection:    fleet.ConnectionCollectionCurrent,
 				LastAttemptAt: now,
 				LastSuccessAt: &now,
 				Namespaces:    []string{"payments", "customer-x", "finance"},
 			},
 			{
-				Id:            "dr-eu-1",
+				ID:            "dr-eu-1",
 				Name:          "dr-eu-1",
 				Region:        "eu-central-1",
-				Collection:    "current",
+				Collection:    fleet.ConnectionCollectionCurrent,
 				LastAttemptAt: now,
 				LastSuccessAt: &now,
 				Namespaces:    []string{"recovery"},
 			},
 			{
-				Id:            "nonprod",
+				ID:            "nonprod",
 				Name:          "nonprod",
 				Region:        "eu-west-1",
-				Collection:    "current",
+				Collection:    fleet.ConnectionCollectionCurrent,
 				LastAttemptAt: now,
 				LastSuccessAt: &now,
 				Namespaces:    []string{"staging", "development"},
 			},
 			{
-				Id:            "edge",
+				ID:            "edge",
 				Name:          "edge-dc-1",
 				Region:        "on-premises",
-				Collection:    "unreachable",
+				Collection:    fleet.ConnectionCollectionUnreachable,
 				LastAttemptAt: now,
 				LastSuccessAt: ptr(now.Add(-24 * time.Hour)),
 				Namespaces:    []string{"edge"},
@@ -73,24 +76,24 @@ func New(now time.Time) *Repository {
 	}
 	for i := range snapshot.Connections {
 		connection := &snapshot.Connections[i]
-		collection := contract.OperatorCollectionCurrent
-		if connection.Collection != "current" {
-			collection = "unreachable"
+		collection := fleet.OperatorCollectionCurrent
+		if connection.Collection != fleet.ConnectionCollectionCurrent {
+			collection = fleet.OperatorCollectionUnreachable
 		}
-		connection.Operators = []contract.Operator{
+		connection.Operators = []fleet.Operator{
 			{
-				Id:                 "operator-" + connection.Id,
+				ID:                 "operator-" + connection.ID,
 				Namespace:          "operator-system",
 				Name:               "openbao-controller",
 				Container:          "manager",
 				Namespaces:         append([]string{}, connection.Namespaces...),
-				Uid:                ptr("demo-controller-" + connection.Id),
+				UID:                ptr("demo-controller-" + connection.ID),
 				Image:              ptr("example.invalid/openbao-operator:development"),
 				Version:            ptr("development"),
 				Collection:         collection,
 				LastAttemptAt:      now,
 				LastSuccessAt:      connection.LastSuccessAt,
-				Health:             "available",
+				Health:             fleet.OperatorHealthAvailable,
 				Generation:         1,
 				ObservedGeneration: ptr(int64(1)),
 				ReadyReplicas:      ptr(int32(1)),
@@ -98,27 +101,31 @@ func New(now time.Time) *Repository {
 				UpdatedReplicas:    ptr(int32(1)),
 			},
 		}
-		connection.Capabilities = []contract.ApiCapability{}
+		connection.Capabilities = []fleet.Capability{}
 		for _, namespace := range connection.Namespaces {
-			for _, resource := range []contract.ApiCapabilityResource{"openbaoclusters", "openbaorestores", "openbaorecoveries"} {
-				state := contract.ApiCapabilityStateAvailable
-				if resource == "openbaorecoveries" {
-					state = "unsupported"
+			for _, resource := range []fleet.CapabilityResource{
+				fleet.CapabilityResourceClusters,
+				fleet.CapabilityResourceRestores,
+				fleet.CapabilityResourceRecoveries,
+			} {
+				state := fleet.CapabilityStateAvailable
+				if resource == fleet.CapabilityResourceRecoveries {
+					state = fleet.CapabilityStateUnsupported
 				}
-				if connection.Collection != "current" {
-					state = "unreachable"
+				if connection.Collection != fleet.ConnectionCollectionCurrent {
+					state = fleet.CapabilityStateUnreachable
 				}
 				connection.Capabilities = append(
 					connection.Capabilities,
-					contract.ApiCapability{Namespace: namespace, Resource: resource, State: state, CheckedAt: &now},
+					fleet.Capability{Namespace: namespace, Resource: resource, State: state, CheckedAt: &now},
 				)
 			}
 		}
 	}
 	rows := []struct {
 		id, name, namespace, connection, team, location string
-		environment                                     contract.DeploymentEnvironment
-		role                                            contract.DeploymentRole
+		environment                                     fleet.Environment
+		role                                            fleet.Role
 	}{
 		{"payments", "payments-bao", "payments", "prod-eu-1", "Payments", "Amsterdam", "production", "primary"},
 		{"payments-read", "payments-read", "payments", "prod-eu-2", "Payments", "Frankfurt", "production", "replica"},
@@ -134,12 +141,12 @@ func New(now time.Time) *Repository {
 		{"edge", "edge-bao", "edge", "edge", "Edge", "Rotterdam", "other", "primary"},
 	}
 	for _, row := range rows {
-		d := contract.Deployment{
-			Id:              row.id,
-			Uid:             "demo-" + row.id,
+		d := fleet.Deployment{
+			ID:              row.id,
+			UID:             "demo-" + row.id,
 			Name:            row.name,
 			Namespace:       row.namespace,
-			ConnectionId:    row.connection,
+			ConnectionID:    row.connection,
 			Location:        row.location,
 			Team:            row.team,
 			Environment:     row.environment,
@@ -151,18 +158,23 @@ func New(now time.Time) *Repository {
 			ResourceVersion: "demo-42",
 			ReadyReplicas:   ptr(int32(3)),
 			DesiredReplicas: ptr(int32(3)),
-			Evidence:        contract.Evidence{CollectedAt: now, LastAttemptAt: now, Collection: "current", ProducerFreshness: "unknown"},
-			Conditions: []contract.Condition{
+			Evidence: fleet.Evidence{
+				CollectedAt:       now,
+				LastAttemptAt:     now,
+				Collection:        fleet.EvidenceCollectionCurrent,
+				ProducerFreshness: fleet.FreshnessUnknown,
+			},
+			Conditions: []fleet.Condition{
 				{
 					Type:               "Available",
-					Status:             "True",
+					Status:             fleet.ConditionStatusTrue,
 					Reason:             "AllReplicasReady",
 					Message:            "All configured replicas are ready.",
 					ObservedGeneration: 3,
 					LastTransitionAt:   ptr(now.Add(-48 * time.Hour)),
 				},
 			},
-			Backup: &contract.Backup{
+			Backup: &fleet.Backup{
 				LastSuccessAt: ptr(
 					now.Add(-14 * time.Minute),
 				),
@@ -170,8 +182,8 @@ func New(now time.Time) *Repository {
 				Key:       ptr(row.namespace + "/" + now.Format("2006-01-02") + ".snapshot"),
 				Digest:    ptr("sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
 				SizeBytes: ptr(int64(1288490188)),
-				RestoreTest: &contract.RestoreTest{
-					Outcome:       "passed",
+				RestoreTest: &fleet.RestoreTest{
+					Outcome:       fleet.RestoreOutcomePassed,
 					FinishedAt:    ptr(now.Add(-72 * time.Hour)),
 					LastSuccessAt: ptr(now.Add(-72 * time.Hour)),
 					Key:           ptr(row.namespace + "/restore-test.snapshot"),
@@ -179,36 +191,36 @@ func New(now time.Time) *Repository {
 				},
 			},
 		}
-		if row.role == "replica" {
+		if row.role == fleet.RoleReplica {
 			d.Backup = nil
-			d.Replica = &contract.Replica{
+			d.Replica = &fleet.Replica{
 				ObservedAt:  ptr(now.Add(-12 * time.Second)),
 				LocalIndex:  ptr("9007199254741007"),
 				SourceIndex: ptr("9007199254741014"),
 			}
 		}
-		d.OperatorId = ptr("operator-" + row.connection)
-		if row.role == "recoveryTarget" {
+		d.OperatorID = ptr("operator-" + row.connection)
+		if row.role == fleet.RoleRecoveryTarget {
 			d.Backup = nil
 			d.ReadyReplicas = ptr(int32(1))
 			d.DesiredReplicas = ptr(int32(1))
-			d.Recovery = &contract.Recovery{
+			d.Recovery = &fleet.Recovery{
 				RequestName:            "payments-recovery-drill",
-				Mechanism:              "snapshot",
-				Phase:                  "completed",
+				Mechanism:              fleet.RecoveryMechanismSnapshot,
+				Phase:                  fleet.RecoveryPhaseCompleted,
 				Stage:                  "FollowThroughComplete",
 				StartedAt:              ptr(now.Add(-73 * time.Hour)),
 				CompletedAt:            ptr(now.Add(-72 * time.Hour)),
 				ApplicationConfirmedAt: ptr(now.Add(-72 * time.Hour)),
-				Cleanup:                "notApplicable",
+				Cleanup:                fleet.RecoveryCleanupNotApplicable,
 			}
 		}
 		if row.id == "identity" {
 			d.ReadyReplicas = ptr(int32(0))
-			d.Conditions = []contract.Condition{
+			d.Conditions = []fleet.Condition{
 				{
 					Type:               "OpenBaoSealed",
-					Status:             "True",
+					Status:             fleet.ConditionStatusTrue,
 					Reason:             "Sealed",
 					Message:            "The operator reports sealed state.",
 					ObservedGeneration: 3,
@@ -222,12 +234,12 @@ func New(now time.Time) *Repository {
 		}
 		if row.id == "staging" {
 			d.Version = "2.6.1"
-			d.UpgradeFailure = &contract.OperationFailure{Reason: "PodNotReady", At: ptr(now.Add(-7 * time.Hour))}
+			d.UpgradeFailure = &fleet.OperationFailure{Reason: "PodNotReady", At: ptr(now.Add(-7 * time.Hour))}
 			d.Conditions = append(
 				d.Conditions,
-				contract.Condition{
+				fleet.Condition{
 					Type:               "Upgrading",
-					Status:             "False",
+					Status:             fleet.ConditionStatusFalse,
 					Reason:             "UpgradeFailed",
 					Message:            "Post-upgrade checks failed: PodNotReady.",
 					ObservedGeneration: 3,
@@ -244,91 +256,91 @@ func New(now time.Time) *Repository {
 			&d,
 			now.Add(-7*24*time.Hour),
 			false,
-			evidence.Policy{MaxBackupAge: 24 * time.Hour, StartupGrace: 10 * time.Minute},
+			policy,
 			now,
 		)
 		if row.id == "edge" {
-			evidence.CollectionFailure(&d, "unreachable", now)
+			evidence.CollectionFailure(&d, fleet.EvidenceCollectionUnreachable, now)
 		}
 		for i := range d.Issues {
 			d.Issues[i].FirstSeenAt = now.Add(-3 * time.Hour)
 		}
 		snapshot.Deployments = append(snapshot.Deployments, d)
 	}
-	snapshot.Relationships = []contract.Relationship{
+	snapshot.Relationships = []fleet.Relationship{
 		{
-			Id:         "payments-replication",
-			SourceId:   "payments",
-			TargetId:   "payments-read",
-			Kind:       "replication",
-			Provenance: "declared",
+			ID:         "payments-replication",
+			SourceID:   "payments",
+			TargetID:   "payments-read",
+			Kind:       fleet.RelationshipKindReplication,
+			Provenance: fleet.ProvenanceDeclared,
 			ObservedAt: ptr(now.Add(-12 * time.Second)),
 		},
 		{
-			Id:         "payments-recovery",
-			SourceId:   "payments",
-			TargetId:   "payments-dr",
-			Kind:       "snapshotRecovery",
-			Provenance: "declared",
+			ID:         "payments-recovery",
+			SourceID:   "payments",
+			TargetID:   "payments-dr",
+			Kind:       fleet.RelationshipKindSnapshotRecovery,
+			Provenance: fleet.ProvenanceDeclared,
 			Repository: ptr("s3://platform-recovery/payments"),
 		},
 	}
-	snapshot.Activity = []contract.Activity{
+	snapshot.Activity = []fleet.Activity{
 		{
-			Id:           "event-1",
-			DeploymentId: "payments",
+			ID:           "event-1",
+			DeploymentID: "payments",
 			At:           now.Add(-14 * time.Minute),
 			Title:        "Backup completed",
 			Detail:       "Successful Job completion recorded · payments-bao",
-			Outcome:      "success",
+			Outcome:      fleet.ActivityOutcomeSuccess,
 		},
 		{
-			Id:           "event-2",
-			DeploymentId: "customer-x",
+			ID:           "event-2",
+			DeploymentID: "customer-x",
 			At:           now.Add(-2 * time.Hour),
 			Title:        "Backup failure observed",
 			Detail:       "Two consecutive failures · customer-x-bao",
-			Outcome:      "warning",
+			Outcome:      fleet.ActivityOutcomeWarning,
 		},
 		{
-			Id:           "event-3",
-			DeploymentId: "identity",
+			ID:           "event-3",
+			DeploymentID: "identity",
 			At:           now.Add(-3 * time.Hour),
 			Title:        "Sealed state observed",
 			Detail:       "No ready replicas · identity-bao",
-			Outcome:      "error",
+			Outcome:      fleet.ActivityOutcomeError,
 		},
 		{
-			Id:           "event-4",
-			DeploymentId: "staging",
+			ID:           "event-4",
+			DeploymentID: "staging",
 			At:           now.Add(-7 * time.Hour),
 			Title:        "Upgrade failure observed",
 			Detail:       "Post-upgrade checks · staging-bao",
-			Outcome:      "warning",
+			Outcome:      fleet.ActivityOutcomeWarning,
 		},
 		{
-			Id:           "event-5",
-			DeploymentId: "payments-dr",
+			ID:           "event-5",
+			DeploymentID: "payments-dr",
 			At:           now.Add(-72 * time.Hour),
 			Title:        "Recovery target application confirmed",
 			Detail:       "Expected source identity · historical receipt",
-			Outcome:      "success",
+			Outcome:      fleet.ActivityOutcomeSuccess,
 		},
 	}
-	repository := &Repository{snapshot: snapshot, history: map[string][]contract.Observation{}}
+	repository := &Repository{snapshot: snapshot, history: map[string][]fleet.Observation{}}
 	for _, deployment := range snapshot.Deployments {
-		repository.history[deployment.Id] = history(deployment, now)
+		repository.history[deployment.ID] = history(deployment, now)
 	}
 	return repository
 }
 
 // copyDeployment returns an independent deep copy, so history entries never share pointers.
-func copyDeployment(d contract.Deployment) contract.Deployment {
+func copyDeployment(d fleet.Deployment) fleet.Deployment {
 	encoded, err := json.Marshal(d)
 	if err != nil {
 		panic(err)
 	}
-	var result contract.Deployment
+	var result fleet.Deployment
 	if err := json.Unmarshal(encoded, &result); err != nil {
 		panic(err)
 	}
@@ -337,13 +349,12 @@ func copyDeployment(d contract.Deployment) contract.Deployment {
 
 type demoEvent struct {
 	at    time.Time
-	apply func(*contract.Deployment)
+	apply func(*fleet.Deployment)
 }
 
 // history synthesizes a week of fictional observations that ends in the current fixture state.
 // Like the collector, it records an observation only for an event that changes the deployment.
-func history(current contract.Deployment, now time.Time) []contract.Observation {
-	policy := evidence.Policy{MaxBackupAge: 24 * time.Hour, StartupGrace: 10 * time.Minute}
+func history(current fleet.Deployment, now time.Time) []fleet.Observation {
 	created := now.Add(-7 * 24 * time.Hour)
 	start := created.Add(time.Hour)
 	state := copyDeployment(current)
@@ -352,10 +363,10 @@ func history(current contract.Deployment, now time.Time) []contract.Observation 
 	}
 	state.UpgradeFailure = nil
 	state.Recovery = nil
-	state.Conditions = []contract.Condition{
+	state.Conditions = []fleet.Condition{
 		{
 			Type:               "Available",
-			Status:             "True",
+			Status:             fleet.ConditionStatusTrue,
 			Reason:             "AllReplicasReady",
 			Message:            "All configured replicas are ready.",
 			ObservedGeneration: state.Generation,
@@ -381,13 +392,13 @@ func history(current contract.Deployment, now time.Time) []contract.Observation 
 			at := last.Add(-time.Duration(day) * 24 * time.Hour)
 			size := int64(float64(*backup.SizeBytes) * (1 - 0.012*float64(day)))
 			key := fmt.Sprintf("%s/%s.snapshot", current.Namespace, at.Format("2006-01-02"))
-			events = append(events, demoEvent{at, func(d *contract.Deployment) {
+			events = append(events, demoEvent{at, func(d *fleet.Deployment) {
 				d.Backup.LastSuccessAt, d.Backup.SizeBytes, d.Backup.Key, d.Backup.ConsecutiveFailures = ptr(at), ptr(size), ptr(key), 0
 			}})
 		}
 		if test := backup.RestoreTest; test != nil && test.FinishedAt != nil {
-			events = append(events, demoEvent{*test.FinishedAt, func(d *contract.Deployment) {
-				d.Backup.RestoreTest = &contract.RestoreTest{
+			events = append(events, demoEvent{*test.FinishedAt, func(d *fleet.Deployment) {
+				d.Backup.RestoreTest = &fleet.RestoreTest{
 					Outcome:       test.Outcome,
 					FinishedAt:    test.FinishedAt,
 					LastSuccessAt: test.LastSuccessAt,
@@ -397,27 +408,27 @@ func history(current contract.Deployment, now time.Time) []contract.Observation 
 			}})
 		}
 	}
-	switch current.Id {
+	switch current.ID {
 	case "identity":
 		events = append(events,
-			demoEvent{now.Add(-3*time.Hour - 4*time.Minute), func(d *contract.Deployment) { d.ReadyReplicas = ptr(int32(1)) }},
-			demoEvent{now.Add(-3 * time.Hour), func(d *contract.Deployment) {
+			demoEvent{now.Add(-3*time.Hour - 4*time.Minute), func(d *fleet.Deployment) { d.ReadyReplicas = ptr(int32(1)) }},
+			demoEvent{now.Add(-3 * time.Hour), func(d *fleet.Deployment) {
 				d.ReadyReplicas, d.Conditions = current.ReadyReplicas, current.Conditions
 			}})
 	case "customer-x":
-		events = append(events, demoEvent{now.Add(-8 * time.Hour), func(d *contract.Deployment) { d.Backup.ConsecutiveFailures = 1 }})
+		events = append(events, demoEvent{now.Add(-8 * time.Hour), func(d *fleet.Deployment) { d.Backup.ConsecutiveFailures = 1 }})
 		later(now.Add(-2 * time.Hour))
 	case "staging":
 		state.DesiredVersion, state.Version, state.Generation = "2.6.1", "2.6.1", 2
 		state.Conditions[0].ObservedGeneration = 2
 		events = append(events,
-			demoEvent{now.Add(-8 * time.Hour), func(d *contract.Deployment) {
+			demoEvent{now.Add(-8 * time.Hour), func(d *fleet.Deployment) {
 				d.DesiredVersion, d.Generation = "2.7.0", 3
-				d.Conditions = []contract.Condition{
+				d.Conditions = []fleet.Condition{
 					d.Conditions[0],
 					{
 						Type:               "Upgrading",
-						Status:             "True",
+						Status:             fleet.ConditionStatusTrue,
 						Reason:             "RollingUpgrade",
 						Message:            "Upgrading from 2.6.1 to 2.7.0.",
 						ObservedGeneration: 3,
@@ -426,25 +437,26 @@ func history(current contract.Deployment, now time.Time) []contract.Observation 
 				}
 				d.Conditions[0].ObservedGeneration = 3
 			}},
-			demoEvent{now.Add(-7 * time.Hour), func(d *contract.Deployment) {
+			demoEvent{now.Add(-7 * time.Hour), func(d *fleet.Deployment) {
 				d.UpgradeFailure, d.Conditions = current.UpgradeFailure, current.Conditions
 			}})
 	case "edge":
 		later(now.Add(-24*time.Hour + 2*time.Minute))
 	case "payments-dr":
-		events = append(events, demoEvent{now.Add(-73 * time.Hour), func(d *contract.Deployment) {
+		events = append(events, demoEvent{now.Add(-73 * time.Hour), func(d *fleet.Deployment) {
 			recovery := *current.Recovery
-			recovery.Phase, recovery.Stage, recovery.CompletedAt, recovery.ApplicationConfirmedAt = "running", "SnapshotApplying", nil, nil
+			recovery.Phase, recovery.Stage, recovery.CompletedAt = fleet.RecoveryPhaseRunning, "SnapshotApplying", nil
+			recovery.ApplicationConfirmedAt = nil
 			d.Recovery = &recovery
 		}})
 		later(now.Add(-72 * time.Hour))
 	}
-	observations := []contract.Observation{}
-	record := func(at time.Time, d contract.Deployment) {
+	observations := []fleet.Observation{}
+	record := func(at time.Time, d fleet.Deployment) {
 		d.ResourceVersion = fmt.Sprintf("demo-%d", len(observations)+1)
-		d.Evidence.CollectedAt, d.Evidence.LastAttemptAt, d.Evidence.Collection = at, at, "current"
+		d.Evidence.CollectedAt, d.Evidence.LastAttemptAt, d.Evidence.Collection = at, at, fleet.EvidenceCollectionCurrent
 		evidence.Evaluate(&d, created, false, policy, at)
-		observations = append(observations, contract.Observation{RecordedAt: at, Deployment: d})
+		observations = append(observations, fleet.Observation{RecordedAt: at, Deployment: d})
 	}
 	if final.After(start) {
 		record(start, copyDeployment(state))
@@ -457,7 +469,7 @@ func history(current contract.Deployment, now time.Time) []contract.Observation 
 	}
 	last := copyDeployment(current)
 	last.ResourceVersion = fmt.Sprintf("demo-%d", len(observations)+1)
-	observations = append(observations, contract.Observation{RecordedAt: final, Deployment: last})
+	observations = append(observations, fleet.Observation{RecordedAt: final, Deployment: last})
 	// The API returns the newest observation first.
 	for i, j := 0, len(observations)-1; i < j; i, j = i+1, j-1 {
 		observations[i], observations[j] = observations[j], observations[i]
@@ -475,12 +487,12 @@ func sortEvents(events []demoEvent) []demoEvent {
 	return sorted
 }
 
-func (r *Repository) Snapshot(context.Context) (contract.Snapshot, error) { return r.snapshot, nil }
-func (r *Repository) Apply(context.Context, store.Batch) error            { return nil }
-func (r *Repository) Close()                                              {}
-func (r *Repository) History(_ context.Context, id string) ([]contract.Observation, error) {
+func (r *Repository) Snapshot(context.Context) (fleet.Snapshot, error) { return r.snapshot, nil }
+func (r *Repository) Apply(context.Context, store.Batch) error         { return nil }
+func (r *Repository) Close()                                           {}
+func (r *Repository) History(_ context.Context, id string) ([]fleet.Observation, error) {
 	if observations, ok := r.history[id]; ok {
 		return observations, nil
 	}
-	return []contract.Observation{}, nil
+	return []fleet.Observation{}, nil
 }

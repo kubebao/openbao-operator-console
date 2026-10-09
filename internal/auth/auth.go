@@ -10,6 +10,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -18,7 +19,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/kubebao/openbao-operator-console/internal/config"
-	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 )
 
 type session struct {
@@ -454,79 +455,58 @@ func (a *Authenticator) Logout(w http.ResponseWriter, request *http.Request) {
 	http.Redirect(w, request, "/?signin="+string(SignInSignedOut), http.StatusSeeOther)
 }
 
-func Allowed(user config.User, deployment contract.Deployment) bool {
-	for _, scope := range user.Scopes {
-		if scope.ConnectionID != deployment.ConnectionId {
-			continue
-		}
-		for _, namespace := range scope.Namespaces {
-			if namespace == deployment.Namespace {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func Scope(snapshot contract.Snapshot, user config.User, demo bool) contract.Snapshot {
-	result := contract.Snapshot{
-		Mode:          snapshot.Mode,
+// Scope removes every resource the viewer may not see, including counts that would
+// reveal hidden namespaces, relationships to hidden deployments, and their activity.
+func Scope(snapshot fleet.Snapshot, user config.User, demo bool) fleet.Snapshot {
+	visible := func(connectionID, namespace string) bool { return demo || user.CanView(connectionID, namespace) }
+	result := fleet.Snapshot{
 		CollectedAt:   snapshot.CollectedAt,
 		Policy:        snapshot.Policy,
-		Deployments:   []contract.Deployment{},
-		Connections:   []contract.Connection{},
-		Relationships: []contract.Relationship{},
-		Activity:      []contract.Activity{},
-		Viewer:        contract.Viewer{Name: user.Name, Subject: user.Subject, Admin: user.Admin, ConnectionIds: []string{}},
+		Deployments:   []fleet.Deployment{},
+		Connections:   []fleet.Connection{},
+		Relationships: []fleet.Relationship{},
+		Activity:      []fleet.Activity{},
 	}
-	visible := make(map[string]bool)
+	deployments := make(map[string]bool)
 	for _, deployment := range snapshot.Deployments {
-		if demo || Allowed(user, deployment) {
+		if visible(deployment.ConnectionID, deployment.Namespace) {
 			result.Deployments = append(result.Deployments, deployment)
-			visible[deployment.Id] = true
+			deployments[deployment.ID] = true
 		}
 	}
 	for _, connection := range snapshot.Connections {
-		namespaces := []string{}
-		for _, ns := range connection.Namespaces {
-			if demo || Allowed(user, contract.Deployment{ConnectionId: connection.Id, Namespace: ns}) {
-				namespaces = append(namespaces, ns)
+		inScope := func(namespace string) bool { return visible(connection.ID, namespace) }
+		connection.Namespaces = slices.DeleteFunc(
+			slices.Clone(connection.Namespaces),
+			func(namespace string) bool { return !inScope(namespace) },
+		)
+		if len(connection.Namespaces) == 0 {
+			continue
+		}
+		operators := []fleet.Operator{}
+		for _, operator := range connection.Operators {
+			operator.Namespaces = slices.DeleteFunc(
+				slices.Clone(operator.Namespaces),
+				func(namespace string) bool { return !inScope(namespace) },
+			)
+			if len(operator.Namespaces) > 0 {
+				operators = append(operators, operator)
 			}
 		}
-		if len(namespaces) > 0 {
-			connection.Namespaces = namespaces
-			operators := []contract.Operator{}
-			for _, operator := range connection.Operators {
-				managed := []string{}
-				for _, namespace := range operator.Namespaces {
-					if demo || Allowed(user, contract.Deployment{ConnectionId: connection.Id, Namespace: namespace}) {
-						managed = append(managed, namespace)
-					}
-				}
-				if len(managed) > 0 {
-					operator.Namespaces = managed
-					operators = append(operators, operator)
-				}
-			}
-			connection.Operators = operators
-			capabilities := []contract.ApiCapability{}
-			for _, capability := range connection.Capabilities {
-				if demo || Allowed(user, contract.Deployment{ConnectionId: connection.Id, Namespace: capability.Namespace}) {
-					capabilities = append(capabilities, capability)
-				}
-			}
-			connection.Capabilities = capabilities
-			result.Connections = append(result.Connections, connection)
-			result.Viewer.ConnectionIds = append(result.Viewer.ConnectionIds, connection.Id)
-		}
+		connection.Operators = operators
+		connection.Capabilities = slices.DeleteFunc(
+			slices.Clone(connection.Capabilities),
+			func(capability fleet.Capability) bool { return !inScope(capability.Namespace) },
+		)
+		result.Connections = append(result.Connections, connection)
 	}
 	for _, relationship := range snapshot.Relationships {
-		if visible[relationship.SourceId] && visible[relationship.TargetId] {
+		if deployments[relationship.SourceID] && deployments[relationship.TargetID] {
 			result.Relationships = append(result.Relationships, relationship)
 		}
 	}
 	for _, activity := range snapshot.Activity {
-		if visible[activity.DeploymentId] {
+		if deployments[activity.DeploymentID] {
 			result.Activity = append(result.Activity, activity)
 		}
 	}

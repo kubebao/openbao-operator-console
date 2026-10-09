@@ -30,7 +30,7 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/collector"
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/contract"
-	"github.com/kubebao/openbao-operator-console/internal/evidence"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	consolesettings "github.com/kubebao/openbao-operator-console/internal/settings"
 	"github.com/kubebao/openbao-operator-console/internal/store"
 )
@@ -100,7 +100,7 @@ func testLiveSession(t *testing.T, keycloak bool) {
 			},
 		},
 	}
-	reader, err := collector.New(connection, evidence.Policy{MaxBackupAge: 24 * time.Hour})
+	reader, err := collector.New(connection, fleet.Policy{MaxBackupAge: 24 * time.Hour})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -4,25 +4,25 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 )
 
-func observationFixture() contract.Deployment {
+func observationFixture() fleet.Deployment {
 	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
 	ready, desired := int32(3), int32(3)
-	return contract.Deployment{
-		Id:              "cluster/team-a/bao",
+	return fleet.Deployment{
+		ID:              "cluster/team-a/bao",
 		ResourceVersion: "100",
 		Generation:      3,
 		Health:          "healthy",
 		ReadyReplicas:   &ready,
 		DesiredReplicas: &desired,
-		Evidence:        contract.Evidence{Collection: "current", CollectedAt: now, LastAttemptAt: now, ProducerFreshness: "unknown"},
-		Conditions:      []contract.Condition{{Type: "Available", Status: "True", Reason: "Ready", ObservedGeneration: 3}},
-		Replica:         &contract.Replica{ObservedAt: &now, LocalIndex: ptrString("10"), SourceIndex: ptrString("12")},
-		Issues: []contract.Issue{
+		Evidence:        fleet.Evidence{Collection: "current", CollectedAt: now, LastAttemptAt: now, ProducerFreshness: "unknown"},
+		Conditions:      []fleet.Condition{{Type: "Available", Status: "True", Reason: "Ready", ObservedGeneration: 3}},
+		Replica:         &fleet.Replica{ObservedAt: &now, LocalIndex: ptrString("10"), SourceIndex: ptrString("12")},
+		Issues: []fleet.Issue{
 			{
-				Id:            "cluster/team-a/bao:backup-failed",
+				ID:            "cluster/team-a/bao:backup-failed",
 				Rule:          "backup-failed",
 				Severity:      "high",
 				Category:      "backup",
@@ -43,7 +43,7 @@ func TestObservationChangedIgnoresStatusChurn(t *testing.T) {
 	later := previous.Evidence.CollectedAt.Add(30 * time.Second)
 	current.ResourceVersion = "101"
 	current.Evidence.CollectedAt, current.Evidence.LastAttemptAt = later, later
-	current.Replica = &contract.Replica{ObservedAt: &later, LocalIndex: ptrString("11"), SourceIndex: ptrString("13")}
+	current.Replica = &fleet.Replica{ObservedAt: &later, LocalIndex: ptrString("11"), SourceIndex: ptrString("13")}
 	current.Issues[0].LastCheckedAt = later
 	if ObservationChanged(current, previous) {
 		t.Fatal("resource version, collection times, replica progress, and check times must not record an observation")
@@ -51,15 +51,15 @@ func TestObservationChangedIgnoresStatusChurn(t *testing.T) {
 }
 
 func TestObservationChangedDetectsDisplayedChanges(t *testing.T) {
-	for name, change := range map[string]func(*contract.Deployment){
-		"ready replicas": func(d *contract.Deployment) { ready := int32(2); d.ReadyReplicas = &ready },
-		"condition":      func(d *contract.Deployment) { d.Conditions[0].Status = "False" },
-		"health":         func(d *contract.Deployment) { d.Health = "attention" },
-		"collection":     func(d *contract.Deployment) { d.Evidence.Collection = "unreachable" },
-		"finding detail": func(d *contract.Deployment) { d.Issues[0].Detail = "2" },
-		"generation":     func(d *contract.Deployment) { d.Generation = 4 },
-		"history conflict": func(d *contract.Deployment) {
-			d.Replica = &contract.Replica{
+	for name, change := range map[string]func(*fleet.Deployment){
+		"ready replicas": func(d *fleet.Deployment) { ready := int32(2); d.ReadyReplicas = &ready },
+		"condition":      func(d *fleet.Deployment) { d.Conditions[0].Status = "False" },
+		"health":         func(d *fleet.Deployment) { d.Health = "attention" },
+		"collection":     func(d *fleet.Deployment) { d.Evidence.Collection = "unreachable" },
+		"finding detail": func(d *fleet.Deployment) { d.Issues[0].Detail = "2" },
+		"generation":     func(d *fleet.Deployment) { d.Generation = 4 },
+		"history conflict": func(d *fleet.Deployment) {
+			d.Replica = &fleet.Replica{
 				ObservedAt:      d.Replica.ObservedAt,
 				LocalIndex:      d.Replica.LocalIndex,
 				SourceIndex:     d.Replica.SourceIndex,

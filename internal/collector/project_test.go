@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -10,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/kubebao/openbao-operator-console/internal/config"
-	"github.com/kubebao/openbao-operator-console/internal/evidence"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 )
 
 func TestProjectionPreservesExactIndexesAndDropsProviderMessages(t *testing.T) {
@@ -29,23 +30,17 @@ func TestProjectionPreservesExactIndexesAndDropsProviderMessages(t *testing.T) {
 	cluster.SetNamespace("team")
 	cluster.SetUID(types.UID("original"))
 	cluster.SetCreationTimestamp(metav1.NewTime(time.Now()))
-	d := Project(
-		cluster,
-		config.Connection{ID: "one"},
-		config.Namespace{Team: "Platform", Environment: "production"},
-		evidence.Policy{},
-		time.Now(),
-	)
+	d := Project(cluster, config.Connection{ID: "one"}, config.Namespace{Team: "Platform", Environment: "production"}, time.Now())
 	if d.Replica == nil || d.Replica.LocalIndex == nil || *d.Replica.LocalIndex != "9007199254741007" {
 		t.Fatal("exact index was lost")
 	}
 	if d.ReadyReplicas != nil || d.Health != "unknown" {
 		t.Fatal("missing readiness became zero or healthy")
 	}
-	if strings.Contains(d.Conditions[0].Message, "do-not-store") {
+	if encoded, err := json.Marshal(d); err != nil || strings.Contains(string(encoded), "do-not-store") {
 		t.Fatal("raw provider message leaked")
 	}
-	if ResourceID("one", "team", "bao", "original") == ResourceID("one", "team", "bao", "replacement") {
+	if fleet.DeploymentID("one", "team", "bao", "original") == fleet.DeploymentID("one", "team", "bao", "replacement") {
 		t.Fatal("replacement inherited identity")
 	}
 }

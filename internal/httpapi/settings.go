@@ -15,6 +15,7 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/contract"
 	"github.com/kubebao/openbao-operator-console/internal/evidence"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
@@ -103,7 +104,7 @@ func connectionInput(c contract.ManagedConnection, old *config.Connection) (conf
 	for _, ns := range c.Namespaces {
 		result.Namespaces = append(
 			result.Namespaces,
-			config.Namespace{Name: ns.Name, Team: ns.Team, Environment: string(ns.Environment), Location: ns.Location},
+			config.Namespace{Name: ns.Name, Team: ns.Team, Environment: fleet.Environment(ns.Environment), Location: ns.Location},
 		)
 	}
 	for _, op := range c.Operators {
@@ -257,7 +258,7 @@ func configurationInput(input contract.SettingsUpdate, previous config.Config) (
 				ID:         route.Id,
 				Source:     resourceInput(route.Source),
 				Target:     resourceInput(route.Target),
-				Kind:       string(route.Kind),
+				Kind:       fleet.RelationshipKind(route.Kind),
 				Repository: route.Repository,
 			},
 		)
@@ -497,26 +498,21 @@ func (s *Server) settingsRoutes(mux *http.ServeMux) {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
-		reader := collector.Unconfigured(
-			connection,
-			evidence.Policy{
-				MaxBackupAge: time.Duration(current.MaxBackupAgeHours) * time.Hour,
-				StartupGrace: time.Duration(current.StartupGraceMinutes) * time.Minute,
-			},
-		)
+		reader := collector.Unconfigured(connection, current.Policy())
 		batch, diagnostic := reader.Check(ctx, time.Now().UTC())
 		access, err := s.readerAccess(connection, input.Connection.Authentication)
 		if err != nil {
 			problem(w, http.StatusBadRequest, "invalid", "Reader RBAC could not be generated.")
 			return
 		}
-		deployments := batch.Deployments
-		if deployments == nil {
-			deployments = []contract.Deployment{}
-		}
-		jsonResponse(w, 200, contract.ConnectionCheckResult{
-			Connection: batch.Connection, Rbac: access.Rbac, Deployments: deployments,
-			Diagnostics:      contract.ConnectionDiagnostic{State: diagnostic.State, Message: diagnostic.Message},
+		jsonResponse(w, http.StatusOK, contract.ConnectionCheckResult{
+			Connection:  connectionContract(batch.Connection),
+			Rbac:        access.Rbac,
+			Deployments: mapSlice(batch.Deployments, deploymentContract),
+			Diagnostics: contract.ConnectionDiagnostic{
+				State:   contract.ConnectionDiagnosticState(diagnostic.State),
+				Message: diagnostic.Message,
+			},
 			CredentialExpiry: credentialExpiryView(connection.Credential),
 		})
 	})
@@ -602,33 +598,33 @@ func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, 200, contract.LoginRedirect{Url: location})
 }
 
-func filterEnrollment(snapshot contract.Snapshot, c config.Config) contract.Snapshot {
+func filterEnrollment(snapshot fleet.Snapshot, c config.Config) fleet.Snapshot {
 	enrolled := map[string]config.Connection{}
 	for _, connection := range c.Connections {
 		enrolled[connection.ID] = connection
 	}
-	connections := []contract.Connection{}
+	connections := []fleet.Connection{}
 	for _, connection := range snapshot.Connections {
-		if current, ok := enrolled[connection.Id]; ok {
+		if current, ok := enrolled[connection.ID]; ok {
 			connection.Name = current.Name
 			connection.Region = current.Region
 			connection.Namespaces = []string{}
 			for _, ns := range current.Namespaces {
 				connection.Namespaces = append(connection.Namespaces, ns.Name)
 			}
-			operators := []contract.Operator{}
+			operators := []fleet.Operator{}
 			for _, declared := range current.Operators {
-				observation := contract.Operator{
-					Id:            declared.ID,
+				observation := fleet.Operator{
+					ID:            declared.ID,
 					Namespace:     declared.Namespace,
 					Name:          declared.Deployment,
 					Container:     declared.Container,
-					Collection:    "pending",
-					Health:        "unknown",
+					Collection:    fleet.OperatorCollectionPending,
+					Health:        fleet.OperatorHealthUnknown,
 					LastAttemptAt: connection.LastAttemptAt,
 				}
 				for _, previous := range connection.Operators {
-					if previous.Id == declared.ID && previous.Namespace == declared.Namespace && previous.Name == declared.Deployment &&
+					if previous.ID == declared.ID && previous.Namespace == declared.Namespace && previous.Name == declared.Deployment &&
 						previous.Container == declared.Container {
 						observation = previous
 						break
@@ -636,12 +632,12 @@ func filterEnrollment(snapshot contract.Snapshot, c config.Config) contract.Snap
 				}
 				observation.Namespaces = append([]string{}, declared.Namespaces...)
 				if current.Disabled {
-					observation.Collection = "stale"
+					observation.Collection = fleet.OperatorCollectionStale
 				}
 				operators = append(operators, observation)
 			}
 			connection.Operators = operators
-			capabilities := []contract.ApiCapability{}
+			capabilities := []fleet.Capability{}
 			for _, capability := range connection.Capabilities {
 				for _, namespace := range current.Namespaces {
 					if capability.Namespace == namespace.Name {
@@ -652,21 +648,21 @@ func filterEnrollment(snapshot contract.Snapshot, c config.Config) contract.Snap
 			}
 			connection.Capabilities = capabilities
 			if current.Disabled {
-				connection.Collection = "stale"
+				connection.Collection = fleet.ConnectionCollectionStale
 			}
 			connections = append(connections, connection)
 		}
 	}
-	deployments := []contract.Deployment{}
+	deployments := []fleet.Deployment{}
 	for _, deployment := range snapshot.Deployments {
-		if connection, ok := enrolled[deployment.ConnectionId]; ok {
+		if connection, ok := enrolled[deployment.ConnectionID]; ok {
 			for _, ns := range connection.Namespaces {
 				if ns.Name == deployment.Namespace {
 					deployment.Team = ns.Team
-					deployment.Environment = contract.DeploymentEnvironment(ns.Environment)
+					deployment.Environment = ns.Environment
 					deployment.Location = ns.Location
 					if connection.Disabled {
-						evidence.CollectionFailure(&deployment, "stale", deployment.Evidence.LastAttemptAt)
+						evidence.CollectionFailure(&deployment, fleet.EvidenceCollectionStale, deployment.Evidence.LastAttemptAt)
 					}
 					deployments = append(deployments, deployment)
 					break

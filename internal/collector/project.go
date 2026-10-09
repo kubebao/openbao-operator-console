@@ -2,8 +2,6 @@
 package collector
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"math"
 	"regexp"
 	"strconv"
@@ -13,8 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/kubebao/openbao-operator-console/internal/config"
-	"github.com/kubebao/openbao-operator-console/internal/contract"
-	"github.com/kubebao/openbao-operator-console/internal/evidence"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 )
 
 var (
@@ -22,11 +19,6 @@ var (
 	digestPattern = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
 	decimalIndex  = regexp.MustCompile(`^(0|[1-9][0-9]{0,19})$`)
 )
-
-func ResourceID(connection, namespace, name, uid string) string {
-	sum := sha256.Sum256([]byte(strings.Join([]string{connection, namespace, name, uid}, "\x00")))
-	return hex.EncodeToString(sum[:16])
-}
 
 func text(object map[string]any, fields ...string) string {
 	value, found, err := unstructured.NestedString(object, fields...)
@@ -39,6 +31,14 @@ func text(object map[string]any, fields ...string) string {
 func optionalText(object map[string]any, fields ...string) *string {
 	value := text(object, fields...)
 	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func digest(object map[string]any, fields ...string) *string {
+	value, found, err := unstructured.NestedString(object, fields...)
+	if err != nil || !found || !digestPattern.MatchString(value) {
 		return nil
 	}
 	return &value
@@ -70,148 +70,174 @@ func boolean(object map[string]any, fields ...string) bool {
 	return err == nil && found && value
 }
 
-func Project(
-	cluster unstructured.Unstructured,
-	connection config.Connection,
-	namespace config.Namespace,
-	policy evidence.Policy,
-	now time.Time,
-) contract.Deployment {
+// Project maps an OpenBaoCluster to approved fields. Evidence rules run separately,
+// after related recovery requests are attached.
+func Project(cluster unstructured.Unstructured, connection config.Connection, namespace config.Namespace, now time.Time) fleet.Deployment {
 	object := cluster.Object
-	result := contract.Deployment{
-		Id:  ResourceID(connection.ID, cluster.GetNamespace(), cluster.GetName(), string(cluster.GetUID())),
-		Uid: string(cluster.GetUID()), Name: cluster.GetName(), Namespace: cluster.GetNamespace(),
-		ConnectionId: connection.ID, Team: namespace.Team, Location: namespace.Location,
-		Environment: contract.DeploymentEnvironment(namespace.Environment), Generation: cluster.GetGeneration(),
-		ResourceVersion: cluster.GetResourceVersion(), Version: text(object, "status", "currentVersion"),
-		DesiredVersion: text(object, "spec", "version"), ReadyReplicas: count(object, "status", "readyReplicas"),
-		DesiredReplicas: count(object, "spec", "replicas"), Role: "primary", Health: "unknown",
-		Conditions: []contract.Condition{}, Issues: []contract.Issue{},
-		Evidence: contract.Evidence{Collection: "current", CollectedAt: now, LastAttemptAt: now, ProducerFreshness: "unknown"},
+	result := fleet.Deployment{
+		ID:              fleet.DeploymentID(connection.ID, cluster.GetNamespace(), cluster.GetName(), string(cluster.GetUID())),
+		UID:             string(cluster.GetUID()),
+		Name:            cluster.GetName(),
+		Namespace:       cluster.GetNamespace(),
+		ConnectionID:    connection.ID,
+		Team:            namespace.Team,
+		Environment:     namespace.Environment,
+		Location:        namespace.Location,
+		Generation:      cluster.GetGeneration(),
+		ResourceVersion: cluster.GetResourceVersion(),
+		Version:         text(object, "status", "currentVersion"),
+		DesiredVersion:  text(object, "spec", "version"),
+		ReadyReplicas:   count(object, "status", "readyReplicas"),
+		DesiredReplicas: count(object, "spec", "replicas"),
+		Role:            projectRole(object),
+		Health:          fleet.HealthUnknown,
+		Conditions:      projectConditions(object),
+		Issues:          []fleet.Issue{},
+		Evidence: fleet.Evidence{
+			Collection:        fleet.EvidenceCollectionCurrent,
+			CollectedAt:       now,
+			LastAttemptAt:     now,
+			ProducerFreshness: fleet.FreshnessUnknown,
+		},
+		Backup:  projectBackup(object),
+		Replica: projectReplica(object),
 	}
 	if reason := text(object, "status", "upgrade", "failure", "reason"); reason != "" {
-		result.UpgradeFailure = &contract.OperationFailure{Reason: reason, At: timestamp(object, "status", "upgrade", "failure", "at")}
+		result.UpgradeFailure = &fleet.OperationFailure{Reason: reason, At: timestamp(object, "status", "upgrade", "failure", "at")}
 	}
-	if remote, found, err := unstructured.NestedMap(object, "spec", "remoteReplica"); err == nil && found && len(remote) > 0 {
-		result.Role = "replica"
-		if timestamp(object, "status", "recovery", "activatedAt") != nil {
-			result.Role = "primary"
-		}
+	return result
+}
+
+// A remote replica becomes a primary once the operator records its activation.
+func projectRole(object map[string]any) fleet.Role {
+	remote, found, err := unstructured.NestedMap(object, "spec", "remoteReplica")
+	if err != nil || !found || len(remote) == 0 || timestamp(object, "status", "recovery", "activatedAt") != nil {
+		return fleet.RolePrimary
 	}
+	return fleet.RoleReplica
+}
+
+func projectConditions(object map[string]any) []fleet.Condition {
+	result := []fleet.Condition{}
 	conditions, _, _ := unstructured.NestedSlice(object, "status", "conditions")
 	for _, raw := range conditions {
 		condition, ok := raw.(map[string]any)
 		if !ok {
 			continue
 		}
-		status := contract.ConditionStatus(text(condition, "status"))
+		status := fleet.ConditionStatus(text(condition, "status"))
 		if !status.Valid() {
-			status = "Unknown"
+			status = fleet.ConditionStatusUnknown
 		}
 		generation, _, _ := unstructured.NestedInt64(condition, "observedGeneration")
-		result.Conditions = append(result.Conditions, contract.Condition{
-			Type: text(condition, "type"), Status: status, Reason: text(condition, "reason"),
-			// Raw operator messages stay outside the approved projection; the reason is shown instead.
-			Message:            "",
-			ObservedGeneration: generation, LastTransitionAt: timestamp(condition, "lastTransitionTime"),
+		result = append(result, fleet.Condition{
+			Type:               text(condition, "type"),
+			Status:             status,
+			Reason:             text(condition, "reason"),
+			ObservedGeneration: generation,
+			LastTransitionAt:   timestamp(condition, "lastTransitionTime"),
 		})
 	}
-	if _, configured, err := unstructured.NestedMap(object, "spec", "backup"); err == nil && configured {
-		backup := &contract.Backup{
-			LastSuccessAt: timestamp(object, "status", "backup", "lastBackupTime"),
-			NextAt:        timestamp(object, "status", "backup", "nextScheduledBackup"),
-			Key:           optionalText(object, "status", "backup", "lastBackupName"),
-		}
-		if failures := count(object, "status", "backup", "consecutiveFailures"); failures != nil {
-			backup.ConsecutiveFailures = *failures
-		}
-		if value, found, err := unstructured.NestedString(
-			object,
-			"status",
-			"backup",
-			"latestSnapshot",
-			"digest",
-		); err == nil && found &&
-			digestPattern.MatchString(value) {
-			backup.Digest = &value
-		}
-		if size, found, err := unstructured.NestedInt64(object, "status", "backup", "lastBackupSize"); err == nil && found && size >= 0 {
-			backup.SizeBytes = &size
-		}
-		if test, found, err := unstructured.NestedMap(object, "status", "backup", "restoreTest"); err == nil && found {
-			projected := &contract.RestoreTest{
-				Outcome: "notRun", LastSuccessAt: timestamp(test, "lastSuccessTime"),
-				FinishedAt: timestamp(test, "last", "finishedAt"), Key: optionalText(test, "last", "key"),
-				Reason: text(test, "last", "reason"),
-			}
-			switch text(test, "last", "outcome") {
-			case "Passed":
-				projected.Outcome = "passed"
-			case "Failed":
-				projected.Outcome = "failed"
-			}
-			if value, found, err := unstructured.NestedString(
-				test,
-				"last",
-				"digest",
-			); err == nil && found &&
-				digestPattern.MatchString(value) {
-				projected.Digest = &value
-			}
-			if _, active, err := unstructured.NestedMap(test, "active"); err == nil && active {
-				projected.Outcome = "running"
-			}
-			checks, _, _ := unstructured.NestedSlice(test, "conditions")
-			for _, raw := range checks {
-				check, ok := raw.(map[string]any)
-				if !ok {
-					continue
-				}
-				if text(check, "type") == "Passed" && text(check, "status") == "False" {
-					projected.Reason = text(check, "reason")
-					if projected.Reason != "Failed" {
-						projected.Outcome = "blocked"
-					}
-				}
-			}
-			backup.RestoreTest = projected
-		}
-		result.Backup = backup
-	}
-	if observation, found, err := unstructured.NestedMap(object, "status", "remoteReplicaObservation"); err == nil && found {
-		replica := &contract.Replica{
-			ObservedAt:      timestamp(observation, "observedAt"),
-			HistoryConflict: boolean(observation, "historyConflict"),
-		}
-		for path, target := range map[string]**string{"freshness": &replica.LocalIndex, "source": &replica.SourceIndex} {
-			field := "appliedIndex"
-			if path == "freshness" {
-				field = "highestAppliedIndex"
-			}
-			value, found, err := unstructured.NestedString(observation, path, field)
-			if _, parseErr := strconv.ParseUint(value, 10, 64); err == nil && found && decimalIndex.MatchString(value) && parseErr == nil {
-				*target = &value
-			}
-		}
-		result.Replica = replica
-	}
-	evidence.Evaluate(&result, cluster.GetCreationTimestamp().Time, boolean(object, "spec", "paused"), policy, now)
 	return result
 }
 
-func ProjectRecovery(request unstructured.Unstructured, mechanism contract.RecoveryMechanism) *contract.Recovery {
-	object := request.Object
-	phase := contract.RecoveryPhase(strings.ToLower(text(object, "status", "phase")))
-	if !phase.Valid() {
-		phase = "unknown"
+func projectBackup(object map[string]any) *fleet.Backup {
+	if _, configured, err := unstructured.NestedMap(object, "spec", "backup"); err != nil || !configured {
+		return nil
 	}
-	result := &contract.Recovery{
-		RequestName: request.GetName(), Mechanism: mechanism, Phase: phase,
-		Stage: text(object, "status", "execution", "stage"), StartedAt: timestamp(object, "status", "startTime"),
-		CompletedAt: timestamp(object, "status", "completionTime"), Cleanup: "notApplicable",
+	backup := &fleet.Backup{
+		LastSuccessAt: timestamp(object, "status", "backup", "lastBackupTime"),
+		NextAt:        timestamp(object, "status", "backup", "nextScheduledBackup"),
+		Key:           optionalText(object, "status", "backup", "lastBackupName"),
+		Digest:        digest(object, "status", "backup", "latestSnapshot", "digest"),
+	}
+	if failures := count(object, "status", "backup", "consecutiveFailures"); failures != nil {
+		backup.ConsecutiveFailures = *failures
+	}
+	if size, found, err := unstructured.NestedInt64(object, "status", "backup", "lastBackupSize"); err == nil && found && size >= 0 {
+		backup.SizeBytes = &size
+	}
+	if test, found, err := unstructured.NestedMap(object, "status", "backup", "restoreTest"); err == nil && found {
+		backup.RestoreTest = projectRestoreTest(test)
+	}
+	return backup
+}
+
+func projectRestoreTest(test map[string]any) *fleet.RestoreTest {
+	result := &fleet.RestoreTest{
+		Outcome:       fleet.RestoreOutcomeNotRun,
+		LastSuccessAt: timestamp(test, "lastSuccessTime"),
+		FinishedAt:    timestamp(test, "last", "finishedAt"),
+		Key:           optionalText(test, "last", "key"),
+		Reason:        text(test, "last", "reason"),
+		Digest:        digest(test, "last", "digest"),
+	}
+	switch text(test, "last", "outcome") {
+	case "Passed":
+		result.Outcome = fleet.RestoreOutcomePassed
+	case "Failed":
+		result.Outcome = fleet.RestoreOutcomeFailed
+	}
+	if _, active, err := unstructured.NestedMap(test, "active"); err == nil && active {
+		result.Outcome = fleet.RestoreOutcomeRunning
+	}
+	// A failed Passed condition with any reason other than Failed blocks the test.
+	checks, _, _ := unstructured.NestedSlice(test, "conditions")
+	for _, raw := range checks {
+		check, ok := raw.(map[string]any)
+		if !ok || text(check, "type") != "Passed" || text(check, "status") != "False" {
+			continue
+		}
+		result.Reason = text(check, "reason")
+		if result.Reason != "Failed" {
+			result.Outcome = fleet.RestoreOutcomeBlocked
+		}
+	}
+	return result
+}
+
+func projectReplica(object map[string]any) *fleet.Replica {
+	observation, found, err := unstructured.NestedMap(object, "status", "remoteReplicaObservation")
+	if err != nil || !found {
+		return nil
+	}
+	return &fleet.Replica{
+		ObservedAt:      timestamp(observation, "observedAt"),
+		HistoryConflict: boolean(observation, "historyConflict"),
+		LocalIndex:      appliedIndex(observation, "freshness", "highestAppliedIndex"),
+		SourceIndex:     appliedIndex(observation, "source", "appliedIndex"),
+	}
+}
+
+// Raft indexes exceed the JSON safe integer range, so they stay exact decimal strings.
+func appliedIndex(object map[string]any, fields ...string) *string {
+	value, found, err := unstructured.NestedString(object, fields...)
+	if err != nil || !found || !decimalIndex.MatchString(value) {
+		return nil
+	}
+	if _, err := strconv.ParseUint(value, 10, 64); err != nil {
+		return nil
+	}
+	return &value
+}
+
+func ProjectRecovery(request unstructured.Unstructured, mechanism fleet.RecoveryMechanism) *fleet.Recovery {
+	object := request.Object
+	phase := fleet.RecoveryPhase(strings.ToLower(text(object, "status", "phase")))
+	if !phase.Valid() {
+		phase = fleet.RecoveryPhaseUnknown
+	}
+	result := &fleet.Recovery{
+		RequestName:            request.GetName(),
+		Mechanism:              mechanism,
+		Phase:                  phase,
+		Stage:                  text(object, "status", "execution", "stage"),
+		StartedAt:              timestamp(object, "status", "startTime"),
+		CompletedAt:            timestamp(object, "status", "completionTime"),
+		Cleanup:                fleet.RecoveryCleanupNotApplicable,
 		ApplicationConfirmedAt: timestamp(object, "status", "target", "appliedAt"),
 	}
-	if cleanup := contract.RecoveryCleanup(strings.ToLower(text(object, "status", "target", "cleanup"))); cleanup.Valid() {
+	if cleanup := fleet.RecoveryCleanup(strings.ToLower(text(object, "status", "target", "cleanup"))); cleanup.Valid() {
 		result.Cleanup = cleanup
 	}
 	if value, found, err := unstructured.NestedBool(object, "spec", "exclusionAcknowledged"); err == nil && found {

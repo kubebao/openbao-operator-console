@@ -10,6 +10,7 @@ import (
 
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	"github.com/kubebao/openbao-operator-console/internal/store"
 )
 
@@ -24,44 +25,44 @@ func (viewerAuth) Callback(http.ResponseWriter, *http.Request) {}
 func (viewerAuth) Logout(http.ResponseWriter, *http.Request)   {}
 
 type memoryRepository struct {
-	snapshot     contract.Snapshot
+	snapshot     fleet.Snapshot
 	historyReads int
 }
 
 func (*memoryRepository) Apply(context.Context, store.Batch) error { return nil }
 
-func (m *memoryRepository) Snapshot(context.Context) (contract.Snapshot, error) {
+func (m *memoryRepository) Snapshot(context.Context) (fleet.Snapshot, error) {
 	return m.snapshot, nil
 }
 
-func (m *memoryRepository) History(context.Context, string) ([]contract.Observation, error) {
+func (m *memoryRepository) History(context.Context, string) ([]fleet.Observation, error) {
 	m.historyReads++
-	return []contract.Observation{}, nil
+	return []fleet.Observation{}, nil
 }
 func (*memoryRepository) Close() {}
 
 func TestServerAuthorizesBeforeHistoryAndFiltersEverySurface(t *testing.T) {
 	now := time.Now().UTC()
-	repository := &memoryRepository{snapshot: contract.Snapshot{
-		Deployments: []contract.Deployment{
+	repository := &memoryRepository{snapshot: fleet.Snapshot{
+		Deployments: []fleet.Deployment{
 			{
-				Id:           "visible",
-				ConnectionId: "one",
+				ID:           "visible",
+				ConnectionID: "one",
 				Namespace:    "team-a",
-				Evidence:     contract.Evidence{Collection: "current", LastAttemptAt: now},
+				Evidence:     fleet.Evidence{Collection: "current", LastAttemptAt: now},
 			},
 			{
-				Id:           "hidden",
-				ConnectionId: "one",
+				ID:           "hidden",
+				ConnectionID: "one",
 				Namespace:    "team-b",
-				Evidence:     contract.Evidence{Collection: "current", LastAttemptAt: now},
+				Evidence:     fleet.Evidence{Collection: "current", LastAttemptAt: now},
 			},
 		},
-		Connections: []contract.Connection{
-			{Id: "one", Namespaces: []string{"team-a", "team-b"}, Collection: "current", LastAttemptAt: now},
+		Connections: []fleet.Connection{
+			{ID: "one", Namespaces: []string{"team-a", "team-b"}, Collection: "current", LastAttemptAt: now},
 		},
-		Relationships: []contract.Relationship{{SourceId: "visible", TargetId: "hidden"}},
-		Activity:      []contract.Activity{{DeploymentId: "hidden"}},
+		Relationships: []fleet.Relationship{{SourceID: "visible", TargetID: "hidden"}},
+		Activity:      []fleet.Activity{{DeploymentID: "hidden"}},
 	}}
 	authentication := viewerAuth{
 		user:    config.User{Subject: "engineer", Scopes: []config.Scope{{ConnectionID: "one", Namespaces: []string{"team-a"}}}},
@@ -104,16 +105,16 @@ func TestServerAuthorizesBeforeHistoryAndFiltersEverySurface(t *testing.T) {
 func TestStoppedCollectorMakesLastKnownEvidenceStale(t *testing.T) {
 	old := time.Now().UTC().Add(-10 * time.Minute)
 	repository := &memoryRepository{
-		snapshot: contract.Snapshot{
-			Deployments: []contract.Deployment{
+		snapshot: fleet.Snapshot{
+			Deployments: []fleet.Deployment{
 				{
-					Id:       "old",
+					ID:       "old",
 					Health:   "critical",
-					Evidence: contract.Evidence{Collection: "current", LastAttemptAt: old},
-					Issues:   []contract.Issue{{Id: "sealed", Rule: "sealed"}},
+					Evidence: fleet.Evidence{Collection: "current", LastAttemptAt: old},
+					Issues:   []fleet.Issue{{ID: "sealed", Rule: "sealed"}},
 				},
 			},
-			Connections: []contract.Connection{{Collection: "current", LastAttemptAt: old}},
+			Connections: []fleet.Connection{{Collection: "current", LastAttemptAt: old}},
 		},
 	}
 	snapshot, err := (&Server{Repository: repository}).snapshot(context.Background())

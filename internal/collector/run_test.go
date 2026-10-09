@@ -14,22 +14,22 @@ import (
 	ktesting "k8s.io/client-go/testing"
 
 	"github.com/kubebao/openbao-operator-console/internal/config"
-	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	"github.com/kubebao/openbao-operator-console/internal/store"
 )
 
 type recordingRepository struct{ applied chan string }
 
 func (r recordingRepository) Apply(_ context.Context, batch store.Batch) error {
-	r.applied <- batch.Connection.Id
+	r.applied <- batch.Connection.ID
 	return nil
 }
 
-func (recordingRepository) Snapshot(context.Context) (contract.Snapshot, error) {
-	return contract.Snapshot{}, nil
+func (recordingRepository) Snapshot(context.Context) (fleet.Snapshot, error) {
+	return fleet.Snapshot{}, nil
 }
 
-func (recordingRepository) History(context.Context, string) ([]contract.Observation, error) {
+func (recordingRepository) History(context.Context, string) ([]fleet.Observation, error) {
 	return nil, nil
 }
 func (recordingRepository) Close() {}

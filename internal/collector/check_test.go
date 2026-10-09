@@ -16,7 +16,6 @@ import (
 	ktesting "k8s.io/client-go/testing"
 
 	"github.com/kubebao/openbao-operator-console/internal/config"
-	"github.com/kubebao/openbao-operator-console/internal/contract"
 )
 
 func TestCheckDiagnosticClassifiesFailuresWithoutRawDetails(t *testing.T) {
@@ -24,7 +23,7 @@ func TestCheckDiagnosticClassifiesFailuresWithoutRawDetails(t *testing.T) {
 	for _, test := range []struct {
 		name  string
 		err   error
-		state contract.ConnectionDiagnosticState
+		state DiagnosticState
 	}{
 		{"unauthorized", apierrors.NewUnauthorized("private-server-message"), "unauthorized"},
 		{"forbidden", apierrors.NewForbidden(resource, "private-namespace", errors.New("private-server-message")), "forbidden"},

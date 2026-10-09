@@ -16,7 +16,7 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/collector"
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/contract"
-	"github.com/kubebao/openbao-operator-console/internal/evidence"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
@@ -226,10 +226,7 @@ func TestConnectionCheckProjectsPreviewWithoutPersistingOrExposingCredentials(t 
 				Token:  "private-reader-token",
 			},
 		},
-		evidence.Policy{
-			MaxBackupAge: time.Duration(configured.MaxBackupAgeHours) * time.Hour,
-			StartupGrace: time.Duration(configured.StartupGraceMinutes) * time.Minute,
-		},
+		configured.Policy(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -238,8 +235,8 @@ func TestConnectionCheckProjectsPreviewWithoutPersistingOrExposingCredentials(t 
 	if len(managed.Deployments) != len(result.Deployments) {
 		t.Fatal("preview and collection returned different workload inventories")
 	}
-	for i, deployment := range managed.Deployments {
-		preview := result.Deployments[i]
+	for i, collected := range managed.Deployments {
+		deployment, preview := deploymentContract(collected), result.Deployments[i]
 		if deployment.Health != preview.Health || len(deployment.Issues) != len(preview.Issues) {
 			t.Fatal("preview health differs from collection under the saved policy")
 		}
@@ -426,31 +423,31 @@ func TestEnrollmentChangesImmediatelyFilterOldObservations(t *testing.T) {
 			},
 		},
 	}
-	snapshot := contract.Snapshot{
-		Connections: []contract.Connection{
+	snapshot := fleet.Snapshot{
+		Connections: []fleet.Connection{
 			{
-				Id:         "cluster",
+				ID:         "cluster",
 				Namespaces: []string{"team", "removed"},
-				Operators: []contract.Operator{
+				Operators: []fleet.Operator{
 					{
-						Id:         "operator",
+						ID:         "operator",
 						Namespace:  "system",
 						Name:       "old-controller",
 						Namespaces: []string{"removed"},
-						Collection: "current",
-						Health:     "healthy",
+						Collection: fleet.OperatorCollectionCurrent,
+						Health:     fleet.OperatorHealthAvailable,
 					},
 				},
-				Capabilities:  []contract.ApiCapability{{Namespace: "removed"}, {Namespace: "team"}},
+				Capabilities:  []fleet.Capability{{Namespace: "removed"}, {Namespace: "team"}},
 				Collection:    "current",
 				LastAttemptAt: now,
 			},
-			{Id: "removed"},
+			{ID: "removed"},
 		},
-		Deployments: []contract.Deployment{
-			{Id: "one", ConnectionId: "cluster", Namespace: "team", Evidence: contract.Evidence{LastAttemptAt: now}},
-			{Id: "two", ConnectionId: "cluster", Namespace: "removed"},
-			{Id: "three", ConnectionId: "removed"},
+		Deployments: []fleet.Deployment{
+			{ID: "one", ConnectionID: "cluster", Namespace: "team", Evidence: fleet.Evidence{LastAttemptAt: now}},
+			{ID: "two", ConnectionID: "cluster", Namespace: "removed"},
+			{ID: "three", ConnectionID: "removed"},
 		},
 	}
 	got := filterEnrollment(snapshot, c)

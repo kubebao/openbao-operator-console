@@ -70,7 +70,7 @@ func TestOperatorObservationUsesNamedWorkloadAndCurrentGeneration(t *testing.T) 
 		return true, workload, nil
 	})
 	observation = reader.operator(context.Background(), enrolled, time.Now())
-	if observation.Health != "available" || observation.Uid == nil || *observation.Uid != "controller-uid" {
+	if observation.Health != "available" || observation.UID == nil || *observation.UID != "controller-uid" {
 		t.Fatal("current controller workload was not projected")
 	}
 	encoded, _ := json.Marshal(observation)

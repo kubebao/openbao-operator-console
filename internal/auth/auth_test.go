@@ -8,28 +8,28 @@ import (
 	"time"
 
 	"github.com/kubebao/openbao-operator-console/internal/config"
-	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 )
 
 func TestScopeRemovesHiddenGraphCountsHistoryAndNamespaces(t *testing.T) {
-	snapshot := contract.Snapshot{
-		Deployments: []contract.Deployment{
-			{Id: "visible", ConnectionId: "cluster", Namespace: "team-a"},
-			{Id: "hidden", ConnectionId: "cluster", Namespace: "team-b"},
+	snapshot := fleet.Snapshot{
+		Deployments: []fleet.Deployment{
+			{ID: "visible", ConnectionID: "cluster", Namespace: "team-a"},
+			{ID: "hidden", ConnectionID: "cluster", Namespace: "team-b"},
 		},
-		Connections: []contract.Connection{
+		Connections: []fleet.Connection{
 			{
-				Id:         "cluster",
+				ID:         "cluster",
 				Namespaces: []string{"team-a", "team-b"},
-				Operators: []contract.Operator{
-					{Id: "shared", Namespaces: []string{"team-a", "team-b"}},
-					{Id: "hidden", Namespaces: []string{"team-b"}},
+				Operators: []fleet.Operator{
+					{ID: "shared", Namespaces: []string{"team-a", "team-b"}},
+					{ID: "hidden", Namespaces: []string{"team-b"}},
 				},
-				Capabilities: []contract.ApiCapability{{Namespace: "team-a"}, {Namespace: "team-b"}},
+				Capabilities: []fleet.Capability{{Namespace: "team-a"}, {Namespace: "team-b"}},
 			},
 		},
-		Relationships: []contract.Relationship{{Id: "edge", SourceId: "visible", TargetId: "hidden"}},
-		Activity:      []contract.Activity{{Id: "secret-event", DeploymentId: "hidden"}},
+		Relationships: []fleet.Relationship{{ID: "edge", SourceID: "visible", TargetID: "hidden"}},
+		Activity:      []fleet.Activity{{ID: "secret-event", DeploymentID: "hidden"}},
 	}
 	user := config.User{Subject: "a", Scopes: []config.Scope{{ConnectionID: "cluster", Namespaces: []string{"team-a"}}}}
 	result := Scope(snapshot, user, false)
@@ -39,7 +39,7 @@ func TestScopeRemovesHiddenGraphCountsHistoryAndNamespaces(t *testing.T) {
 	if len(result.Connections) != 1 || len(result.Connections[0].Namespaces) != 1 {
 		t.Fatal("hidden namespace leaked")
 	}
-	if Allowed(config.User{}, snapshot.Deployments[0]) {
+	if (config.User{}).CanView("cluster", "team-a") {
 		t.Fatal("empty scope granted access")
 	}
 	if len(result.Connections[0].Operators) != 1 || len(result.Connections[0].Operators[0].Namespaces) != 1 ||

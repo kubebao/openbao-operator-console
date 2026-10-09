@@ -6,17 +6,21 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/util/validation"
 	"sigs.k8s.io/yaml"
+
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 )
 
 type Namespace struct {
-	Name        string `json:"name"`
-	Team        string `json:"team"`
-	Environment string `json:"environment"`
-	Location    string `json:"location"`
+	Name        string            `json:"name"`
+	Team        string            `json:"team"`
+	Environment fleet.Environment `json:"environment"`
+	Location    string            `json:"location"`
 }
 
 type Connection struct {
@@ -55,6 +59,16 @@ type User struct {
 	Admin   bool    `json:"admin,omitempty"`
 }
 
+// CanView reports whether the user's scopes include a namespace of a connection.
+func (u User) CanView(connectionID, namespace string) bool {
+	for _, scope := range u.Scopes {
+		if scope.ConnectionID == connectionID && slices.Contains(scope.Namespaces, namespace) {
+			return true
+		}
+	}
+	return false
+}
+
 type Group struct {
 	Name   string  `json:"name"`
 	Admin  bool    `json:"admin"`
@@ -78,11 +92,11 @@ type ResourceRef struct {
 }
 
 type Relationship struct {
-	ID         string      `json:"id"`
-	Source     ResourceRef `json:"source"`
-	Target     ResourceRef `json:"target"`
-	Kind       string      `json:"kind"`
-	Repository string      `json:"repository"`
+	ID         string                 `json:"id"`
+	Source     ResourceRef            `json:"source"`
+	Target     ResourceRef            `json:"target"`
+	Kind       fleet.RelationshipKind `json:"kind"`
+	Repository string                 `json:"repository"`
 }
 
 type Config struct {
@@ -93,6 +107,14 @@ type Config struct {
 	StartupGraceMinutes int            `json:"startupGraceMinutes"`
 	Groups              []Group        `json:"groups,omitempty"`
 	Identity            *Identity      `json:"identity,omitempty"`
+}
+
+// Policy returns the attention thresholds that evidence rules apply.
+func (c Config) Policy() fleet.Policy {
+	return fleet.Policy{
+		MaxBackupAge: time.Duration(c.MaxBackupAgeHours) * time.Hour,
+		StartupGrace: time.Duration(c.StartupGraceMinutes) * time.Minute,
+	}
 }
 
 func Load(path string) (Config, error) {
@@ -135,9 +157,7 @@ func (c Config) Validate() error {
 			if len(validation.IsDNS1123Label(namespace.Name)) != 0 || namespaces[namespace.Name] {
 				return fmt.Errorf("invalid or duplicate namespace in connection %q", connection.ID)
 			}
-			switch namespace.Environment {
-			case "production", "staging", "development", "other":
-			default:
+			if !namespace.Environment.Valid() {
 				return fmt.Errorf("invalid environment in connection %q", connection.ID)
 			}
 			namespaces[namespace.Name] = true
@@ -203,7 +223,7 @@ func (c Config) Validate() error {
 			return errors.New("invalid or duplicate relationship id")
 		}
 		routes[route.ID] = true
-		if route.Kind != "replication" && route.Kind != "snapshotRecovery" {
+		if !route.Kind.Valid() {
 			return errors.New("invalid relationship kind")
 		}
 		for _, resource := range []ResourceRef{route.Source, route.Target} {

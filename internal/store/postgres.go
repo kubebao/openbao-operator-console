@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/kubebao/openbao-operator-console/internal/contract"
 	"github.com/kubebao/openbao-operator-console/internal/evidence"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	"github.com/kubebao/openbao-operator-console/internal/store/database"
 )
 
@@ -141,40 +141,40 @@ func (p *Postgres) Apply(ctx context.Context, batch Batch) error {
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", batch.Connection.Id); err != nil {
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", batch.Connection.ID); err != nil {
 		return err
 	}
 	queries := database.New(tx)
-	storedConnection, err := queries.GetConnection(ctx, batch.Connection.Id)
+	storedConnection, err := queries.GetConnection(ctx, batch.Connection.ID)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
 	if err == nil {
-		var previousConnection contract.Connection
+		var previousConnection fleet.Connection
 		if err := json.Unmarshal(storedConnection, &previousConnection); err != nil {
 			return fmt.Errorf("decode stored connection: %w", err)
 		}
-		if batch.Connection.Collection != "current" {
+		if batch.Connection.Collection != fleet.ConnectionCollectionCurrent {
 			batch.Connection.LastSuccessAt = previousConnection.LastSuccessAt
 		}
 		PreserveOperatorEvidence(&batch.Connection, previousConnection)
 	}
-	previousRows, err := queries.GetConnectionDeployments(ctx, batch.Connection.Id)
+	previousRows, err := queries.GetConnectionDeployments(ctx, batch.Connection.ID)
 	if err != nil {
 		return err
 	}
-	previous := make(map[string]contract.Deployment)
+	previous := make(map[string]fleet.Deployment)
 	for _, row := range previousRows {
-		var d contract.Deployment
+		var d fleet.Deployment
 		if err := json.Unmarshal(row, &d); err != nil {
 			return fmt.Errorf("decode stored deployment: %w", err)
 		}
-		previous[d.Id] = d
+		previous[d.ID] = d
 	}
-	if batch.Connection.Collection != "current" {
-		batch.Deployments = []contract.Deployment{}
+	if batch.Connection.Collection != fleet.ConnectionCollectionCurrent {
+		batch.Deployments = []fleet.Deployment{}
 		for _, d := range previous {
-			evidence.CollectionFailure(&d, contract.EvidenceCollection(batch.Connection.Collection), batch.Connection.LastAttemptAt)
+			evidence.CollectionFailure(&d, fleet.EvidenceCollection(batch.Connection.Collection), batch.Connection.LastAttemptAt)
 			batch.Deployments = append(batch.Deployments, d)
 			if batch.Connection.LastSuccessAt == nil || d.Evidence.CollectedAt.After(*batch.Connection.LastSuccessAt) {
 				stamp := d.Evidence.CollectedAt
@@ -186,12 +186,12 @@ func (p *Postgres) Apply(ctx context.Context, batch Batch) error {
 	if err != nil {
 		return err
 	}
-	if err := queries.UpsertConnection(ctx, database.UpsertConnectionParams{ID: batch.Connection.Id, Projection: connection}); err != nil {
+	if err := queries.UpsertConnection(ctx, database.UpsertConnectionParams{ID: batch.Connection.ID, Projection: connection}); err != nil {
 		return err
 	}
 	ids := []string{}
 	for _, current := range batch.Deployments {
-		old, exists := previous[current.Id]
+		old, exists := previous[current.ID]
 		if exists {
 			PreserveFirstSeen(&current, old)
 		}
@@ -199,10 +199,10 @@ func (p *Postgres) Apply(ctx context.Context, batch Batch) error {
 		if err != nil {
 			return err
 		}
-		ids = append(ids, current.Id)
+		ids = append(ids, current.ID)
 		if err := queries.UpsertDeployment(
 			ctx,
-			database.UpsertDeploymentParams{ID: current.Id, ConnectionID: current.ConnectionId, Projection: projection},
+			database.UpsertDeploymentParams{ID: current.ID, ConnectionID: current.ConnectionID, Projection: projection},
 		); err != nil {
 			return err
 		}
@@ -211,7 +211,7 @@ func (p *Postgres) Apply(ctx context.Context, batch Batch) error {
 		if !exists || ObservationChanged(current, old) {
 			if err := queries.InsertObservation(
 				ctx,
-				database.InsertObservationParams{DeploymentID: current.Id, RecordedAt: stamp, Projection: projection},
+				database.InsertObservationParams{DeploymentID: current.ID, RecordedAt: stamp, Projection: projection},
 			); err != nil {
 				return err
 			}
@@ -222,17 +222,17 @@ func (p *Postgres) Apply(ctx context.Context, batch Batch) error {
 				}
 				if err := queries.InsertActivity(
 					ctx,
-					database.InsertActivityParams{ID: activity.Id, RecordedAt: stamp, Projection: encoded},
+					database.InsertActivityParams{ID: activity.ID, RecordedAt: stamp, Projection: encoded},
 				); err != nil {
 					return err
 				}
 			}
 		}
 	}
-	if batch.Connection.Collection == "current" {
+	if batch.Connection.Collection == fleet.ConnectionCollectionCurrent {
 		if err := queries.DeleteMissingDeployments(
 			ctx,
-			database.DeleteMissingDeploymentsParams{ConnectionID: batch.Connection.Id, Column2: ids},
+			database.DeleteMissingDeploymentsParams{ConnectionID: batch.Connection.ID, Column2: ids},
 		); err != nil {
 			return err
 		}
@@ -247,36 +247,35 @@ func (p *Postgres) Apply(ctx context.Context, batch Batch) error {
 	return tx.Commit(ctx)
 }
 
-func (p *Postgres) Snapshot(ctx context.Context) (contract.Snapshot, error) {
+func (p *Postgres) Snapshot(ctx context.Context) (fleet.Snapshot, error) {
 	// A repeatable-read transaction keeps counts, topology, and details coherent.
 	tx, err := p.pool.BeginTx(ctx, repeatableRead())
 	if err != nil {
-		return contract.Snapshot{}, err
+		return fleet.Snapshot{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	q := database.New(tx)
-	result := contract.Snapshot{
-		Mode:          "live",
+	result := fleet.Snapshot{
 		CollectedAt:   time.Now().UTC(),
-		Connections:   []contract.Connection{},
-		Deployments:   []contract.Deployment{},
-		Relationships: []contract.Relationship{},
-		Activity:      []contract.Activity{},
+		Connections:   []fleet.Connection{},
+		Deployments:   []fleet.Deployment{},
+		Relationships: []fleet.Relationship{},
+		Activity:      []fleet.Activity{},
 	}
 	connections, err := q.ListConnections(ctx)
 	if err != nil {
 		return result, err
 	}
 	for _, row := range connections {
-		var c contract.Connection
+		var c fleet.Connection
 		if err := json.Unmarshal(row, &c); err != nil {
 			return result, err
 		}
 		if c.Operators == nil {
-			c.Operators = []contract.Operator{}
+			c.Operators = []fleet.Operator{}
 		}
 		if c.Capabilities == nil {
-			c.Capabilities = []contract.ApiCapability{}
+			c.Capabilities = []fleet.Capability{}
 		}
 		result.Connections = append(result.Connections, c)
 	}
@@ -285,7 +284,7 @@ func (p *Postgres) Snapshot(ctx context.Context) (contract.Snapshot, error) {
 		return result, err
 	}
 	for _, row := range deployments {
-		var d contract.Deployment
+		var d fleet.Deployment
 		if err := json.Unmarshal(row, &d); err != nil {
 			return result, err
 		}
@@ -296,7 +295,7 @@ func (p *Postgres) Snapshot(ctx context.Context) (contract.Snapshot, error) {
 		return result, err
 	}
 	for _, row := range activity {
-		var a contract.Activity
+		var a fleet.Activity
 		if err := json.Unmarshal(row, &a); err != nil {
 			return result, err
 		}
@@ -305,18 +304,18 @@ func (p *Postgres) Snapshot(ctx context.Context) (contract.Snapshot, error) {
 	return result, tx.Commit(ctx)
 }
 
-func (p *Postgres) History(ctx context.Context, id string) ([]contract.Observation, error) {
+func (p *Postgres) History(ctx context.Context, id string) ([]fleet.Observation, error) {
 	rows, err := database.New(p.pool).GetHistory(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	result := []contract.Observation{}
+	result := []fleet.Observation{}
 	for _, row := range rows {
-		var d contract.Deployment
+		var d fleet.Deployment
 		if err := json.Unmarshal(row.Projection, &d); err != nil {
 			return nil, err
 		}
-		result = append(result, contract.Observation{Deployment: d, RecordedAt: row.RecordedAt.Time})
+		result = append(result, fleet.Observation{Deployment: d, RecordedAt: row.RecordedAt.Time})
 	}
 	return result, nil
 }

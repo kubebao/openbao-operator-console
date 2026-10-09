@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/kubebao/openbao-operator-console/internal/auth"
-	"github.com/kubebao/openbao-operator-console/internal/collector"
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/contract"
 	"github.com/kubebao/openbao-operator-console/internal/evidence"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 	"github.com/kubebao/openbao-operator-console/internal/store"
 )
@@ -54,7 +54,7 @@ func problem(w http.ResponseWriter, status int, code, message string) {
 	jsonResponse(w, status, contract.Problem{Code: code, Message: message})
 }
 
-func (s *Server) snapshot(ctx context.Context) (contract.Snapshot, error) {
+func (s *Server) snapshot(ctx context.Context) (fleet.Snapshot, error) {
 	result, err := s.Repository.Snapshot(ctx)
 	if err != nil {
 		return result, err
@@ -65,26 +65,23 @@ func (s *Server) snapshot(ctx context.Context) (contract.Snapshot, error) {
 			configuration, _ = s.Settings.Current()
 			result = filterEnrollment(result, configuration)
 		}
-		result.Policy = contract.AttentionPolicy{
-			MaxBackupAgeHours:   configuration.MaxBackupAgeHours,
-			StartupGraceMinutes: configuration.StartupGraceMinutes,
-		}
+		result.Policy = configuration.Policy()
 		now := time.Now().UTC()
 		for _, enrolled := range configuration.Connections {
 			found := false
 			for _, connection := range result.Connections {
-				found = found || connection.Id == enrolled.ID
+				found = found || connection.ID == enrolled.ID
 			}
 			if !found {
-				connection := contract.Connection{
-					Id:            enrolled.ID,
+				connection := fleet.Connection{
+					ID:            enrolled.ID,
 					Name:          enrolled.Name,
 					Region:        enrolled.Region,
-					Collection:    "pending",
+					Collection:    fleet.ConnectionCollectionPending,
 					LastAttemptAt: now,
 					Namespaces:    []string{},
-					Operators:     []contract.Operator{},
-					Capabilities:  []contract.ApiCapability{},
+					Operators:     []fleet.Operator{},
+					Capabilities:  []fleet.Capability{},
 				}
 				for _, namespace := range enrolled.Namespaces {
 					connection.Namespaces = append(connection.Namespaces, namespace.Name)
@@ -93,34 +90,39 @@ func (s *Server) snapshot(ctx context.Context) (contract.Snapshot, error) {
 			}
 		}
 		for i := range result.Connections {
-			if result.Connections[i].Collection == "current" && now.Sub(result.Connections[i].LastAttemptAt) > 2*time.Minute {
-				result.Connections[i].Collection = "stale"
+			if result.Connections[i].Collection == fleet.ConnectionCollectionCurrent &&
+				now.Sub(result.Connections[i].LastAttemptAt) > 2*time.Minute {
+				result.Connections[i].Collection = fleet.ConnectionCollectionStale
 			}
 			for j := range result.Connections[i].Operators {
 				operator := &result.Connections[i].Operators[j]
-				if operator.Collection == "current" && now.Sub(operator.LastAttemptAt) > 2*time.Minute {
-					operator.Collection = "stale"
+				if operator.Collection == fleet.OperatorCollectionCurrent && now.Sub(operator.LastAttemptAt) > 2*time.Minute {
+					operator.Collection = fleet.OperatorCollectionStale
 				}
 			}
 		}
 		for i := range result.Deployments {
 			for _, connection := range result.Connections {
-				if connection.Id == result.Deployments[i].ConnectionId {
-					collector.AssociateOperators(&result.Deployments[i], connection.Operators)
+				if connection.ID == result.Deployments[i].ConnectionID {
+					fleet.AssignOperator(&result.Deployments[i], connection.Operators)
 				}
 			}
-			if result.Deployments[i].Evidence.Collection == "current" &&
+			if result.Deployments[i].Evidence.Collection == fleet.EvidenceCollectionCurrent &&
 				now.Sub(result.Deployments[i].Evidence.LastAttemptAt) > 2*time.Minute {
-				evidence.CollectionFailure(&result.Deployments[i], "stale", result.Deployments[i].Evidence.LastAttemptAt.Add(2*time.Minute))
+				evidence.CollectionFailure(
+					&result.Deployments[i],
+					fleet.EvidenceCollectionStale,
+					result.Deployments[i].Evidence.LastAttemptAt.Add(2*time.Minute),
+				)
 			}
 		}
 		known := make(map[string]bool)
 		for _, d := range result.Deployments {
-			known[d.Id] = true
+			known[d.ID] = true
 		}
 		for _, route := range configuration.Relationships {
-			source := collector.ResourceID(route.Source.ConnectionID, route.Source.Namespace, route.Source.Name, route.Source.UID)
-			target := collector.ResourceID(route.Target.ConnectionID, route.Target.Namespace, route.Target.Name, route.Target.UID)
+			source := fleet.DeploymentID(route.Source.ConnectionID, route.Source.Namespace, route.Source.Name, route.Source.UID)
+			target := fleet.DeploymentID(route.Target.ConnectionID, route.Target.Namespace, route.Target.Name, route.Target.UID)
 			if !known[source] || !known[target] {
 				continue
 			}
@@ -131,13 +133,13 @@ func (s *Server) snapshot(ctx context.Context) (contract.Snapshot, error) {
 			}
 			result.Relationships = append(
 				result.Relationships,
-				contract.Relationship{
-					Id:         route.ID,
-					SourceId:   source,
-					TargetId:   target,
-					Kind:       contract.RelationshipKind(route.Kind),
+				fleet.Relationship{
+					ID:         route.ID,
+					SourceID:   source,
+					TargetID:   target,
+					Kind:       route.Kind,
 					Repository: repository,
-					Provenance: "declared",
+					Provenance: fleet.ProvenanceDeclared,
 				},
 			)
 		}
@@ -181,7 +183,7 @@ func (s *Server) Handler() http.Handler {
 			problem(w, http.StatusServiceUnavailable, "unavailable", "Fleet evidence is temporarily unavailable.")
 			return
 		}
-		jsonResponse(w, 200, auth.Scope(result, user, s.Demo))
+		jsonResponse(w, http.StatusOK, snapshotContract(auth.Scope(result, user, s.Demo), user, s.Demo))
 	})
 	mux.HandleFunc("GET /api/v1/deployments/{id}/history", func(w http.ResponseWriter, r *http.Request) {
 		user, allowed := s.Auth.Viewer(r)
@@ -199,7 +201,7 @@ func (s *Server) Handler() http.Handler {
 		id := r.PathValue("id")
 		visible := false
 		for _, d := range result.Deployments {
-			if d.Id == id && (s.Demo || auth.Allowed(user, d)) {
+			if d.ID == id && (s.Demo || user.CanView(d.ConnectionID, d.Namespace)) {
 				visible = true
 				break
 			}
@@ -213,7 +215,7 @@ func (s *Server) Handler() http.Handler {
 			problem(w, http.StatusServiceUnavailable, "unavailable", "Observation history is temporarily unavailable.")
 			return
 		}
-		jsonResponse(w, 200, contract.History{Observations: observations})
+		jsonResponse(w, http.StatusOK, contract.History{Observations: mapSlice(observations, observationContract)})
 	})
 	mux.HandleFunc("GET /api/", func(w http.ResponseWriter, _ *http.Request) {
 		problem(w, http.StatusNotFound, "not_found", "Endpoint not found.")

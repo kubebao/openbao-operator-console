@@ -15,7 +15,7 @@ import (
 
 	"github.com/kubebao/openbao-operator-console/internal/collector"
 	"github.com/kubebao/openbao-operator-console/internal/config"
-	"github.com/kubebao/openbao-operator-console/internal/evidence"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
@@ -115,9 +115,10 @@ func (KubernetesIssuer) Issue(ctx context.Context, connection config.Connection,
 	if connection.ValidateRenewal() != nil || credential.Validate() != nil {
 		return fail(settings.RenewalRetrying)
 	}
-	reader := collector.Unconfigured(connection, evidence.Policy{MaxBackupAge: 24 * time.Hour})
+	// Validation reads only check access; the policy does not affect the result.
+	reader := collector.Unconfigured(connection, fleet.Policy{MaxBackupAge: 24 * time.Hour})
 	batch, _ := reader.Check(ctx, now)
-	if batch.Connection.Collection != "current" {
+	if batch.Connection.Collection != fleet.ConnectionCollectionCurrent {
 		// A rejected candidate does not establish that the current token is
 		// invalid. Keep it active and retry issuance while it remains usable.
 		return fail(settings.RenewalRetrying)

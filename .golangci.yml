@@ -51,12 +51,6 @@ linters:
         path: internal/auth/auth.go
         text: "func `Scope`"
       - linters: [gocognit]
-        path: internal/collector/collector.go
-        text: "func `\\(\\*Reader\\).collect`"
-      - linters: [gocognit]
-        path: internal/collector/project.go
-        text: "func `Project`"
-      - linters: [gocognit]
         path: internal/config/config.go
         text: "func `\\(Config\\).Validate`"
       - linters: [gocognit]

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 )
 
 func TestPostgresRetainsFirstSeenAcrossRestartAndFailedCollection(t *testing.T) {
@@ -30,17 +30,17 @@ func TestPostgresRetainsFirstSeenAcrossRestartAndFailedCollection(t *testing.T) 
 	p := open()
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	id := "test-" + now.Format("150405.000000")
-	d := contract.Deployment{
-		Id:              id,
-		ConnectionId:    id,
+	d := fleet.Deployment{
+		ID:              id,
+		ConnectionID:    id,
 		ResourceVersion: "1",
 		Health:          "critical",
-		Evidence:        contract.Evidence{Collection: "current", CollectedAt: now},
-		Issues:          []contract.Issue{{Id: id + ":sealed", Rule: "sealed", FirstSeenAt: now}},
+		Evidence:        fleet.Evidence{Collection: "current", CollectedAt: now},
+		Issues:          []fleet.Issue{{ID: id + ":sealed", Rule: "sealed", FirstSeenAt: now}},
 	}
 	batch := Batch{
-		Connection:  contract.Connection{Id: id, Collection: "current", LastAttemptAt: now},
-		Deployments: []contract.Deployment{d},
+		Connection:  fleet.Connection{ID: id, Collection: "current", LastAttemptAt: now},
+		Deployments: []fleet.Deployment{d},
 	}
 	if err := p.Apply(ctx, batch); err != nil {
 		t.Fatal(err)
@@ -50,7 +50,7 @@ func TestPostgresRetainsFirstSeenAcrossRestartAndFailedCollection(t *testing.T) 
 	churn.ResourceVersion = "2"
 	churn.Evidence.CollectedAt = now.Add(30 * time.Second)
 	batch.Connection.LastAttemptAt = now.Add(30 * time.Second)
-	batch.Deployments = []contract.Deployment{churn}
+	batch.Deployments = []fleet.Deployment{churn}
 	if err := p.Apply(ctx, batch); err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestPostgresRetainsFirstSeenAcrossRestartAndFailedCollection(t *testing.T) 
 		t.Fatal(err)
 	}
 	for _, got := range snapshot.Deployments {
-		if got.Id != id {
+		if got.ID != id {
 			continue
 		}
 		if got.Health != "critical" || got.Evidence.Collection != "denied" || len(got.Issues) != 2 ||

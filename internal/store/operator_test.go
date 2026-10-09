@@ -4,32 +4,32 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 )
 
 func TestOperatorFailurePreservesFactsWithoutRestoringAssignments(t *testing.T) {
 	version, uid := "0.5.1", "observed-uid"
 	now := time.Now()
-	previous := contract.Connection{
-		Operators: []contract.Operator{
+	previous := fleet.Connection{
+		Operators: []fleet.Operator{
 			{
-				Id:            "one",
+				ID:            "one",
 				Namespace:     "system",
 				Name:          "controller",
 				Container:     "manager",
 				Namespaces:    []string{"old-team"},
 				Collection:    "current",
 				Health:        "available",
-				Uid:           &uid,
+				UID:           &uid,
 				Version:       &version,
 				LastSuccessAt: &now,
 			},
 		},
 	}
-	current := contract.Connection{
-		Operators: []contract.Operator{
+	current := fleet.Connection{
+		Operators: []fleet.Operator{
 			{
-				Id:            "one",
+				ID:            "one",
 				Namespace:     "system",
 				Name:          "controller",
 				Container:     "manager",

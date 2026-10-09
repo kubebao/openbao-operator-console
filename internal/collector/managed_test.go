@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/kubebao/openbao-operator-console/internal/config"
-	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 	"github.com/kubebao/openbao-operator-console/internal/store"
 )
@@ -83,11 +83,11 @@ func (r *batchRecorder) Apply(_ context.Context, batch store.Batch) error {
 	return nil
 }
 
-func (*batchRecorder) Snapshot(context.Context) (contract.Snapshot, error) {
-	return contract.Snapshot{}, nil
+func (*batchRecorder) Snapshot(context.Context) (fleet.Snapshot, error) {
+	return fleet.Snapshot{}, nil
 }
 
-func (*batchRecorder) History(context.Context, string) ([]contract.Observation, error) {
+func (*batchRecorder) History(context.Context, string) ([]fleet.Observation, error) {
 	return nil, nil
 }
 func (*batchRecorder) Close() {}
@@ -152,7 +152,7 @@ func TestManagedCollectionAddsPausesAndReconfiguresReaders(t *testing.T) {
 			return store.Batch{}
 		}
 	}
-	if batch := await(); batch.Connection.Id != "one" || batch.Connection.Collection != "current" {
+	if batch := await(); batch.Connection.ID != "one" || batch.Connection.Collection != "current" {
 		t.Fatal("initial reader failed")
 	}
 	current, revision := service.Current()
@@ -164,7 +164,7 @@ func TestManagedCollectionAddsPausesAndReconfiguresReaders(t *testing.T) {
 	if _, err := service.Save(ctx, revision, current, "admin", "Add reader"); err != nil {
 		t.Fatal(err)
 	}
-	if batch := await(); batch.Connection.Id != "two" {
+	if batch := await(); batch.Connection.ID != "two" {
 		t.Fatal("paused connection was collected")
 	}
 	current, revision = service.Current()
@@ -172,7 +172,7 @@ func TestManagedCollectionAddsPausesAndReconfiguresReaders(t *testing.T) {
 	if _, err := service.Save(ctx, revision, current, "admin", "Change namespace"); err != nil {
 		t.Fatal(err)
 	}
-	if batch := await(); batch.Connection.Id != "two" || len(batch.Connection.Namespaces) != 1 ||
+	if batch := await(); batch.Connection.ID != "two" || len(batch.Connection.Namespaces) != 1 ||
 		batch.Connection.Namespaces[0] != "after" {
 		t.Fatal("reader reused its old namespace")
 	}
