@@ -490,6 +490,7 @@ const (
 	OperatorCollectionDenied      OperatorCollection = "denied"
 	OperatorCollectionInvalid     OperatorCollection = "invalid"
 	OperatorCollectionNotFound    OperatorCollection = "notFound"
+	OperatorCollectionPending     OperatorCollection = "pending"
 	OperatorCollectionStale       OperatorCollection = "stale"
 	OperatorCollectionUnreachable OperatorCollection = "unreachable"
 )
@@ -504,6 +505,8 @@ func (e OperatorCollection) Valid() bool {
 	case OperatorCollectionInvalid:
 		return true
 	case OperatorCollectionNotFound:
+		return true
+	case OperatorCollectionPending:
 		return true
 	case OperatorCollectionStale:
 		return true

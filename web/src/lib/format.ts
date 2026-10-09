@@ -94,6 +94,7 @@ export const collectionLabels: Record<CollectionState, string> = {
 
 export const operatorCheckLabels = {
   current: 'Accessible',
+  pending: 'Awaiting collection',
   stale: 'Stale',
   denied: 'Access denied',
   unreachable: 'Unreachable',

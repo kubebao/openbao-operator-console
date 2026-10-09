@@ -399,7 +399,7 @@ export interface components {
             /** @description Version declared by the enrolled Deployment label; not verified binary identity. */
             readonly version: string | null;
             /** @enum {string} */
-            readonly collection: "current" | "stale" | "denied" | "unreachable" | "notFound" | "invalid";
+            readonly collection: "current" | "pending" | "stale" | "denied" | "unreachable" | "notFound" | "invalid";
             /** Format: date-time */
             readonly lastAttemptAt: string;
             /** Format: date-time */
