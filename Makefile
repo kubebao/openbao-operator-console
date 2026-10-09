@@ -1,4 +1,6 @@
-.PHONY: install dev generate check check-generated build e2e integration helm-check e2e-production screenshots
+.PHONY: install dev generate check check-generated build e2e integration helm-check e2e-production screenshots lint lint-fix
+
+GOLANGCI_LINT = go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 
 install:
 	go mod download
@@ -16,9 +18,14 @@ generate:
 check-generated:
 	./scripts/check-generated.sh
 
-check:
-	test -z "$$(gofmt -l cmd internal)"
-	go vet ./...
+lint:
+	$(GOLANGCI_LINT) run ./...
+
+lint-fix:
+	$(GOLANGCI_LINT) fmt ./...
+	$(GOLANGCI_LINT) run --fix ./...
+
+check: lint
 	go test -race ./...
 	pnpm --dir web typecheck
 	pnpm --dir web lint

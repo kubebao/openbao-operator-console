@@ -13,7 +13,12 @@ import (
 )
 
 func TestCredentialExpirySeparatesDeclarationsFromCertificates(t *testing.T) {
-	for _, token := range []string{"opaque", "a.invalid.b", "a." + base64.RawURLEncoding.EncodeToString([]byte(`{"exp":"123"}`)) + ".b", "a." + base64.RawURLEncoding.EncodeToString([]byte(`{"exp":999999999999999}`)) + ".b"} {
+	for _, token := range []string{
+		"opaque",
+		"a.invalid.b",
+		"a." + base64.RawURLEncoding.EncodeToString([]byte(`{"exp":"123"}`)) + ".b",
+		"a." + base64.RawURLEncoding.EncodeToString([]byte(`{"exp":999999999999999}`)) + ".b",
+	} {
 		if result := (&Credential{Token: token}).Expiry(); result.Source != "unknown" || result.ExpiresAt != nil {
 			t.Fatal("invalid or opaque token acquired an expiry")
 		}
@@ -28,7 +33,13 @@ func TestCredentialExpirySeparatesDeclarationsFromCertificates(t *testing.T) {
 		t.Fatal(err)
 	}
 	expires := time.Now().UTC().Add(24 * time.Hour).Truncate(time.Second)
-	certificate, err := x509.CreateCertificate(rand.Reader, &x509.Certificate{SerialNumber: big.NewInt(1), NotBefore: expires.Add(-48 * time.Hour), NotAfter: expires}, &x509.Certificate{SerialNumber: big.NewInt(1)}, &key.PublicKey, key)
+	certificate, err := x509.CreateCertificate(
+		rand.Reader,
+		&x509.Certificate{SerialNumber: big.NewInt(1), NotBefore: expires.Add(-48 * time.Hour), NotAfter: expires},
+		&x509.Certificate{SerialNumber: big.NewInt(1)},
+		&key.PublicKey,
+		key,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +47,10 @@ func TestCredentialExpirySeparatesDeclarationsFromCertificates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result = (&Credential{Certificate: string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate})), Key: string(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: encodedKey}))}).Expiry()
+	result = (&Credential{
+		Certificate: string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate})),
+		Key:         string(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: encodedKey})),
+	}).Expiry()
 	if result.Source != "certificate" || result.ExpiresAt == nil || !result.ExpiresAt.Equal(expires) {
 		t.Fatal("certificate validity was not projected")
 	}

@@ -55,7 +55,12 @@ func enrollAdministrators(configuration *config.Config, subjects []string) {
 }
 
 func bootstrapIdentity() (*config.Identity, error) {
-	identity := &config.Identity{Issuer: os.Getenv("CONSOLE_OIDC_ISSUER"), ClientID: os.Getenv("CONSOLE_OIDC_CLIENT_ID"), ClientSecret: os.Getenv("CONSOLE_OIDC_CLIENT_SECRET"), GroupsClaim: "groups"}
+	identity := &config.Identity{
+		Issuer:       os.Getenv("CONSOLE_OIDC_ISSUER"),
+		ClientID:     os.Getenv("CONSOLE_OIDC_CLIENT_ID"),
+		ClientSecret: os.Getenv("CONSOLE_OIDC_CLIENT_SECRET"),
+		GroupsClaim:  "groups",
+	}
 	if identity.Issuer == "" || identity.ClientID == "" || identity.ClientSecret == "" {
 		return nil, errors.New("bootstrap identity requires OIDC issuer, client ID, and client secret")
 	}
@@ -81,7 +86,8 @@ func bootstrapSeed(path string) (config.Config, error) {
 		}
 	}
 	enrollAdministrators(&configuration, bootstrapAdministrators())
-	if os.Getenv("CONSOLE_OIDC_ISSUER") != "" || os.Getenv("CONSOLE_OIDC_CLIENT_ID") != "" || os.Getenv("CONSOLE_OIDC_CLIENT_SECRET") != "" {
+	if os.Getenv("CONSOLE_OIDC_ISSUER") != "" || os.Getenv("CONSOLE_OIDC_CLIENT_ID") != "" ||
+		os.Getenv("CONSOLE_OIDC_CLIENT_SECRET") != "" {
 		identity, err := bootstrapIdentity()
 		if err != nil {
 			return configuration, err
@@ -106,7 +112,14 @@ func recoverConfiguration(ctx context.Context, service *settings.Service) error 
 	if err != nil {
 		return err
 	}
-	if _, err := auth.NewOIDC(providerContext, identity.Issuer, identity.ClientID, identity.ClientSecret, os.Getenv("CONSOLE_OIDC_REDIRECT_URL"), nil); err != nil {
+	if _, err := auth.NewOIDC(
+		providerContext,
+		identity.Issuer,
+		identity.ClientID,
+		identity.ClientSecret,
+		os.Getenv("CONSOLE_OIDC_REDIRECT_URL"),
+		nil,
+	); err != nil {
 		return errors.New("recovery identity discovery failed")
 	}
 	configuration, revision := service.Current()

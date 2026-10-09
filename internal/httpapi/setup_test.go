@@ -35,15 +35,33 @@ func pendingSetup(t *testing.T) setupFixture {
 	}
 	authentication := auth.NewPending()
 	authentication.SetResolver(service.Resolve)
-	setup, err := NewSetup(service, authentication, []byte(setupTestToken), "https://console.example/auth/callback", config.Config{MaxBackupAgeHours: 24, StartupGraceMinutes: 10})
+	setup, err := NewSetup(
+		service,
+		authentication,
+		[]byte(setupTestToken),
+		"https://console.example/auth/callback",
+		config.Config{MaxBackupAgeHours: 24, StartupGraceMinutes: 10},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := &Server{Repository: &memoryRepository{}, Auth: authentication, Settings: service, Setup: setup, Origin: "https://console.example"}
+	server := &Server{
+		Repository: &memoryRepository{},
+		Auth:       authentication,
+		Settings:   service,
+		Setup:      setup,
+		Origin:     "https://console.example",
+	}
 	return setupFixture{setup: setup, service: service, repository: repository, authentication: authentication, handler: server.Handler()}
 }
 
-func setupRequest(handler http.Handler, method, path string, body []byte, origin string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+func setupRequest(
+	handler http.Handler,
+	method, path string,
+	body []byte,
+	origin string,
+	cookies ...*http.Cookie,
+) *httptest.ResponseRecorder {
 	request := httptest.NewRequest(method, "https://console.example"+path, bytes.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Origin", origin)
@@ -64,7 +82,9 @@ func unlockedSetup(t *testing.T, fixture setupFixture) *http.Cookie {
 	}
 	for _, cookie := range response.Result().Cookies() {
 		if cookie.Name == setupCookie {
-			if !cookie.Secure || !cookie.HttpOnly || cookie.Path != "/" || cookie.Domain != "" || cookie.SameSite != http.SameSiteLaxMode || cookie.MaxAge <= 0 || cookie.MaxAge > 900 {
+			if !cookie.Secure || !cookie.HttpOnly || cookie.Path != "/" || cookie.Domain != "" || cookie.SameSite != http.SameSiteLaxMode ||
+				cookie.MaxAge <= 0 ||
+				cookie.MaxAge > 900 {
 				t.Fatal("setup cookie is not protected or bounded")
 			}
 			return cookie
@@ -74,9 +94,22 @@ func unlockedSetup(t *testing.T, fixture setupFixture) *http.Cookie {
 	return nil
 }
 
-func beginSetupTrial(t *testing.T, fixture setupFixture, provider *httptest.Server, cookie *http.Cookie) (*httptest.ResponseRecorder, contract.LoginRedirect) {
+func beginSetupTrial(
+	t *testing.T,
+	fixture setupFixture,
+	provider *httptest.Server,
+	cookie *http.Cookie,
+) (*httptest.ResponseRecorder, contract.LoginRedirect) {
 	t.Helper()
-	payload, _ := json.Marshal(contract.IdentityInput{Issuer: provider.URL, ClientId: "console", ClientSecret: new("setup-provider-secret"), Ca: testProviderCA(provider), GroupsClaim: "groups"})
+	payload, _ := json.Marshal(
+		contract.IdentityInput{
+			Issuer:       provider.URL,
+			ClientId:     "console",
+			ClientSecret: new("setup-provider-secret"),
+			Ca:           testProviderCA(provider),
+			GroupsClaim:  "groups",
+		},
+	)
 	response := setupRequest(fixture.handler, "POST", "/api/v1/setup/identity", payload, "https://console.example", cookie)
 	if response.Code != http.StatusOK {
 		t.Fatalf("begin trial = %d: %s", response.Code, response.Body.String())
@@ -88,7 +121,13 @@ func beginSetupTrial(t *testing.T, fixture setupFixture, provider *httptest.Serv
 	return response, redirect
 }
 
-func setupCallback(t *testing.T, fixture setupFixture, provider *httptest.Server, trial *httptest.ResponseRecorder, redirect contract.LoginRedirect) (*httptest.ResponseRecorder, *http.Request) {
+func setupCallback(
+	t *testing.T,
+	fixture setupFixture,
+	provider *httptest.Server,
+	trial *httptest.ResponseRecorder,
+	redirect contract.LoginRedirect,
+) (*httptest.ResponseRecorder, *http.Request) {
 	t.Helper()
 	client := provider.Client()
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
@@ -115,14 +154,25 @@ func TestSetupUnlockOriginExpiryAndRateLimits(t *testing.T) {
 		}
 	}
 	for _, path := range []string{"/api/v1/snapshot", "/api/v1/settings", "/api/v1/deployments/private/history"} {
-		if response := setupRequest(fixture.handler, "GET", path, nil, ""); response.Code != 503 || !strings.Contains(response.Body.String(), "setup_required") {
+		if response := setupRequest(
+			fixture.handler,
+			"GET",
+			path,
+			nil,
+			"",
+		); response.Code != 503 ||
+			!strings.Contains(response.Body.String(), "setup_required") {
 			t.Fatal("fleet API was served before initialization")
 		}
 	}
 	cookie := unlockedSetup(t, fixture)
 	response := setupRequest(fixture.handler, "GET", "/api/v1/setup", nil, "", cookie)
 	var status contract.SetupStatus
-	if err := json.Unmarshal(response.Body.Bytes(), &status); err != nil || status.State != "unlocked" || status.SessionExpiresAt == nil || status.CallbackUrl != "https://console.example/auth/callback" {
+	if err := json.Unmarshal(
+		response.Body.Bytes(),
+		&status,
+	); err != nil || status.State != "unlocked" || status.SessionExpiresAt == nil ||
+		status.CallbackUrl != "https://console.example/auth/callback" {
 		t.Fatal("unlocked status omitted safe setup metadata")
 	}
 	if strings.Contains(response.Body.String(), setupTestToken) || fixture.service.Initialized() {
@@ -170,10 +220,12 @@ func TestSetupClaimRequiresVerifiedLoginAndClosesPermanently(t *testing.T) {
 	}
 	current, revision := fixture.service.Current()
 	user, allowed := fixture.service.Resolve(context.Background(), "engineer", nil)
-	if revision != 1 || !allowed || !user.Admin || current.Identity == nil || current.Identity.Issuer != provider.URL || len(fixture.repository.changes) != 1 {
+	if revision != 1 || !allowed || !user.Admin || current.Identity == nil || current.Identity.Issuer != provider.URL ||
+		len(fixture.repository.changes) != 1 {
 		t.Fatal("verified subject did not become the first administrator")
 	}
-	if bytes.Contains(fixture.repository.record.Payload, []byte("setup-provider-secret")) || bytes.Contains(fixture.repository.record.Payload, []byte(setupTestToken)) {
+	if bytes.Contains(fixture.repository.record.Payload, []byte("setup-provider-secret")) ||
+		bytes.Contains(fixture.repository.record.Payload, []byte(setupTestToken)) {
 		t.Fatal("setup or provider credential persisted as plaintext")
 	}
 	var session *http.Cookie
@@ -189,7 +241,14 @@ func TestSetupClaimRequiresVerifiedLoginAndClosesPermanently(t *testing.T) {
 		t.Fatal("first administrator could not immediately use settings")
 	}
 	payload, _ := json.Marshal(contract.SetupUnlock{Token: setupTestToken})
-	if response := setupRequest(fixture.handler, "POST", "/api/v1/setup/unlock", payload, "https://console.example", cookie); response.Code != 409 {
+	if response := setupRequest(
+		fixture.handler,
+		"POST",
+		"/api/v1/setup/unlock",
+		payload,
+		"https://console.example",
+		cookie,
+	); response.Code != 409 {
 		t.Fatal("claimed setup token was accepted again")
 	}
 	replay := httptest.NewRecorder()
@@ -204,7 +263,13 @@ func TestSetupClaimRequiresVerifiedLoginAndClosesPermanently(t *testing.T) {
 	if err != nil || !restarted.Initialized() {
 		t.Fatal("restart reopened a claimed database")
 	}
-	if _, err := NewSetup(restarted, auth.NewPending(), []byte(setupTestToken), "https://console.example/auth/callback", config.Config{MaxBackupAgeHours: 24}); err == nil {
+	if _, err := NewSetup(
+		restarted,
+		auth.NewPending(),
+		[]byte(setupTestToken),
+		"https://console.example/auth/callback",
+		config.Config{MaxBackupAgeHours: 24},
+	); err == nil {
 		t.Fatal("initialized database accepted a new setup controller")
 	}
 }
@@ -240,12 +305,25 @@ func TestSetupOutstandingLoginRejectsLockedExpiredAndSupersededSessions(t *testi
 func TestSetupCandidateErrorsAreSafeAndTokenMustBeRandom(t *testing.T) {
 	fixture := pendingSetup(t)
 	for _, token := range []string{"password", strings.Repeat("0", 64), strings.Repeat("z", 64)} {
-		if _, err := NewSetup(fixture.service, fixture.authentication, []byte(token), "https://console.example/auth/callback", config.Config{MaxBackupAgeHours: 24}); err == nil {
+		if _, err := NewSetup(
+			fixture.service,
+			fixture.authentication,
+			[]byte(token),
+			"https://console.example/auth/callback",
+			config.Config{MaxBackupAgeHours: 24},
+		); err == nil {
 			t.Fatal("weak or invalid setup token accepted")
 		}
 	}
 	cookie := unlockedSetup(t, fixture)
-	payload, _ := json.Marshal(contract.IdentityInput{Issuer: "http://untrusted.example", ClientId: "console", ClientSecret: new("never-echo-this-secret"), GroupsClaim: "groups"})
+	payload, _ := json.Marshal(
+		contract.IdentityInput{
+			Issuer:       "http://untrusted.example",
+			ClientId:     "console",
+			ClientSecret: new("never-echo-this-secret"),
+			GroupsClaim:  "groups",
+		},
+	)
 	response := setupRequest(fixture.handler, "POST", "/api/v1/setup/identity", payload, "https://console.example", cookie)
 	if response.Code != 400 || strings.Contains(response.Body.String(), "never-echo-this-secret") || fixture.service.Initialized() {
 		t.Fatal("discovery error saved or exposed candidate identity")

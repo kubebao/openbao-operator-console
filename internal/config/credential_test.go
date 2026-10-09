@@ -24,7 +24,12 @@ users:
 	if err != nil || credential.Token != "reader-token" {
 		t.Fatal("embedded reader rejected")
 	}
-	for _, extra := range []string{"    exec:\n      apiVersion: client.authentication.k8s.io/v1\n      command: malicious\n", "    tokenFile: /etc/passwd\n", "    client-key: /private/key\n", "    as: administrator\n"} {
+	for _, extra := range []string{
+		"    exec:\n      apiVersion: client.authentication.k8s.io/v1\n      command: malicious\n",
+		"    tokenFile: /etc/passwd\n",
+		"    client-key: /private/key\n",
+		"    as: administrator\n",
+	} {
 		if _, err := ImportKubeconfig([]byte(base+extra), ""); err == nil {
 			t.Fatal("unsafe reader configuration accepted")
 		}
@@ -35,7 +40,10 @@ users:
 }
 
 func TestGroupBindingsNeverGrantUnenrolledNamespaces(t *testing.T) {
-	c := Config{Connections: []Connection{{ID: "cluster", Namespaces: []Namespace{{Name: "team"}}}}, Groups: []Group{{Name: "platform", Scopes: []Scope{{ConnectionID: "cluster", Namespaces: []string{"team", "hidden"}}}}}}
+	c := Config{
+		Connections: []Connection{{ID: "cluster", Namespaces: []Namespace{{Name: "team"}}}},
+		Groups:      []Group{{Name: "platform", Scopes: []Scope{{ConnectionID: "cluster", Namespaces: []string{"team", "hidden"}}}}},
+	}
 	user, allowed := c.Resolve("subject", []string{"platform"})
 	if !allowed || len(user.Scopes) != 1 || len(user.Scopes[0].Namespaces) != 1 || user.Scopes[0].Namespaces[0] != "team" {
 		t.Fatal("group access escaped enrollment")

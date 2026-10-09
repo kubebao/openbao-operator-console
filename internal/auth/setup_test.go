@@ -16,10 +16,14 @@ func TestPendingLoginAndExpiredSetupCallbackReturnToSetup(t *testing.T) {
 		t.Fatal("pending console attempted normal authentication")
 	}
 	activated := false
-	a.transactions["expired-state"] = transaction{setup: true, expires: time.Now().Add(-time.Minute), activate: func(context.Context, string, []string) error {
-		activated = true
-		return nil
-	}}
+	a.transactions["expired-state"] = transaction{
+		setup:   true,
+		expires: time.Now().Add(-time.Minute),
+		activate: func(context.Context, string, []string) error {
+			activated = true
+			return nil
+		},
+	}
 	request := httptest.NewRequest(http.MethodGet, "https://console.example/auth/callback?state=expired-state", nil)
 	request.AddCookie(&http.Cookie{Name: "__Host-console-state", Value: "expired-state"})
 	for range 2 {

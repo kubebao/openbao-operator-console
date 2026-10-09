@@ -19,7 +19,12 @@ type revisionRepository struct {
 }
 
 func (r revisionRepository) Apply(ctx context.Context, batch store.Batch) error {
-	return r.settings.ApplyCollection(ctx, r.revision, r.generation, func(ctx context.Context) error { return r.Repository.Apply(ctx, batch) })
+	return r.settings.ApplyCollection(
+		ctx,
+		r.revision,
+		r.generation,
+		func(ctx context.Context) error { return r.Repository.Apply(ctx, batch) },
+	)
 }
 
 func RunManaged(ctx context.Context, configuration *settings.Service, repository store.Repository, logger *slog.Logger) {
@@ -28,7 +33,10 @@ func RunManaged(ctx context.Context, configuration *settings.Service, repository
 	previous := map[string]*Reader{}
 	for {
 		current, revision, generation := configuration.ReaderConfiguration()
-		policy := evidence.Policy{MaxBackupAge: time.Duration(current.MaxBackupAgeHours) * time.Hour, StartupGrace: time.Duration(current.StartupGraceMinutes) * time.Minute}
+		policy := evidence.Policy{
+			MaxBackupAge: time.Duration(current.MaxBackupAgeHours) * time.Hour,
+			StartupGrace: time.Duration(current.StartupGraceMinutes) * time.Minute,
+		}
 		readers := []*Reader{}
 		next := map[string]*Reader{}
 		for _, connection := range current.Connections {
@@ -43,7 +51,12 @@ func RunManaged(ctx context.Context, configuration *settings.Service, repository
 			next[connection.ID] = reader
 		}
 		previous = next
-		collectRound(ctx, readers, revisionRepository{Repository: repository, settings: configuration, revision: revision, generation: generation}, logger)
+		collectRound(
+			ctx,
+			readers,
+			revisionRepository{Repository: repository, settings: configuration, revision: revision, generation: generation},
+			logger,
+		)
 		select {
 		case <-ctx.Done():
 			return

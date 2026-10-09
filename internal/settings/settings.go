@@ -72,7 +72,12 @@ func Open(ctx context.Context, repository Repository, key []byte, initial *confi
 	if err != nil {
 		return nil, err
 	}
-	result := &Service{repository: repository, cipher: encryption, changed: make(chan struct{}, 1), credentials: map[string]StoredCredential{}}
+	result := &Service{
+		repository:  repository,
+		cipher:      encryption,
+		changed:     make(chan struct{}, 1),
+		credentials: map[string]StoredCredential{},
+	}
 	stored, err := repository.LoadSettings(ctx)
 	if errors.Is(err, ErrMissing) {
 		if initial == nil {
@@ -140,7 +145,13 @@ func Open(ctx context.Context, repository Repository, key []byte, initial *confi
 	result.configuration = configuration
 	result.revision = stored.Revision
 	if legacy {
-		if _, err := result.Save(ctx, stored.Revision, configuration, "system", "Reader credentials migrated to independent encrypted records"); err != nil {
+		if _, err := result.Save(
+			ctx,
+			stored.Revision,
+			configuration,
+			"system",
+			"Reader credentials migrated to independent encrypted records",
+		); err != nil {
 			return nil, fmt.Errorf("migrate reader credentials: %w", err)
 		}
 	}
@@ -264,7 +275,13 @@ func (s *Service) Save(ctx context.Context, revision int64, configuration config
 
 // SaveReplacing replaces only the credentials named by the caller. Omitted
 // credentials are resolved under the lock, so a stale edit cannot undo renewal.
-func (s *Service) SaveReplacing(ctx context.Context, revision int64, configuration config.Config, actor, summary string, replacements []string) (int64, error) {
+func (s *Service) SaveReplacing(
+	ctx context.Context,
+	revision int64,
+	configuration config.Config,
+	actor, summary string,
+	replacements []string,
+) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if revision != s.revision {
@@ -315,7 +332,7 @@ func (s *Service) SaveReplacing(ctx context.Context, revision int64, configurati
 		return 0, fmt.Errorf("%w: credential replacement references an unknown remote connection", ErrInvalid)
 	}
 	if err := configuration.Validate(); err != nil {
-		return 0, fmt.Errorf("%w: %s", ErrInvalid, err)
+		return 0, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
 	if !hasAdmin(configuration) {
 		return 0, fmt.Errorf("%w: keep at least one console administrator", ErrInvalid)

@@ -85,16 +85,28 @@ func testLiveSession(t *testing.T, keycloak bool) {
 	defer cancel()
 	id := fmt.Sprintf("qualification-%d", time.Now().UnixNano())
 	connection := config.Connection{
-		ID: id, Name: "Qualification", Kubeconfig: kubeconfig, Context: "kind-console-dev",
+		ID:         id,
+		Name:       "Qualification",
+		Kubeconfig: kubeconfig,
+		Context:    "kind-console-dev",
 		Namespaces: []config.Namespace{{Name: "console-sample", Environment: "development"}},
-		Operators:  []config.Operator{{ID: "operator", Namespace: "console-system", Deployment: "console-operator-openbao-operator-controller", Container: "manager", Namespaces: []string{"console-sample"}}},
+		Operators: []config.Operator{
+			{
+				ID:         "operator",
+				Namespace:  "console-system",
+				Deployment: "console-operator-openbao-operator-controller",
+				Container:  "manager",
+				Namespaces: []string{"console-sample"},
+			},
+		},
 	}
 	reader, err := collector.New(connection, evidence.Policy{MaxBackupAge: 24 * time.Hour})
 	if err != nil {
 		t.Fatal(err)
 	}
 	batch := reader.Collect(ctx, time.Now().UTC())
-	if batch.Connection.Collection != "current" || len(batch.Deployments) == 0 || len(batch.Connection.Operators) != 1 || batch.Connection.Operators[0].Collection != "current" {
+	if batch.Connection.Collection != "current" || len(batch.Deployments) == 0 || len(batch.Connection.Operators) != 1 ||
+		batch.Connection.Operators[0].Collection != "current" {
 		t.Fatal("live reader failed qualification")
 	}
 	repository, err := store.Open(ctx, dsn, 24*time.Hour)
@@ -107,7 +119,10 @@ func testLiveSession(t *testing.T, keycloak bool) {
 	}
 	var providerContext context.Context
 	if keycloak {
-		providerContext, err = auth.ProviderContext(ctx, filepath.Join(filepath.Dir(os.Getenv("CONSOLE_TEST_KEYCLOAK_CONFIG")), "server.crt"))
+		providerContext, err = auth.ProviderContext(
+			ctx,
+			filepath.Join(filepath.Dir(os.Getenv("CONSOLE_TEST_KEYCLOAK_CONFIG")), "server.crt"),
+		)
 		if err != nil {
 			t.Fatal("cannot configure Keycloak certificate trust")
 		}
@@ -129,12 +144,34 @@ func testLiveSession(t *testing.T, keycloak bool) {
 	application.Config.BaseContext = func(net.Listener) context.Context { return providerContext }
 	application.StartTLS()
 	defer application.Close()
-	user := config.User{Subject: settings.Subject, Name: "Engineer", Admin: true, Scopes: []config.Scope{{ConnectionID: id, Namespaces: []string{"console-sample"}}}}
-	authentication, err := auth.NewOIDC(providerContext, settings.Issuer, settings.ClientID, settings.ClientSecret, application.URL+"/auth/callback", []config.User{user})
+	user := config.User{
+		Subject: settings.Subject,
+		Name:    "Engineer",
+		Admin:   true,
+		Scopes:  []config.Scope{{ConnectionID: id, Namespaces: []string{"console-sample"}}},
+	}
+	authentication, err := auth.NewOIDC(
+		providerContext,
+		settings.Issuer,
+		settings.ClientID,
+		settings.ClientSecret,
+		application.URL+"/auth/callback",
+		[]config.User{user},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	configuration, err := consolesettings.New(ctx, &configurationRepository{}, bytes.Repeat([]byte{4}, 32), config.Config{Connections: []config.Connection{connection}, Users: []config.User{user}, MaxBackupAgeHours: 24, Identity: &config.Identity{Issuer: settings.Issuer, ClientID: settings.ClientID, ClientSecret: settings.ClientSecret}})
+	configuration, err := consolesettings.New(
+		ctx,
+		&configurationRepository{},
+		bytes.Repeat([]byte{4}, 32),
+		config.Config{
+			Connections:       []config.Connection{connection},
+			Users:             []config.User{user},
+			MaxBackupAgeHours: 24,
+			Identity:          &config.Identity{Issuer: settings.Issuer, ClientID: settings.ClientID, ClientSecret: settings.ClientSecret},
+		},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +210,7 @@ func testLiveSession(t *testing.T, keycloak bool) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer response.Body.Close()
+		defer func() { _ = response.Body.Close() }()
 		var snapshot contract.Snapshot
 		if response.StatusCode != http.StatusOK || json.NewDecoder(response.Body).Decode(&snapshot) != nil {
 			t.Fatal("authenticated live snapshot failed")
@@ -181,7 +218,9 @@ func testLiveSession(t *testing.T, keycloak bool) {
 		return snapshot
 	}
 	snapshot := read()
-	if snapshot.Mode != "live" || snapshot.Viewer.Subject != settings.Subject || len(snapshot.Connections) != 1 || len(snapshot.Deployments) != len(batch.Deployments) || snapshot.Deployments[0].OperatorId == nil {
+	if snapshot.Mode != "live" || snapshot.Viewer.Subject != settings.Subject || len(snapshot.Connections) != 1 ||
+		len(snapshot.Deployments) != len(batch.Deployments) ||
+		snapshot.Deployments[0].OperatorId == nil {
 		t.Fatal("authenticated snapshot lost live identity or leaked other database enrollments")
 	}
 	version := snapshot.Connections[0].Operators[0].Version
@@ -193,7 +232,9 @@ func testLiveSession(t *testing.T, keycloak bool) {
 	}
 	snapshot = read()
 	operator := snapshot.Connections[0].Operators[0]
-	if operator.Collection != "denied" || operator.LastSuccessAt == nil || (version != nil && (operator.Version == nil || *operator.Version != *version)) || snapshot.Connections[0].Collection != "current" {
+	if operator.Collection != "denied" || operator.LastSuccessAt == nil ||
+		(version != nil && (operator.Version == nil || *operator.Version != *version)) ||
+		snapshot.Connections[0].Collection != "current" {
 		t.Fatal("operator read failure concealed last-known facts or stopped workload inventory")
 	}
 	// The onboarding API tests the real enrolled reader without Kubernetes mutations.
@@ -207,12 +248,16 @@ func testLiveSession(t *testing.T, keycloak bool) {
 		t.Fatal(err)
 	}
 	var checkResult contract.ConnectionCheckResult
-	if response.StatusCode != http.StatusOK || json.NewDecoder(response.Body).Decode(&checkResult) != nil || checkResult.Connection.Collection != "current" || len(checkResult.Connection.Operators) != 1 {
+	if response.StatusCode != http.StatusOK || json.NewDecoder(response.Body).Decode(&checkResult) != nil ||
+		checkResult.Connection.Collection != "current" ||
+		len(checkResult.Connection.Operators) != 1 {
 		t.Fatal("real onboarding access check failed")
 	}
 	_ = response.Body.Close()
 	current.Connections[0].Disabled = true
-	updatePayload, _ := json.Marshal(contract.SettingsUpdate{Revision: revision, Configuration: configurationView(current), Credentials: []contract.CredentialUpdate{}})
+	updatePayload, _ := json.Marshal(
+		contract.SettingsUpdate{Revision: revision, Configuration: configurationView(current), Credentials: []contract.CredentialUpdate{}},
+	)
 	put, _ := http.NewRequest(http.MethodPut, application.URL+"/api/v1/settings", bytes.NewReader(updatePayload))
 	put.Header.Set("Content-Type", "application/json")
 	put.Header.Set("Origin", application.URL)
@@ -282,7 +327,10 @@ func signedTestProvider(t *testing.T) *httptest.Server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.RS256, Key: key}, (&jose.SignerOptions{}).WithHeader("kid", "qualification"))
+	signer, err := jose.NewSigner(
+		jose.SigningKey{Algorithm: jose.RS256, Key: key},
+		(&jose.SignerOptions{}).WithHeader("kid", "qualification"),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -290,10 +338,18 @@ func signedTestProvider(t *testing.T) *httptest.Server {
 	var mu sync.Mutex
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /.well-known/openid-configuration", func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"issuer": issuer, "authorization_endpoint": issuer + "/authorize", "token_endpoint": issuer + "/token", "jwks_uri": issuer + "/keys", "id_token_signing_alg_values_supported": []string{"RS256"}})
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"issuer":                                issuer,
+			"authorization_endpoint":                issuer + "/authorize",
+			"token_endpoint":                        issuer + "/token",
+			"jwks_uri":                              issuer + "/keys",
+			"id_token_signing_alg_values_supported": []string{"RS256"},
+		})
 	})
 	mux.HandleFunc("GET /keys", func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{Key: &key.PublicKey, KeyID: "qualification", Algorithm: "RS256", Use: "sig"}}})
+		_ = json.NewEncoder(w).Encode(jose.JSONWebKeySet{
+			Keys: []jose.JSONWebKey{{Key: &key.PublicKey, KeyID: "qualification", Algorithm: "RS256", Use: "sig"}},
+		})
 	})
 	mux.HandleFunc("GET /authorize", func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
@@ -319,14 +375,22 @@ func signedTestProvider(t *testing.T) *httptest.Server {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		token, err := jwt.Signed(signer).Claims(map[string]interface{}{"iss": issuer, "aud": "console", "sub": "engineer", "nonce": nonce, "exp": time.Now().Add(time.Hour).Unix()}).Serialize()
+		token, err := jwt.Signed(signer).
+			Claims(map[string]any{
+				"iss":   issuer,
+				"aud":   "console",
+				"sub":   "engineer",
+				"nonce": nonce,
+				"exp":   time.Now().Add(time.Hour).Unix(),
+			}).
+			Serialize()
 		nonce = ""
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"access_token": "test-provider-token", "token_type": "Bearer", "id_token": token})
+		_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "test-provider-token", "token_type": "Bearer", "id_token": token})
 	})
 	server := httptest.NewTLSServer(mux)
 	issuer = server.URL

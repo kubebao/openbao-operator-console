@@ -47,6 +47,9 @@ func jsonResponse[T any](w http.ResponseWriter, status int, value T) {
 	_ = json.NewEncoder(w).Encode(value)
 }
 
+const contentSecurityPolicy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+	"img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+
 func problem(w http.ResponseWriter, status int, code, message string) {
 	jsonResponse(w, status, contract.Problem{Code: code, Message: message})
 }
@@ -62,7 +65,10 @@ func (s *Server) snapshot(ctx context.Context) (contract.Snapshot, error) {
 			configuration, _ = s.Settings.Current()
 			result = filterEnrollment(result, configuration)
 		}
-		result.Policy = contract.AttentionPolicy{MaxBackupAgeHours: configuration.MaxBackupAgeHours, StartupGraceMinutes: configuration.StartupGraceMinutes}
+		result.Policy = contract.AttentionPolicy{
+			MaxBackupAgeHours:   configuration.MaxBackupAgeHours,
+			StartupGraceMinutes: configuration.StartupGraceMinutes,
+		}
 		now := time.Now().UTC()
 		for _, enrolled := range configuration.Connections {
 			found := false
@@ -70,7 +76,16 @@ func (s *Server) snapshot(ctx context.Context) (contract.Snapshot, error) {
 				found = found || connection.Id == enrolled.ID
 			}
 			if !found {
-				connection := contract.Connection{Id: enrolled.ID, Name: enrolled.Name, Region: enrolled.Region, Collection: "pending", LastAttemptAt: now, Namespaces: []string{}, Operators: []contract.Operator{}, Capabilities: []contract.ApiCapability{}}
+				connection := contract.Connection{
+					Id:            enrolled.ID,
+					Name:          enrolled.Name,
+					Region:        enrolled.Region,
+					Collection:    "pending",
+					LastAttemptAt: now,
+					Namespaces:    []string{},
+					Operators:     []contract.Operator{},
+					Capabilities:  []contract.ApiCapability{},
+				}
 				for _, namespace := range enrolled.Namespaces {
 					connection.Namespaces = append(connection.Namespaces, namespace.Name)
 				}
@@ -94,7 +109,8 @@ func (s *Server) snapshot(ctx context.Context) (contract.Snapshot, error) {
 					collector.AssociateOperators(&result.Deployments[i], connection.Operators)
 				}
 			}
-			if result.Deployments[i].Evidence.Collection == "current" && now.Sub(result.Deployments[i].Evidence.LastAttemptAt) > 2*time.Minute {
+			if result.Deployments[i].Evidence.Collection == "current" &&
+				now.Sub(result.Deployments[i].Evidence.LastAttemptAt) > 2*time.Minute {
 				evidence.CollectionFailure(&result.Deployments[i], "stale", result.Deployments[i].Evidence.LastAttemptAt.Add(2*time.Minute))
 			}
 		}
@@ -113,7 +129,17 @@ func (s *Server) snapshot(ctx context.Context) (contract.Snapshot, error) {
 				label := route.Repository
 				repository = &label
 			}
-			result.Relationships = append(result.Relationships, contract.Relationship{Id: route.ID, SourceId: source, TargetId: target, Kind: contract.RelationshipKind(route.Kind), Repository: repository, Provenance: "declared"})
+			result.Relationships = append(
+				result.Relationships,
+				contract.Relationship{
+					Id:         route.ID,
+					SourceId:   source,
+					TargetId:   target,
+					Kind:       contract.RelationshipKind(route.Kind),
+					Repository: repository,
+					Provenance: "declared",
+				},
+			)
 		}
 	}
 	return result, nil
@@ -218,8 +244,9 @@ func (s *Server) Handler() http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
-		if s.Setup != nil && !s.Settings.Initialized() && strings.HasPrefix(r.URL.Path, "/api/v1/") && !strings.HasPrefix(r.URL.Path, "/api/v1/setup") {
+		w.Header().Set("Content-Security-Policy", contentSecurityPolicy)
+		if s.Setup != nil && !s.Settings.Initialized() && strings.HasPrefix(r.URL.Path, "/api/v1/") &&
+			!strings.HasPrefix(r.URL.Path, "/api/v1/setup") {
 			problem(w, http.StatusServiceUnavailable, "setup_required", "Complete console setup before using this API.")
 			return
 		}

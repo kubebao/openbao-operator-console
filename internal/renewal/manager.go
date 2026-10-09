@@ -46,7 +46,9 @@ func (m Manager) Round(ctx context.Context, now time.Time) {
 		if target.Connection.Renewal == nil || target.Connection.Disabled || target.State.State == settings.RenewalReconnectRequired {
 			continue
 		}
-		if target.State.NextAttemptAt != nil && now.Before(*target.State.NextAttemptAt) && !(target.State.ExpiryVerified && target.State.ExpiresAt != nil && !now.Before(*target.State.ExpiresAt)) {
+		scheduled := target.State.NextAttemptAt != nil && now.Before(*target.State.NextAttemptAt)
+		expired := target.State.ExpiryVerified && target.State.ExpiresAt != nil && !now.Before(*target.State.ExpiresAt)
+		if scheduled && !expired {
 			continue
 		}
 		select {
@@ -86,7 +88,7 @@ func (m Manager) renew(ctx context.Context, target settings.RenewalTarget, now t
 			state.Failures = 0
 			state.LastSuccessAt = &now
 			delay := min(expires.Sub(now)/3, 8*time.Hour)
-			delay -= time.Duration(rand.Float64() * 0.1 * float64(delay))
+			delay -= time.Duration(rand.Float64() * 0.1 * float64(delay)) //nolint:gosec // Scheduling jitter, not a secret.
 			next := now.Add(delay)
 			state.NextAttemptAt = &next
 		} else {

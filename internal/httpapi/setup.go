@@ -52,13 +52,21 @@ type Setup struct {
 	now            func() time.Time
 }
 
-func NewSetup(service *settings.Service, authentication *auth.Authenticator, token []byte, callback string, seed config.Config) (*Setup, error) {
+func NewSetup(
+	service *settings.Service,
+	authentication *auth.Authenticator,
+	token []byte,
+	callback string,
+	seed config.Config,
+) (*Setup, error) {
 	value := strings.TrimSpace(string(token))
 	if !validSetupToken(value) {
 		return nil, errors.New("setup token must contain 32 random bytes encoded as 64 hexadecimal or 43 URL-safe base64 characters")
 	}
 	parsed, err := url.Parse(callback)
-	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.Path != "/auth/callback" || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.User != nil {
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.Path != "/auth/callback" || parsed.RawQuery != "" ||
+		parsed.Fragment != "" ||
+		parsed.User != nil {
 		return nil, errors.New("OIDC callback must be an HTTPS URL ending in /auth/callback")
 	}
 	if service == nil || authentication == nil || service.Initialized() {
@@ -67,7 +75,17 @@ func NewSetup(service *settings.Service, authentication *auth.Authenticator, tok
 	if err := seed.Validate(); err != nil {
 		return nil, errors.New("setup enrollment is invalid")
 	}
-	return &Setup{settings: service, authentication: authentication, seed: seed, tokenDigest: sha256.Sum256([]byte(value)), expires: time.Now().Add(setupTokenLifetime), callback: callback, sessions: map[string]setupSession{}, peers: map[string]setupRate{}, now: time.Now}, nil
+	return &Setup{
+		settings:       service,
+		authentication: authentication,
+		seed:           seed,
+		tokenDigest:    sha256.Sum256([]byte(value)),
+		expires:        time.Now().Add(setupTokenLifetime),
+		callback:       callback,
+		sessions:       map[string]setupSession{},
+		peers:          map[string]setupRate{},
+		now:            time.Now,
+	}, nil
 }
 
 func validSetupToken(value string) bool {
@@ -150,10 +168,13 @@ func setupPeer(request *http.Request) string {
 }
 
 func setupSessionCookie(w http.ResponseWriter, value string, age int) {
-	http.SetCookie(w, &http.Cookie{Name: setupCookie, Value: value, Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: age})
+	http.SetCookie(
+		w,
+		&http.Cookie{Name: setupCookie, Value: value, Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: age},
+	)
 }
 
-func (s *Setup) available(w http.ResponseWriter, request *http.Request) bool {
+func (s *Setup) available(w http.ResponseWriter) bool {
 	if s.settings.Initialized() {
 		problem(w, http.StatusConflict, "setup_complete", "Console setup is already complete.")
 		return false
@@ -173,7 +194,7 @@ func (s *Setup) unlock(w http.ResponseWriter, request *http.Request) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.available(w, request) {
+	if !s.available(w) {
 		return
 	}
 	now := s.now()
@@ -196,7 +217,12 @@ func (s *Setup) unlock(w http.ResponseWriter, request *http.Request) {
 		delete(s.sessions, cookie.Value)
 	}
 	if len(s.sessions) >= 8 {
-		problem(w, http.StatusTooManyRequests, "rate_limited", "Setup is already open in several browsers. Retry after those sessions expire.")
+		problem(
+			w,
+			http.StatusTooManyRequests,
+			"rate_limited",
+			"Setup is already open in several browsers. Retry after those sessions expire.",
+		)
 		return
 	}
 	data := make([]byte, 32)
@@ -211,7 +237,11 @@ func (s *Setup) unlock(w http.ResponseWriter, request *http.Request) {
 	}
 	s.sessions[id] = setupSession{expires: expires}
 	setupSessionCookie(w, id, int(expires.Sub(now).Seconds()))
-	jsonResponse(w, 200, contract.SetupStatus{State: contract.SetupStatusStateUnlocked, CallbackUrl: s.callback, SessionExpiresAt: &expires})
+	jsonResponse(
+		w,
+		200,
+		contract.SetupStatus{State: contract.SetupStatusStateUnlocked, CallbackUrl: s.callback, SessionExpiresAt: &expires},
+	)
 }
 
 func (s *Setup) lock(w http.ResponseWriter, request *http.Request) {
@@ -236,7 +266,7 @@ func (s *Setup) identity(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 	s.mu.Lock()
-	if !s.available(w, request) {
+	if !s.available(w) {
 		s.mu.Unlock()
 		return
 	}
@@ -256,11 +286,20 @@ func (s *Setup) identity(w http.ResponseWriter, request *http.Request) {
 	session.trial++
 	s.sessions[cookie.Value] = session
 	s.mu.Unlock()
-	if len(input.Issuer) > 4096 || len(input.ClientId) > 1024 || len(input.GroupsClaim) > 1024 || len(input.Ca) > 256<<10 || input.ClientSecret == nil || *input.ClientSecret == "" || len(*input.ClientSecret) > 64<<10 {
+	if len(input.Issuer) > 4096 || len(input.ClientId) > 1024 || len(input.GroupsClaim) > 1024 || len(input.Ca) > 256<<10 ||
+		input.ClientSecret == nil ||
+		*input.ClientSecret == "" ||
+		len(*input.ClientSecret) > 64<<10 {
 		problem(w, http.StatusBadRequest, "invalid", "Supply an issuer, client ID, and client secret within the supported limits.")
 		return
 	}
-	identity := config.Identity{Issuer: input.Issuer, ClientID: input.ClientId, ClientSecret: *input.ClientSecret, CA: input.Ca, GroupsClaim: input.GroupsClaim}
+	identity := config.Identity{
+		Issuer:       input.Issuer,
+		ClientID:     input.ClientId,
+		ClientSecret: *input.ClientSecret,
+		CA:           input.Ca,
+		GroupsClaim:  input.GroupsClaim,
+	}
 	ctx, cancel := context.WithTimeout(request.Context(), 15*time.Second)
 	defer cancel()
 	providerContext, err := auth.ProviderContextPEM(ctx, []byte(identity.CA))
@@ -278,7 +317,8 @@ func (s *Setup) identity(w http.ResponseWriter, request *http.Request) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		active, found := s.sessions[cookie.Value]
-		if !found || active.trial != session.trial || !s.now().Before(active.expires) || !s.now().Before(s.expires) || s.settings.Initialized() {
+		if !found || active.trial != session.trial || !s.now().Before(active.expires) || !s.now().Before(s.expires) ||
+			s.settings.Initialized() {
 			return errors.New("setup claim is no longer available")
 		}
 		configuration := s.seed
@@ -292,7 +332,10 @@ func (s *Setup) identity(w http.ResponseWriter, request *http.Request) {
 			}
 		}
 		if !enrolled {
-			configuration.Users = append(configuration.Users, config.User{Subject: subject, Name: subject, Admin: true, Scopes: []config.Scope{}})
+			configuration.Users = append(
+				configuration.Users,
+				config.User{Subject: subject, Name: subject, Admin: true, Scopes: []config.Scope{}},
+			)
 		}
 		if err := s.settings.Initialize(ctx, configuration, subject); err != nil {
 			return err
@@ -333,5 +376,8 @@ func (s *Server) setupRoutes(mux *http.ServeMux) {
 	}
 	mux.HandleFunc("POST /api/v1/setup/unlock", guard(func(w http.ResponseWriter, request *http.Request) { s.Setup.unlock(w, request) }))
 	mux.HandleFunc("POST /api/v1/setup/lock", guard(func(w http.ResponseWriter, request *http.Request) { s.Setup.lock(w, request) }))
-	mux.HandleFunc("POST /api/v1/setup/identity", guard(func(w http.ResponseWriter, request *http.Request) { s.Setup.identity(w, request) }))
+	mux.HandleFunc(
+		"POST /api/v1/setup/identity",
+		guard(func(w http.ResponseWriter, request *http.Request) { s.Setup.identity(w, request) }),
+	)
 }

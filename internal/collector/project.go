@@ -28,7 +28,7 @@ func ResourceID(connection, namespace, name, uid string) string {
 	return hex.EncodeToString(sum[:16])
 }
 
-func text(object map[string]interface{}, fields ...string) string {
+func text(object map[string]any, fields ...string) string {
 	value, found, err := unstructured.NestedString(object, fields...)
 	if err != nil || !found || !identifier.MatchString(value) {
 		return ""
@@ -36,7 +36,7 @@ func text(object map[string]interface{}, fields ...string) string {
 	return value
 }
 
-func optionalText(object map[string]interface{}, fields ...string) *string {
+func optionalText(object map[string]any, fields ...string) *string {
 	value := text(object, fields...)
 	if value == "" {
 		return nil
@@ -44,7 +44,7 @@ func optionalText(object map[string]interface{}, fields ...string) *string {
 	return &value
 }
 
-func timestamp(object map[string]interface{}, fields ...string) *time.Time {
+func timestamp(object map[string]any, fields ...string) *time.Time {
 	value, found, err := unstructured.NestedString(object, fields...)
 	if err != nil || !found {
 		return nil
@@ -56,7 +56,7 @@ func timestamp(object map[string]interface{}, fields ...string) *time.Time {
 	return &parsed
 }
 
-func count(object map[string]interface{}, fields ...string) *int32 {
+func count(object map[string]any, fields ...string) *int32 {
 	value, found, err := unstructured.NestedInt64(object, fields...)
 	if err != nil || !found || value < 0 || value > math.MaxInt32 {
 		return nil
@@ -65,12 +65,18 @@ func count(object map[string]interface{}, fields ...string) *int32 {
 	return &result
 }
 
-func boolean(object map[string]interface{}, fields ...string) bool {
+func boolean(object map[string]any, fields ...string) bool {
 	value, found, err := unstructured.NestedBool(object, fields...)
 	return err == nil && found && value
 }
 
-func Project(cluster unstructured.Unstructured, connection config.Connection, namespace config.Namespace, policy evidence.Policy, now time.Time) contract.Deployment {
+func Project(
+	cluster unstructured.Unstructured,
+	connection config.Connection,
+	namespace config.Namespace,
+	policy evidence.Policy,
+	now time.Time,
+) contract.Deployment {
 	object := cluster.Object
 	result := contract.Deployment{
 		Id:  ResourceID(connection.ID, cluster.GetNamespace(), cluster.GetName(), string(cluster.GetUID())),
@@ -94,7 +100,7 @@ func Project(cluster unstructured.Unstructured, connection config.Connection, na
 	}
 	conditions, _, _ := unstructured.NestedSlice(object, "status", "conditions")
 	for _, raw := range conditions {
-		condition, ok := raw.(map[string]interface{})
+		condition, ok := raw.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -119,7 +125,14 @@ func Project(cluster unstructured.Unstructured, connection config.Connection, na
 		if failures := count(object, "status", "backup", "consecutiveFailures"); failures != nil {
 			backup.ConsecutiveFailures = *failures
 		}
-		if value, found, err := unstructured.NestedString(object, "status", "backup", "latestSnapshot", "digest"); err == nil && found && digestPattern.MatchString(value) {
+		if value, found, err := unstructured.NestedString(
+			object,
+			"status",
+			"backup",
+			"latestSnapshot",
+			"digest",
+		); err == nil && found &&
+			digestPattern.MatchString(value) {
 			backup.Digest = &value
 		}
 		if size, found, err := unstructured.NestedInt64(object, "status", "backup", "lastBackupSize"); err == nil && found && size >= 0 {
@@ -137,7 +150,12 @@ func Project(cluster unstructured.Unstructured, connection config.Connection, na
 			case "Failed":
 				projected.Outcome = "failed"
 			}
-			if value, found, err := unstructured.NestedString(test, "last", "digest"); err == nil && found && digestPattern.MatchString(value) {
+			if value, found, err := unstructured.NestedString(
+				test,
+				"last",
+				"digest",
+			); err == nil && found &&
+				digestPattern.MatchString(value) {
 				projected.Digest = &value
 			}
 			if _, active, err := unstructured.NestedMap(test, "active"); err == nil && active {
@@ -145,7 +163,7 @@ func Project(cluster unstructured.Unstructured, connection config.Connection, na
 			}
 			checks, _, _ := unstructured.NestedSlice(test, "conditions")
 			for _, raw := range checks {
-				check, ok := raw.(map[string]interface{})
+				check, ok := raw.(map[string]any)
 				if !ok {
 					continue
 				}
@@ -161,7 +179,10 @@ func Project(cluster unstructured.Unstructured, connection config.Connection, na
 		result.Backup = backup
 	}
 	if observation, found, err := unstructured.NestedMap(object, "status", "remoteReplicaObservation"); err == nil && found {
-		replica := &contract.Replica{ObservedAt: timestamp(observation, "observedAt"), HistoryConflict: boolean(observation, "historyConflict")}
+		replica := &contract.Replica{
+			ObservedAt:      timestamp(observation, "observedAt"),
+			HistoryConflict: boolean(observation, "historyConflict"),
+		}
 		for path, target := range map[string]**string{"freshness": &replica.LocalIndex, "source": &replica.SourceIndex} {
 			field := "appliedIndex"
 			if path == "freshness" {

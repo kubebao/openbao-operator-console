@@ -12,7 +12,9 @@ import (
 )
 
 func renewalToken(marker string) string {
-	return "e30." + base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"system:serviceaccount:console-system:reader","marker":"`+marker+`"}`)) + ".signature"
+	return "e30." + base64.RawURLEncoding.EncodeToString(
+		[]byte(`{"sub":"system:serviceaccount:console-system:reader","marker":"`+marker+`"}`),
+	) + ".signature"
 }
 
 func renewableSeed() config.Config {
@@ -53,7 +55,15 @@ func TestRenewalSurvivesRestartAndStaleSettingsWithoutChangingRevision(t *testin
 	if currentRevision != revision || current.Connections[0].Credential.Token != state.Credential.Token || len(repository.changes) != 1 {
 		t.Fatal("renewal changed editable settings or configuration history")
 	}
-	if err := service.ApplyCollection(ctx, revision, generation, func(context.Context) error { t.Fatal("old reader wrote evidence"); return nil }); !errors.Is(err, ErrConflict) {
+	if err := service.ApplyCollection(
+		ctx,
+		revision,
+		generation,
+		func(context.Context) error { t.Fatal("old reader wrote evidence"); return nil },
+	); !errors.Is(
+		err,
+		ErrConflict,
+	) {
 		t.Fatal("old collection generation remained active")
 	}
 	// A failure-status update leaves both collection and settings generations stable.
@@ -76,7 +86,9 @@ func TestRenewalSurvivesRestartAndStaleSettingsWithoutChangingRevision(t *testin
 		t.Fatal(err)
 	}
 	got := restarted.CredentialTargets()[0]
-	if got.ConfigurationRevision != revision+1 || got.State.Credential.Token != state.Credential.Token || got.State.State != RenewalPermissionDenied || !got.State.NextAttemptAt.Equal(*state.NextAttemptAt) {
+	if got.ConfigurationRevision != revision+1 || got.State.Credential.Token != state.Credential.Token ||
+		got.State.State != RenewalPermissionDenied ||
+		!got.State.NextAttemptAt.Equal(*state.NextAttemptAt) {
 		t.Fatal("restart or stale form discarded the current credential or its schedule")
 	}
 	storedConfig, err := restarted.decrypt(repository.record.Payload)
@@ -185,7 +197,8 @@ func TestFailedCredentialStorageAndInvalidStateKeepCurrentReader(t *testing.T) {
 	if err := service.UpdateCredential(ctx, target, state); err == nil {
 		t.Fatal("failed persistence reported success")
 	}
-	if got := service.CredentialTargets()[0]; got.CredentialRevision != target.CredentialRevision || got.State.Credential.Token != target.State.Credential.Token {
+	if got := service.CredentialTargets()[0]; got.CredentialRevision != target.CredentialRevision ||
+		got.State.Credential.Token != target.State.Credential.Token {
 		t.Fatal("failed persistence replaced the reader")
 	}
 	state.State = "unbounded-provider-error"

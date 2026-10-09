@@ -65,8 +65,12 @@ func Transition(current, previous contract.Deployment, now time.Time) *contract.
 		outcome = "error"
 	}
 	return &contract.Activity{
-		Id: current.Id + ":" + now.Format(time.RFC3339Nano), DeploymentId: current.Id,
-		At: now, Title: "Observed state changed", Detail: string(previous.Health) + " → " + string(current.Health) + "; collection " + string(current.Evidence.Collection), Outcome: outcome,
+		Id:           current.Id + ":" + now.Format(time.RFC3339Nano),
+		DeploymentId: current.Id,
+		At:           now,
+		Title:        "Observed state changed",
+		Detail:       string(previous.Health) + " → " + string(current.Health) + "; collection " + string(current.Evidence.Collection),
+		Outcome:      outcome,
 	}
 }
 

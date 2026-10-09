@@ -21,7 +21,8 @@ type Credential struct {
 
 func (c Credential) Validate() error {
 	endpoint, err := url.Parse(c.Server)
-	if err != nil || endpoint.Scheme != "https" || endpoint.Host == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" {
+	if err != nil || endpoint.Scheme != "https" || endpoint.Host == "" || endpoint.User != nil || endpoint.RawQuery != "" ||
+		endpoint.Fragment != "" {
 		return errors.New("API server must be an HTTPS URL without credentials, query, or fragment")
 	}
 	if c.CA != "" && !x509.NewCertPool().AppendCertsFromPEM([]byte(c.CA)) {
@@ -55,15 +56,25 @@ func ImportKubeconfig(data []byte, context string) (Credential, error) {
 			return Credential{}, errors.New("kubeconfig cluster is missing")
 		}
 		if cluster.CertificateAuthority != "" || cluster.InsecureSkipTLSVerify || cluster.ProxyURL != "" || cluster.TLSServerName != "" {
-			return Credential{}, errors.New("kubeconfig must embed its CA and must not disable TLS, override the server name, or configure a proxy")
+			return Credential{}, errors.New(
+				"kubeconfig must embed its CA and must not disable TLS, override the server name, or configure a proxy",
+			)
 		}
 	}
 	for _, user := range source.AuthInfos {
 		if user == nil {
 			return Credential{}, errors.New("kubeconfig reader is missing")
 		}
-		if user.Exec != nil || user.AuthProvider != nil || user.TokenFile != "" || user.ClientCertificate != "" || user.ClientKey != "" || user.Username != "" || user.Password != "" || user.Impersonate != "" || len(user.ImpersonateGroups) != 0 || len(user.ImpersonateUserExtra) != 0 || user.ImpersonateUID != "" {
-			return Credential{}, errors.New("kubeconfig must use an embedded token or certificate without plugins, file references, or impersonation")
+		if user.Exec != nil || user.AuthProvider != nil || user.TokenFile != "" || user.ClientCertificate != "" || user.ClientKey != "" ||
+			user.Username != "" ||
+			user.Password != "" ||
+			user.Impersonate != "" ||
+			len(user.ImpersonateGroups) != 0 ||
+			len(user.ImpersonateUserExtra) != 0 ||
+			user.ImpersonateUID != "" {
+			return Credential{}, errors.New(
+				"kubeconfig must use an embedded token or certificate without plugins, file references, or impersonation",
+			)
 		}
 	}
 	if context == "" {
@@ -77,7 +88,13 @@ func ImportKubeconfig(data []byte, context string) (Credential, error) {
 	if cluster == nil || user == nil {
 		return Credential{}, errors.New("kubeconfig context has no cluster or reader identity")
 	}
-	result := Credential{Server: cluster.Server, CA: string(cluster.CertificateAuthorityData), Token: user.Token, Certificate: string(user.ClientCertificateData), Key: string(user.ClientKeyData)}
+	result := Credential{
+		Server:      cluster.Server,
+		CA:          string(cluster.CertificateAuthorityData),
+		Token:       user.Token,
+		Certificate: string(user.ClientCertificateData),
+		Key:         string(user.ClientKeyData),
+	}
 	return result, result.Validate()
 }
 

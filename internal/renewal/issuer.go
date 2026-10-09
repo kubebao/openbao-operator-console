@@ -28,19 +28,35 @@ func (e *Failure) Error() string { return "ServiceAccount credential renewal fai
 type KubernetesIssuer struct{}
 
 func (KubernetesIssuer) Issue(ctx context.Context, connection config.Connection, now time.Time) (config.Credential, time.Time, error) {
+	//nolint:unparam // Keeps each failure return on one line.
 	fail := func(state settings.RenewalState) (config.Credential, time.Time, error) {
 		return config.Credential{}, time.Time{}, &Failure{State: state}
 	}
-	if connection.Credential == nil || connection.Renewal == nil || connection.ValidateRenewal() != nil || connection.Credential.Validate() != nil {
+	if connection.Credential == nil || connection.Renewal == nil || connection.ValidateRenewal() != nil ||
+		connection.Credential.Validate() != nil {
 		return fail(settings.RenewalReconnectRequired)
 	}
 	credential := *connection.Credential
-	client, err := rest.HTTPClientFor(&rest.Config{Host: credential.Server, BearerToken: credential.Token, Timeout: 10 * time.Second, TLSClientConfig: rest.TLSClientConfig{CAData: []byte(credential.CA)}})
+	client, err := rest.HTTPClientFor(
+		&rest.Config{
+			Host:            credential.Server,
+			BearerToken:     credential.Token,
+			Timeout:         10 * time.Second,
+			TLSClientConfig: rest.TLSClientConfig{CAData: []byte(credential.CA)},
+		},
+	)
 	if err != nil {
 		return fail(settings.RenewalRetrying)
 	}
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	endpoint, err := url.JoinPath(credential.Server, "api/v1/namespaces", connection.Renewal.Namespace, "serviceaccounts", connection.Renewal.ServiceAccount, "token")
+	endpoint, err := url.JoinPath(
+		credential.Server,
+		"api/v1/namespaces",
+		connection.Renewal.Namespace,
+		"serviceaccounts",
+		connection.Renewal.ServiceAccount,
+		"token",
+	)
 	if err != nil {
 		return fail(settings.RenewalRetrying)
 	}
@@ -66,7 +82,7 @@ func (KubernetesIssuer) Issue(ctx context.Context, connection config.Connection,
 	if err != nil {
 		return fail(settings.RenewalRetrying)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode == http.StatusUnauthorized {
 		return fail(settings.RenewalReconnectRequired)
 	}
@@ -89,7 +105,9 @@ func (KubernetesIssuer) Issue(ctx context.Context, connection config.Connection,
 			Expiration time.Time `json:"expirationTimestamp"`
 		} `json:"status"`
 	}
-	if json.Unmarshal(data, &issued) != nil || issued.APIVersion != "authentication.k8s.io/v1" || issued.Kind != "TokenRequest" || !issued.Status.Expiration.After(now.Add(2*time.Minute)) || issued.Status.Token == credential.Token {
+	if json.Unmarshal(data, &issued) != nil || issued.APIVersion != "authentication.k8s.io/v1" || issued.Kind != "TokenRequest" ||
+		!issued.Status.Expiration.After(now.Add(2*time.Minute)) ||
+		issued.Status.Token == credential.Token {
 		return fail(settings.RenewalRetrying)
 	}
 	credential.Token = issued.Status.Token

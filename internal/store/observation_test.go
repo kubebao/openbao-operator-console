@@ -11,12 +11,27 @@ func observationFixture() contract.Deployment {
 	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
 	ready, desired := int32(3), int32(3)
 	return contract.Deployment{
-		Id: "cluster/team-a/bao", ResourceVersion: "100", Generation: 3, Health: "healthy",
-		ReadyReplicas: &ready, DesiredReplicas: &desired,
-		Evidence:   contract.Evidence{Collection: "current", CollectedAt: now, LastAttemptAt: now, ProducerFreshness: "unknown"},
-		Conditions: []contract.Condition{{Type: "Available", Status: "True", Reason: "Ready", ObservedGeneration: 3}},
-		Replica:    &contract.Replica{ObservedAt: &now, LocalIndex: ptrString("10"), SourceIndex: ptrString("12")},
-		Issues:     []contract.Issue{{Id: "cluster/team-a/bao:backup-failed", Rule: "backup-failed", Severity: "high", Category: "backup", Title: "Backup failed", Detail: "1", FirstSeenAt: now, LastCheckedAt: now}},
+		Id:              "cluster/team-a/bao",
+		ResourceVersion: "100",
+		Generation:      3,
+		Health:          "healthy",
+		ReadyReplicas:   &ready,
+		DesiredReplicas: &desired,
+		Evidence:        contract.Evidence{Collection: "current", CollectedAt: now, LastAttemptAt: now, ProducerFreshness: "unknown"},
+		Conditions:      []contract.Condition{{Type: "Available", Status: "True", Reason: "Ready", ObservedGeneration: 3}},
+		Replica:         &contract.Replica{ObservedAt: &now, LocalIndex: ptrString("10"), SourceIndex: ptrString("12")},
+		Issues: []contract.Issue{
+			{
+				Id:            "cluster/team-a/bao:backup-failed",
+				Rule:          "backup-failed",
+				Severity:      "high",
+				Category:      "backup",
+				Title:         "Backup failed",
+				Detail:        "1",
+				FirstSeenAt:   now,
+				LastCheckedAt: now,
+			},
+		},
 	}
 }
 
@@ -44,7 +59,12 @@ func TestObservationChangedDetectsDisplayedChanges(t *testing.T) {
 		"finding detail": func(d *contract.Deployment) { d.Issues[0].Detail = "2" },
 		"generation":     func(d *contract.Deployment) { d.Generation = 4 },
 		"history conflict": func(d *contract.Deployment) {
-			d.Replica = &contract.Replica{ObservedAt: d.Replica.ObservedAt, LocalIndex: d.Replica.LocalIndex, SourceIndex: d.Replica.SourceIndex, HistoryConflict: true}
+			d.Replica = &contract.Replica{
+				ObservedAt:      d.Replica.ObservedAt,
+				LocalIndex:      d.Replica.LocalIndex,
+				SourceIndex:     d.Replica.SourceIndex,
+				HistoryConflict: true,
+			}
 		},
 	} {
 		previous := observationFixture()

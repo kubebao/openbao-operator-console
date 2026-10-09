@@ -56,7 +56,18 @@ func (i *lifecycleIssuer) Issue(_ context.Context, c config.Connection, now time
 
 func lifecycle() (*lifecycleRepository, *lifecycleIssuer, Manager) {
 	credential := config.Credential{Server: "https://api.example", Token: "initial"}
-	r := &lifecycleRepository{target: settings.RenewalTarget{ConfigurationRevision: 1, CredentialRevision: 1, Connection: config.Connection{ID: "one", Credential: &credential, Renewal: &config.TokenRenewal{Namespace: "reader-system", ServiceAccount: "reader"}}, State: settings.CredentialState{Credential: credential, State: settings.RenewalPending}}}
+	r := &lifecycleRepository{
+		target: settings.RenewalTarget{
+			ConfigurationRevision: 1,
+			CredentialRevision:    1,
+			Connection: config.Connection{
+				ID:         "one",
+				Credential: &credential,
+				Renewal:    &config.TokenRenewal{Namespace: "reader-system", ServiceAccount: "reader"},
+			},
+			State: settings.CredentialState{Credential: credential, State: settings.RenewalPending},
+		},
+	}
 	issuer := &lifecycleIssuer{}
 	return r, issuer, Manager{Repository: r, Issuer: issuer, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 }
@@ -65,7 +76,9 @@ func TestRenewalSchedulePersistsAndRetainsCredentialOnFailure(t *testing.T) {
 	r, issuer, manager := lifecycle()
 	now := time.Now().UTC()
 	manager.Round(context.Background(), now)
-	if issuer.requests != 1 || r.target.State.State != settings.RenewalHealthy || !r.target.State.ExpiryVerified || r.target.ConfigurationRevision != 1 || r.target.CredentialRevision != 2 {
+	if issuer.requests != 1 || r.target.State.State != settings.RenewalHealthy || !r.target.State.ExpiryVerified ||
+		r.target.ConfigurationRevision != 1 ||
+		r.target.CredentialRevision != 2 {
 		t.Fatal("renewal did not commit independently")
 	}
 	next := r.target.State.NextAttemptAt
@@ -79,7 +92,8 @@ func TestRenewalSchedulePersistsAndRetainsCredentialOnFailure(t *testing.T) {
 	issuer.err = &Failure{State: settings.RenewalPermissionDenied}
 	lastSuccess := *r.target.State.LastSuccessAt
 	manager.Round(context.Background(), *next)
-	if r.target.State.State != settings.RenewalPermissionDenied || r.target.State.Credential.Token != "replacement" || !r.target.State.LastSuccessAt.Equal(lastSuccess) {
+	if r.target.State.State != settings.RenewalPermissionDenied || r.target.State.Credential.Token != "replacement" ||
+		!r.target.State.LastSuccessAt.Equal(lastSuccess) {
 		t.Fatal("failure discarded the usable credential")
 	}
 	issuer.err = nil

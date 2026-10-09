@@ -18,7 +18,14 @@ func (p *Postgres) LoadSettings(ctx context.Context) (settings.Record, error) {
 	return settings.Record{Revision: row.Revision, Payload: row.Ciphertext}, err
 }
 
-func (p *Postgres) SaveSettings(ctx context.Context, revision int64, payload []byte, actor, summary string, credentials []settings.CredentialRecord, keep []string) (settings.Record, error) {
+func (p *Postgres) SaveSettings(
+	ctx context.Context,
+	revision int64,
+	payload []byte,
+	actor, summary string,
+	credentials []settings.CredentialRecord,
+	keep []string,
+) (settings.Record, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return settings.Record{}, err
@@ -45,7 +52,10 @@ func (p *Postgres) SaveSettings(ctx context.Context, revision int64, payload []b
 	if err := q.DeleteRemovedCredentials(ctx, keep); err != nil {
 		return settings.Record{}, err
 	}
-	if err := q.InsertSettingsChange(ctx, database.InsertSettingsChangeParams{Revision: revision + 1, Actor: actor, Summary: summary}); err != nil {
+	if err := q.InsertSettingsChange(
+		ctx,
+		database.InsertSettingsChangeParams{Revision: revision + 1, Actor: actor, Summary: summary},
+	); err != nil {
 		return settings.Record{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {

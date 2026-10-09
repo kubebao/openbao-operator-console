@@ -123,7 +123,8 @@ func (c Config) Validate() error {
 		if err := connection.ValidateRenewal(); err != nil {
 			return err
 		}
-		if !identifier.MatchString(connection.ID) || connection.Name == "" || len(connection.Namespaces) == 0 || len(connection.Namespaces) > 1000 {
+		if !identifier.MatchString(connection.ID) || connection.Name == "" || len(connection.Namespaces) == 0 ||
+			len(connection.Namespaces) > 1000 {
 			return errors.New("connection requires id, name, and at least one namespace")
 		}
 		if _, exists := connections[connection.ID]; exists {
@@ -150,11 +151,14 @@ func (c Config) Validate() error {
 		operators := make(map[string]bool)
 		assigned := make(map[string]bool)
 		for _, operator := range connection.Operators {
-			if operator.ID == "" || operators[operator.ID] || operator.Namespace == "" || operator.Deployment == "" || operator.Container == "" || len(operator.Namespaces) == 0 {
+			if operator.ID == "" || operators[operator.ID] || operator.Namespace == "" || operator.Deployment == "" ||
+				operator.Container == "" ||
+				len(operator.Namespaces) == 0 {
 				return errors.New("operator requires a unique id, namespace, deployment, container, and managed namespaces")
 			}
 			operators[operator.ID] = true
-			if len(validation.IsDNS1123Label(operator.Namespace)) != 0 || len(validation.IsDNS1123Subdomain(operator.Deployment)) != 0 || len(validation.IsDNS1123Label(operator.Container)) != 0 {
+			if len(validation.IsDNS1123Label(operator.Namespace)) != 0 || len(validation.IsDNS1123Subdomain(operator.Deployment)) != 0 ||
+				len(validation.IsDNS1123Label(operator.Container)) != 0 {
 				return errors.New("operator enrollment requires valid Kubernetes names")
 			}
 			for _, namespace := range operator.Namespaces {

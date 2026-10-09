@@ -32,11 +32,21 @@ func (r *Reader) Check(ctx context.Context, now time.Time) (store.Batch, CheckDi
 func checkDiagnostic(err error) CheckDiagnostic {
 	switch {
 	case apierrors.IsUnauthorized(err):
-		return CheckDiagnostic{State: "unauthorized", Message: "The Kubernetes API rejected the reader credentials. Replace the credential and check again."}
+		return CheckDiagnostic{
+			State:   "unauthorized",
+			Message: "The Kubernetes API rejected the reader credentials. Replace the credential and check again.",
+		}
 	case apierrors.IsForbidden(err):
-		return CheckDiagnostic{State: "forbidden", Message: "The reader cannot list OpenBaoCluster resources in an enrolled namespace. Apply the scoped reader RBAC and check again."}
+		return CheckDiagnostic{
+			State: "forbidden",
+			Message: "The reader cannot list OpenBaoCluster resources in an enrolled namespace. " +
+				"Apply the scoped reader RBAC and check again.",
+		}
 	case apierrors.IsNotFound(err):
-		return CheckDiagnostic{State: "unsupported", Message: "The OpenBaoCluster API is unavailable. Check that the operator CRDs are installed in the selected cluster."}
+		return CheckDiagnostic{
+			State:   "unsupported",
+			Message: "The OpenBaoCluster API is unavailable. Check that the operator CRDs are installed in the selected cluster.",
+		}
 	}
 	var verification *tls.CertificateVerificationError
 	var unknownAuthority x509.UnknownAuthorityError
@@ -44,12 +54,25 @@ func checkDiagnostic(err error) CheckDiagnostic {
 	var invalidCertificate x509.CertificateInvalidError
 	var record tls.RecordHeaderError
 	var alert tls.AlertError
-	if errors.As(err, &verification) || errors.As(err, &unknownAuthority) || errors.As(err, &hostname) || errors.As(err, &invalidCertificate) || errors.As(err, &record) || errors.As(err, &alert) {
-		return CheckDiagnostic{State: "tlsError", Message: "TLS verification failed. Check the API server address, CA certificate, and certificate validity."}
+	if errors.As(err, &verification) || errors.As(err, &unknownAuthority) || errors.As(err, &hostname) ||
+		errors.As(err, &invalidCertificate) ||
+		errors.As(err, &record) ||
+		errors.As(err, &alert) {
+		return CheckDiagnostic{
+			State:   "tlsError",
+			Message: "TLS verification failed. Check the API server address, CA certificate, and certificate validity.",
+		}
 	}
 	var network *net.OpError
 	if errors.As(err, &network) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-		return CheckDiagnostic{State: "unreachable", Message: "The Kubernetes API could not be reached within the check deadline. Check the address and network access from the console."}
+		return CheckDiagnostic{
+			State: "unreachable",
+			Message: "The Kubernetes API could not be reached within the check deadline. " +
+				"Check the address and network access from the console.",
+		}
 	}
-	return CheckDiagnostic{State: "unknown", Message: "The Kubernetes API check failed. Check the reader configuration and API availability, then retry."}
+	return CheckDiagnostic{
+		State:   "unknown",
+		Message: "The Kubernetes API check failed. Check the reader configuration and API availability, then retry.",
+	}
 }

@@ -34,7 +34,14 @@ func (r *managedConfiguration) LoadSettings(context.Context) (settings.Record, e
 	return r.record, nil
 }
 
-func (r *managedConfiguration) SaveSettings(_ context.Context, revision int64, payload []byte, _, _ string, writes []settings.CredentialRecord, keep []string) (settings.Record, error) {
+func (r *managedConfiguration) SaveSettings(
+	_ context.Context,
+	revision int64,
+	payload []byte,
+	_, _ string,
+	writes []settings.CredentialRecord,
+	keep []string,
+) (settings.Record, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if revision != r.record.Revision {
@@ -92,12 +99,31 @@ func TestManagedCollectionAddsPausesAndReconfiguresReaders(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"apiVersion": "openbao.org/v1alpha1", "kind": "List", "items": []interface{}{}, "metadata": map[string]interface{}{}})
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"apiVersion": "openbao.org/v1alpha1",
+			"kind":       "List",
+			"items":      []any{},
+			"metadata":   map[string]any{},
+		})
 	}))
 	defer server.Close()
-	credential := &config.Credential{Server: server.URL, Token: "reader", CA: string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}))}
-	one := config.Connection{ID: "one", Name: "One", Credential: credential, Namespaces: []config.Namespace{{Name: "before", Environment: "development"}}}
-	service, err := settings.New(context.Background(), &managedConfiguration{}, bytes.Repeat([]byte{1}, 32), config.Config{MaxBackupAgeHours: 24, Users: []config.User{{Subject: "admin", Admin: true}}, Connections: []config.Connection{one}})
+	credential := &config.Credential{
+		Server: server.URL,
+		Token:  "reader",
+		CA:     string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})),
+	}
+	one := config.Connection{
+		ID:         "one",
+		Name:       "One",
+		Credential: credential,
+		Namespaces: []config.Namespace{{Name: "before", Environment: "development"}},
+	}
+	service, err := settings.New(
+		context.Background(),
+		&managedConfiguration{},
+		bytes.Repeat([]byte{1}, 32),
+		config.Config{MaxBackupAgeHours: 24, Users: []config.User{{Subject: "admin", Admin: true}}, Connections: []config.Connection{one}},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +172,8 @@ func TestManagedCollectionAddsPausesAndReconfiguresReaders(t *testing.T) {
 	if _, err := service.Save(ctx, revision, current, "admin", "Change namespace"); err != nil {
 		t.Fatal(err)
 	}
-	if batch := await(); batch.Connection.Id != "two" || len(batch.Connection.Namespaces) != 1 || batch.Connection.Namespaces[0] != "after" {
+	if batch := await(); batch.Connection.Id != "two" || len(batch.Connection.Namespaces) != 1 ||
+		batch.Connection.Namespaces[0] != "after" {
 		t.Fatal("reader reused its old namespace")
 	}
 }

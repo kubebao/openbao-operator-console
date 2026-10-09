@@ -39,10 +39,25 @@ func WriteRBAC(w io.Writer, connection Connection, serviceAccount, serviceNamesp
 		if serviceAccount != connection.Renewal.ServiceAccount || serviceNamespace != connection.Renewal.Namespace {
 			return errors.New("reader identity must match the renewal ServiceAccount")
 		}
-		rules[serviceNamespace] = append(rules[serviceNamespace], rule{APIGroups: []string{""}, Resources: []string{"serviceaccounts/token"}, Verbs: []string{"create"}, ResourceNames: []string{serviceAccount}})
+		rules[serviceNamespace] = append(
+			rules[serviceNamespace],
+			rule{
+				APIGroups:     []string{""},
+				Resources:     []string{"serviceaccounts/token"},
+				Verbs:         []string{"create"},
+				ResourceNames: []string{serviceAccount},
+			},
+		)
 	}
 	for _, namespace := range connection.Namespaces {
-		rules[namespace.Name] = append(rules[namespace.Name], rule{APIGroups: []string{"openbao.org"}, Resources: []string{"openbaoclusters", "openbaorestores", "openbaorecoveries"}, Verbs: []string{"list"}})
+		rules[namespace.Name] = append(
+			rules[namespace.Name],
+			rule{
+				APIGroups: []string{"openbao.org"},
+				Resources: []string{"openbaoclusters", "openbaorestores", "openbaorecoveries"},
+				Verbs:     []string{"list"},
+			},
+		)
 	}
 	names := make(map[string][]string)
 	for _, operator := range connection.Operators {
@@ -50,9 +65,12 @@ func WriteRBAC(w io.Writer, connection Connection, serviceAccount, serviceNamesp
 	}
 	for namespace, deployments := range names {
 		sort.Strings(deployments)
-		rules[namespace] = append(rules[namespace], rule{APIGroups: []string{"apps"}, Resources: []string{"deployments"}, Verbs: []string{"get"}, ResourceNames: deployments})
+		rules[namespace] = append(
+			rules[namespace],
+			rule{APIGroups: []string{"apps"}, Resources: []string{"deployments"}, Verbs: []string{"get"}, ResourceNames: deployments},
+		)
 	}
-	emit := func(value interface{}) error {
+	emit := func(value any) error {
 		data, err := yaml.Marshal(value)
 		if err != nil {
 			return err
@@ -60,7 +78,13 @@ func WriteRBAC(w io.Writer, connection Connection, serviceAccount, serviceNamesp
 		_, err = fmt.Fprintf(w, "---\n%s", data)
 		return err
 	}
-	if err := emit(map[string]interface{}{"apiVersion": "v1", "kind": "ServiceAccount", "metadata": map[string]string{"name": serviceAccount, "namespace": serviceNamespace}}); err != nil {
+	if err := emit(
+		map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ServiceAccount",
+			"metadata":   map[string]string{"name": serviceAccount, "namespace": serviceNamespace},
+		},
+	); err != nil {
 		return err
 	}
 	namespaces := make([]string, 0, len(rules))
@@ -70,10 +94,17 @@ func WriteRBAC(w io.Writer, connection Connection, serviceAccount, serviceNamesp
 	sort.Strings(namespaces)
 	for _, namespace := range namespaces {
 		metadata := map[string]string{"name": roleName, "namespace": namespace}
-		if err := emit(map[string]interface{}{"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "Role", "metadata": metadata, "rules": rules[namespace]}); err != nil {
+		if err := emit(
+			map[string]any{
+				"apiVersion": "rbac.authorization.k8s.io/v1",
+				"kind":       "Role",
+				"metadata":   metadata,
+				"rules":      rules[namespace],
+			},
+		); err != nil {
 			return err
 		}
-		if err := emit(map[string]interface{}{
+		if err := emit(map[string]any{
 			"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "RoleBinding", "metadata": metadata,
 			"subjects": []map[string]string{{"kind": "ServiceAccount", "name": serviceAccount, "namespace": serviceNamespace}},
 			"roleRef":  map[string]string{"apiGroup": "rbac.authorization.k8s.io", "kind": "Role", "name": roleName},

@@ -17,7 +17,9 @@ import (
 )
 
 func serviceToken(marker string) string {
-	return "e30." + base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"system:serviceaccount:reader-system:reader","marker":"`+marker+`"}`)) + ".signature"
+	return "e30." + base64.RawURLEncoding.EncodeToString(
+		[]byte(`{"sub":"system:serviceaccount:reader-system:reader","marker":"`+marker+`"}`),
+	) + ".signature"
 }
 
 func TestIssuerOnlyCreatesNamedTokenThenValidatesScopedReads(t *testing.T) {
@@ -29,7 +31,8 @@ func TestIssuerOnlyCreatesNamedTokenThenValidatesScopedReads(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				if r.Method == http.MethodPost {
 					posts++
-					if r.URL.Path != "/api/v1/namespaces/reader-system/serviceaccounts/reader/token" || r.Header.Get("Authorization") != "Bearer "+serviceToken("original") {
+					if r.URL.Path != "/api/v1/namespaces/reader-system/serviceaccounts/reader/token" ||
+						r.Header.Get("Authorization") != "Bearer "+serviceToken("original") {
 						t.Error("token request escaped its declared identity")
 					}
 					var body struct {
@@ -45,17 +48,38 @@ func TestIssuerOnlyCreatesNamedTokenThenValidatesScopedReads(t *testing.T) {
 						_, _ = w.Write([]byte("private-kubernetes-error"))
 						return
 					}
-					_ = json.NewEncoder(w).Encode(map[string]interface{}{"apiVersion": "authentication.k8s.io/v1", "kind": "TokenRequest", "status": map[string]interface{}{"token": serviceToken("new"), "expirationTimestamp": now.Add(time.Hour)}})
+					_ = json.NewEncoder(w).Encode(map[string]any{
+						"apiVersion": "authentication.k8s.io/v1",
+						"kind":       "TokenRequest",
+						"status":     map[string]any{"token": serviceToken("new"), "expirationTimestamp": now.Add(time.Hour)},
+					})
 					return
 				}
 				gets++
-				if r.Method != http.MethodGet || !strings.HasPrefix(r.URL.Path, "/apis/openbao.org/v1alpha1/namespaces/team/") || r.Header.Get("Authorization") != "Bearer "+serviceToken("new") {
+				if r.Method != http.MethodGet || !strings.HasPrefix(r.URL.Path, "/apis/openbao.org/v1alpha1/namespaces/team/") ||
+					r.Header.Get("Authorization") != "Bearer "+serviceToken("new") {
 					t.Error("validation escaped read-only namespace scope")
 				}
-				_ = json.NewEncoder(w).Encode(map[string]interface{}{"apiVersion": "openbao.org/v1alpha1", "kind": "List", "items": []interface{}{}, "metadata": map[string]interface{}{}})
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"apiVersion": "openbao.org/v1alpha1",
+					"kind":       "List",
+					"items":      []any{},
+					"metadata":   map[string]any{},
+				})
 			}))
 			defer server.Close()
-			c := config.Connection{ID: "one", Name: "One", Remote: true, Namespaces: []config.Namespace{{Name: "team", Environment: "production"}}, Renewal: &config.TokenRenewal{Namespace: "reader-system", ServiceAccount: "reader"}, Credential: &config.Credential{Server: server.URL, Token: serviceToken("original"), CA: string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}))}}
+			c := config.Connection{
+				ID:         "one",
+				Name:       "One",
+				Remote:     true,
+				Namespaces: []config.Namespace{{Name: "team", Environment: "production"}},
+				Renewal:    &config.TokenRenewal{Namespace: "reader-system", ServiceAccount: "reader"},
+				Credential: &config.Credential{
+					Server: server.URL,
+					Token:  serviceToken("original"),
+					CA:     string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})),
+				},
+			}
 			credential, expires, err := (KubernetesIssuer{}).Issue(context.Background(), c, now)
 			if posts != 1 {
 				t.Fatal("unexpected issuance calls")
@@ -66,7 +90,8 @@ func TestIssuerOnlyCreatesNamedTokenThenValidatesScopedReads(t *testing.T) {
 				}
 			} else {
 				var failure *Failure
-				if !errors.As(err, &failure) || strings.Contains(err.Error(), "private-kubernetes-error") || gets != 0 || credential.Token != "" {
+				if !errors.As(err, &failure) || strings.Contains(err.Error(), "private-kubernetes-error") || gets != 0 ||
+					credential.Token != "" {
 					t.Fatal("failed issuance leaked provider data or validated a missing token")
 				}
 				if responseCode == 401 && failure.State != settings.RenewalReconnectRequired {
@@ -88,14 +113,31 @@ func TestIssuerNeverFollowsCredentialBearingRedirect(t *testing.T) {
 		http.Redirect(w, r, destination.URL, http.StatusTemporaryRedirect)
 	}))
 	defer server.Close()
-	c := config.Connection{Remote: true, Renewal: &config.TokenRenewal{Namespace: "reader-system", ServiceAccount: "reader"}, Credential: &config.Credential{Server: server.URL, Token: serviceToken("original"), CA: string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}))}}
+	c := config.Connection{
+		Remote:  true,
+		Renewal: &config.TokenRenewal{Namespace: "reader-system", ServiceAccount: "reader"},
+		Credential: &config.Credential{
+			Server: server.URL,
+			Token:  serviceToken("original"),
+			CA:     string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})),
+		},
+	}
 	if _, _, err := (KubernetesIssuer{}).Issue(context.Background(), c, time.Now()); err == nil || reached {
 		t.Fatal("redirect forwarded renewal credentials")
 	}
 }
 
 func TestIssuerRejectsInvalidCandidatesAndKeepsCurrentToken(t *testing.T) {
-	for _, scenario := range []string{"wrong subject", "short lifetime", "same token", "malformed", "oversized", "candidate unauthorized", "candidate forbidden", "untrusted TLS"} {
+	for _, scenario := range []string{
+		"wrong subject",
+		"short lifetime",
+		"same token",
+		"malformed",
+		"oversized",
+		"candidate unauthorized",
+		"candidate forbidden",
+		"untrusted TLS",
+	} {
 		t.Run(scenario, func(t *testing.T) {
 			now := time.Now().UTC().Truncate(time.Second)
 			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -113,7 +155,9 @@ func TestIssuerRejectsInvalidCandidatesAndKeepsCurrentToken(t *testing.T) {
 				token, expires := serviceToken("new"), now.Add(time.Hour)
 				switch scenario {
 				case "wrong subject":
-					token = "e30." + base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"system:serviceaccount:other:reader"}`)) + ".signature"
+					token = "e30." + base64.RawURLEncoding.EncodeToString(
+						[]byte(`{"sub":"system:serviceaccount:other:reader"}`),
+					) + ".signature"
 				case "short lifetime":
 					expires = now.Add(time.Minute)
 				case "same token":
@@ -125,16 +169,30 @@ func TestIssuerRejectsInvalidCandidatesAndKeepsCurrentToken(t *testing.T) {
 					_, _ = w.Write([]byte(strings.Repeat("x", 65537)))
 					return
 				}
-				_ = json.NewEncoder(w).Encode(map[string]interface{}{"apiVersion": "authentication.k8s.io/v1", "kind": "TokenRequest", "status": map[string]interface{}{"token": token, "expirationTimestamp": expires}})
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"apiVersion": "authentication.k8s.io/v1",
+					"kind":       "TokenRequest",
+					"status":     map[string]any{"token": token, "expirationTimestamp": expires},
+				})
 			}))
 			defer server.Close()
-			c := config.Connection{Remote: true, Namespaces: []config.Namespace{{Name: "team", Environment: "production"}}, Renewal: &config.TokenRenewal{Namespace: "reader-system", ServiceAccount: "reader"}, Credential: &config.Credential{Server: server.URL, Token: serviceToken("original"), CA: string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}))}}
+			c := config.Connection{
+				Remote:     true,
+				Namespaces: []config.Namespace{{Name: "team", Environment: "production"}},
+				Renewal:    &config.TokenRenewal{Namespace: "reader-system", ServiceAccount: "reader"},
+				Credential: &config.Credential{
+					Server: server.URL,
+					Token:  serviceToken("original"),
+					CA:     string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})),
+				},
+			}
 			if scenario == "untrusted TLS" {
 				c.Credential.CA = ""
 			}
 			credential, _, err := (KubernetesIssuer{}).Issue(context.Background(), c, now)
 			var failure *Failure
-			if !errors.As(err, &failure) || failure.State != settings.RenewalRetrying || credential.Token != "" || c.Credential.Token != serviceToken("original") {
+			if !errors.As(err, &failure) || failure.State != settings.RenewalRetrying || credential.Token != "" ||
+				c.Credential.Token != serviceToken("original") {
 				t.Fatal("invalid candidate activated or discarded the current credential")
 			}
 		})

@@ -60,7 +60,9 @@ func (state CredentialState) validate() error {
 	if state.Failures < 0 || state.Failures > 10 || (state.ExpiryVerified && state.ExpiresAt == nil) {
 		return errors.New("invalid credential renewal evidence")
 	}
-	if state.State == RenewalHealthy && (!state.ExpiryVerified || state.LastSuccessAt == nil || state.NextAttemptAt == nil || !state.NextAttemptAt.Before(*state.ExpiresAt)) {
+	scheduled := state.ExpiryVerified && state.LastSuccessAt != nil && state.NextAttemptAt != nil &&
+		state.NextAttemptAt.Before(*state.ExpiresAt)
+	if state.State == RenewalHealthy && !scheduled {
 		return errors.New("healthy credential requires a verified expiry and renewal schedule")
 	}
 	if state.State == RenewalReconnectRequired && state.NextAttemptAt != nil {
@@ -95,7 +97,15 @@ func (s *Service) CredentialTargets() []RenewalTarget {
 	result := []RenewalTarget{}
 	for _, connection := range current.Connections {
 		if stored, found := s.credentials[connection.ID]; found {
-			result = append(result, RenewalTarget{Connection: connection, ConfigurationRevision: s.revision, CredentialRevision: stored.Revision, State: cloneCredential(stored.State)})
+			result = append(
+				result,
+				RenewalTarget{
+					Connection:            connection,
+					ConfigurationRevision: s.revision,
+					CredentialRevision:    stored.Revision,
+					State:                 cloneCredential(stored.State),
+				},
+			)
 		} else {
 			result = append(result, RenewalTarget{Connection: connection, ConfigurationRevision: s.revision})
 		}
@@ -123,15 +133,16 @@ func (s *Service) UpdateCredential(ctx context.Context, target RenewalTarget, st
 		return ErrConflict
 	}
 	if err := state.validate(); err != nil {
-		return fmt.Errorf("%w: %s", ErrInvalid, err)
+		return fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
 	old := previous.State.Credential
-	if state.Credential.Server != old.Server || state.Credential.CA != old.CA || state.Credential.Certificate != old.Certificate || state.Credential.Key != old.Key {
+	if state.Credential.Server != old.Server || state.Credential.CA != old.CA || state.Credential.Certificate != old.Certificate ||
+		state.Credential.Key != old.Key {
 		return fmt.Errorf("%w: renewal cannot change server or TLS identity", ErrInvalid)
 	}
 	connection.Credential = &state.Credential
 	if err := connection.ValidateRenewal(); err != nil {
-		return fmt.Errorf("%w: %s", ErrInvalid, err)
+		return fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
 	stored := StoredCredential{Revision: previous.Revision + 1, State: cloneCredential(state)}
 	row, err := s.encryptCredential(connection.ID, stored)
@@ -180,7 +191,11 @@ func (s *Service) encryptCredential(id string, stored StoredCredential) (Credent
 	if _, err := rand.Read(nonce); err != nil {
 		return CredentialRecord{}, err
 	}
-	return CredentialRecord{ConnectionID: id, Revision: stored.Revision, Payload: s.cipher.Seal(nonce, nonce, plaintext, []byte("console-reader-credential-v1:"+id))}, nil
+	return CredentialRecord{
+		ConnectionID: id,
+		Revision:     stored.Revision,
+		Payload:      s.cipher.Seal(nonce, nonce, plaintext, []byte("console-reader-credential-v1:"+id)),
+	}, nil
 }
 
 func (s *Service) decryptCredential(row CredentialRecord) (CredentialState, error) {
@@ -188,7 +203,12 @@ func (s *Service) decryptCredential(row CredentialRecord) (CredentialState, erro
 	if row.Revision < 1 || len(row.Payload) < s.cipher.NonceSize() {
 		return state, errors.New("invalid reader ciphertext")
 	}
-	plaintext, err := s.cipher.Open(nil, row.Payload[:s.cipher.NonceSize()], row.Payload[s.cipher.NonceSize():], []byte("console-reader-credential-v1:"+row.ConnectionID))
+	plaintext, err := s.cipher.Open(
+		nil,
+		row.Payload[:s.cipher.NonceSize()],
+		row.Payload[s.cipher.NonceSize():],
+		[]byte("console-reader-credential-v1:"+row.ConnectionID),
+	)
 	if err != nil {
 		return state, err
 	}

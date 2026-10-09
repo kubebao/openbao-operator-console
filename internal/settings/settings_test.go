@@ -49,15 +49,17 @@ func TestPendingInitializationIsEncryptedSingleUseAndNeverReopens(t *testing.T) 
 	close(results)
 	successes, conflicts := 0, 0
 	for err := range results {
-		if err == nil {
+		switch {
+		case err == nil:
 			successes++
-		} else if errors.Is(err, ErrConflict) {
+		case errors.Is(err, ErrConflict):
 			conflicts++
-		} else {
+		default:
 			t.Fatal(err)
 		}
 	}
-	if successes != 1 || conflicts != 1 || repository.record.Revision != 1 || len(repository.changes) != 1 || bytes.Contains(repository.record.Payload, []byte("credential-never-plaintext")) {
+	if successes != 1 || conflicts != 1 || repository.record.Revision != 1 || len(repository.changes) != 1 ||
+		bytes.Contains(repository.record.Payload, []byte("credential-never-plaintext")) {
 		t.Fatal("competing initialization overwrote or exposed configuration")
 	}
 	restarted, err := Open(ctx, repository, key, nil)
@@ -78,7 +80,14 @@ func (r *memoryRepository) LoadSettings(context.Context) (Record, error) {
 	return r.record, nil
 }
 
-func (r *memoryRepository) SaveSettings(_ context.Context, revision int64, payload []byte, actor, summary string, writes []CredentialRecord, keep []string) (Record, error) {
+func (r *memoryRepository) SaveSettings(
+	_ context.Context,
+	revision int64,
+	payload []byte,
+	actor, summary string,
+	writes []CredentialRecord,
+	keep []string,
+) (Record, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if revision != r.record.Revision {
@@ -117,7 +126,21 @@ func (r *memoryRepository) SettingsHistory(context.Context) ([]Change, error) {
 }
 
 func seed() config.Config {
-	return config.Config{MaxBackupAgeHours: 24, Users: []config.User{{Subject: "admin", Admin: true}, {Subject: "reader", Scopes: []config.Scope{{ConnectionID: "cluster", Namespaces: []string{"team"}}}}}, Connections: []config.Connection{{ID: "cluster", Name: "Cluster", Namespaces: []config.Namespace{{Name: "team", Environment: "production"}}, Credential: &config.Credential{Server: "https://api.example", Token: "credential-never-plaintext"}}}}
+	return config.Config{
+		MaxBackupAgeHours: 24,
+		Users: []config.User{
+			{Subject: "admin", Admin: true},
+			{Subject: "reader", Scopes: []config.Scope{{ConnectionID: "cluster", Namespaces: []string{"team"}}}},
+		},
+		Connections: []config.Connection{
+			{
+				ID:         "cluster",
+				Name:       "Cluster",
+				Namespaces: []config.Namespace{{Name: "team", Environment: "production"}},
+				Credential: &config.Credential{Server: "https://api.example", Token: "credential-never-plaintext"},
+			},
+		},
+	}
 }
 
 func TestEncryptionRestartConflictAndRevocation(t *testing.T) {
@@ -149,11 +172,16 @@ func TestEncryptionRestartConflictAndRevocation(t *testing.T) {
 	if _, ok := service.Resolve(ctx, "reader", nil); ok {
 		t.Fatal("removed user still enrolled")
 	}
-	if _, err := service.Save(ctx, revision, current, "admin", "stale"); err != ErrConflict {
+	if _, err := service.Save(ctx, revision, current, "admin", "stale"); !errors.Is(err, ErrConflict) {
 		t.Fatal("stale revision overwrote settings")
 	}
 	writes := 0
-	if err := service.Apply(ctx, revision, func(context.Context) error { writes++; return nil }); err != ErrConflict || writes != 0 {
+	if err := service.Apply(
+		ctx,
+		revision,
+		func(context.Context) error { writes++; return nil },
+	); !errors.Is(err, ErrConflict) ||
+		writes != 0 {
 		t.Fatal("superseded reader persisted a result")
 	}
 	current, revision = service.Current()

@@ -23,9 +23,19 @@ func writeCredential(ctx context.Context, q *database.Queries, record settings.C
 	var count int64
 	var err error
 	if record.Revision == 1 {
-		count, err = q.CreateReaderCredential(ctx, database.CreateReaderCredentialParams{ConnectionID: record.ConnectionID, Ciphertext: record.Payload})
+		count, err = q.CreateReaderCredential(
+			ctx,
+			database.CreateReaderCredentialParams{ConnectionID: record.ConnectionID, Ciphertext: record.Payload},
+		)
 	} else {
-		count, err = q.UpdateReaderCredential(ctx, database.UpdateReaderCredentialParams{ConnectionID: record.ConnectionID, Revision: record.Revision - 1, Ciphertext: record.Payload})
+		count, err = q.UpdateReaderCredential(
+			ctx,
+			database.UpdateReaderCredentialParams{
+				ConnectionID: record.ConnectionID,
+				Revision:     record.Revision - 1,
+				Ciphertext:   record.Payload,
+			},
+		)
 	}
 	if err != nil {
 		return err

@@ -47,11 +47,15 @@ func (r *Reader) operator(ctx context.Context, enrolled config.Operator, now tim
 	result.UpdatedReplicas = count(workload.Object, "status", "updatedReplicas")
 	containers, _, _ := unstructured.NestedSlice(workload.Object, "spec", "template", "spec", "containers")
 	for _, raw := range containers {
-		container, ok := raw.(map[string]interface{})
+		container, ok := raw.(map[string]any)
 		if !ok || text(container, "name") != enrolled.Container {
 			continue
 		}
-		if image, found, err := unstructured.NestedString(container, "image"); err == nil && found && len(image) <= 512 && imageReference.MatchString(image) {
+		if image, found, err := unstructured.NestedString(
+			container,
+			"image",
+		); err == nil && found && len(image) <= 512 &&
+			imageReference.MatchString(image) {
 			result.Image = &image
 		}
 	}
@@ -74,11 +78,12 @@ func (r *Reader) operator(ctx context.Context, enrolled config.Operator, now tim
 	if *result.DesiredReplicas == 0 || *result.ReadyReplicas == 0 {
 		result.Health = "unavailable"
 	}
+	desired := *result.DesiredReplicas
+	rolledOut := desired > 0 && *result.ReadyReplicas >= desired && *result.UpdatedReplicas >= desired
 	conditions, _, _ := unstructured.NestedSlice(workload.Object, "status", "conditions")
 	for _, raw := range conditions {
-		condition, ok := raw.(map[string]interface{})
-		if ok && text(condition, "type") == "Available" && text(condition, "status") == "True" &&
-			*result.DesiredReplicas > 0 && *result.ReadyReplicas >= *result.DesiredReplicas && *result.UpdatedReplicas >= *result.DesiredReplicas {
+		condition, ok := raw.(map[string]any)
+		if ok && rolledOut && text(condition, "type") == "Available" && text(condition, "status") == "True" {
 			result.Health = "available"
 		}
 	}

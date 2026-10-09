@@ -17,7 +17,10 @@ func checkConnections(ctx context.Context, enrollment config.Config) error {
 	results := []store.Batch{}
 	failed := false
 	for _, connection := range enrollment.Connections {
-		policy := evidence.Policy{MaxBackupAge: time.Duration(enrollment.MaxBackupAgeHours) * time.Hour, StartupGrace: time.Duration(enrollment.StartupGraceMinutes) * time.Minute}
+		policy := evidence.Policy{
+			MaxBackupAge: time.Duration(enrollment.MaxBackupAgeHours) * time.Hour,
+			StartupGrace: time.Duration(enrollment.StartupGraceMinutes) * time.Minute,
+		}
 		reader, err := collector.New(connection, policy)
 		if err != nil {
 			reader = collector.Unconfigured(connection, policy)

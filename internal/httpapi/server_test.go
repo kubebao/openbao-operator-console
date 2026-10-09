@@ -44,14 +44,29 @@ func TestServerAuthorizesBeforeHistoryAndFiltersEverySurface(t *testing.T) {
 	now := time.Now().UTC()
 	repository := &memoryRepository{snapshot: contract.Snapshot{
 		Deployments: []contract.Deployment{
-			{Id: "visible", ConnectionId: "one", Namespace: "team-a", Evidence: contract.Evidence{Collection: "current", LastAttemptAt: now}},
-			{Id: "hidden", ConnectionId: "one", Namespace: "team-b", Evidence: contract.Evidence{Collection: "current", LastAttemptAt: now}},
+			{
+				Id:           "visible",
+				ConnectionId: "one",
+				Namespace:    "team-a",
+				Evidence:     contract.Evidence{Collection: "current", LastAttemptAt: now},
+			},
+			{
+				Id:           "hidden",
+				ConnectionId: "one",
+				Namespace:    "team-b",
+				Evidence:     contract.Evidence{Collection: "current", LastAttemptAt: now},
+			},
 		},
-		Connections:   []contract.Connection{{Id: "one", Namespaces: []string{"team-a", "team-b"}, Collection: "current", LastAttemptAt: now}},
+		Connections: []contract.Connection{
+			{Id: "one", Namespaces: []string{"team-a", "team-b"}, Collection: "current", LastAttemptAt: now},
+		},
 		Relationships: []contract.Relationship{{SourceId: "visible", TargetId: "hidden"}},
 		Activity:      []contract.Activity{{DeploymentId: "hidden"}},
 	}}
-	authentication := viewerAuth{user: config.User{Subject: "engineer", Scopes: []config.Scope{{ConnectionID: "one", Namespaces: []string{"team-a"}}}}, allowed: true}
+	authentication := viewerAuth{
+		user:    config.User{Subject: "engineer", Scopes: []config.Scope{{ConnectionID: "one", Namespaces: []string{"team-a"}}}},
+		allowed: true,
+	}
 	handler := (&Server{Repository: repository, Auth: authentication}).Handler()
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/snapshot", nil))
@@ -62,7 +77,8 @@ func TestServerAuthorizesBeforeHistoryAndFiltersEverySurface(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &snapshot); err != nil {
 		t.Fatal(err)
 	}
-	if len(snapshot.Deployments) != 1 || len(snapshot.Relationships) != 0 || len(snapshot.Activity) != 0 || len(snapshot.Connections[0].Namespaces) != 1 {
+	if len(snapshot.Deployments) != 1 || len(snapshot.Relationships) != 0 || len(snapshot.Activity) != 0 ||
+		len(snapshot.Connections[0].Namespaces) != 1 {
 		t.Fatal("hidden inventory leaked")
 	}
 	hidden := httptest.NewRecorder()
@@ -87,20 +103,40 @@ func TestServerAuthorizesBeforeHistoryAndFiltersEverySurface(t *testing.T) {
 
 func TestStoppedCollectorMakesLastKnownEvidenceStale(t *testing.T) {
 	old := time.Now().UTC().Add(-10 * time.Minute)
-	repository := &memoryRepository{snapshot: contract.Snapshot{Deployments: []contract.Deployment{{Id: "old", Health: "critical", Evidence: contract.Evidence{Collection: "current", LastAttemptAt: old}, Issues: []contract.Issue{{Id: "sealed", Rule: "sealed"}}}}, Connections: []contract.Connection{{Collection: "current", LastAttemptAt: old}}}}
+	repository := &memoryRepository{
+		snapshot: contract.Snapshot{
+			Deployments: []contract.Deployment{
+				{
+					Id:       "old",
+					Health:   "critical",
+					Evidence: contract.Evidence{Collection: "current", LastAttemptAt: old},
+					Issues:   []contract.Issue{{Id: "sealed", Rule: "sealed"}},
+				},
+			},
+			Connections: []contract.Connection{{Collection: "current", LastAttemptAt: old}},
+		},
+	}
 	snapshot, err := (&Server{Repository: repository}).snapshot(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if snapshot.Deployments[0].Health != "critical" || snapshot.Deployments[0].Evidence.Collection != "stale" || len(snapshot.Deployments[0].Issues) != 2 || snapshot.Connections[0].Collection != "stale" {
+	if snapshot.Deployments[0].Health != "critical" || snapshot.Deployments[0].Evidence.Collection != "stale" ||
+		len(snapshot.Deployments[0].Issues) != 2 ||
+		snapshot.Connections[0].Collection != "stale" {
 		t.Fatal("stopped collector concealed unresolved evidence")
 	}
 }
 
 func TestEnrollmentIsVisibleBeforeFirstCollection(t *testing.T) {
-	server := &Server{Repository: &memoryRepository{}, Config: config.Config{Connections: []config.Connection{{ID: "new", Name: "New", Namespaces: []config.Namespace{{Name: "team"}}}}}}
+	server := &Server{
+		Repository: &memoryRepository{},
+		Config: config.Config{
+			Connections: []config.Connection{{ID: "new", Name: "New", Namespaces: []config.Namespace{{Name: "team"}}}},
+		},
+	}
 	result, err := server.snapshot(context.Background())
-	if err != nil || len(result.Connections) != 1 || result.Connections[0].Collection != "pending" || result.Connections[0].LastSuccessAt != nil {
+	if err != nil || len(result.Connections) != 1 || result.Connections[0].Collection != "pending" ||
+		result.Connections[0].LastSuccessAt != nil {
 		t.Fatal("new enrollment disappeared or claimed a successful read")
 	}
 }

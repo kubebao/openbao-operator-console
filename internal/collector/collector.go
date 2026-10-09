@@ -38,20 +38,30 @@ func Unconfigured(connection config.Connection, policy evidence.Policy) *Reader 
 func New(connection config.Connection, policy evidence.Policy) (*Reader, error) {
 	var restConfig *rest.Config
 	var err error
-	if connection.Credential != nil {
+	switch {
+	case connection.Credential != nil:
 		credential := connection.Credential
 		if err := credential.Validate(); err != nil {
 			return nil, err
 		}
-		restConfig = &rest.Config{Host: credential.Server, BearerToken: credential.Token, TLSClientConfig: rest.TLSClientConfig{CAData: []byte(credential.CA), CertData: []byte(credential.Certificate), KeyData: []byte(credential.Key)}}
-	} else if connection.Kubeconfig == "" && connection.Context == "" {
+		restConfig = &rest.Config{
+			Host:        credential.Server,
+			BearerToken: credential.Token,
+			TLSClientConfig: rest.TLSClientConfig{
+				CAData:   []byte(credential.CA),
+				CertData: []byte(credential.Certificate),
+				KeyData:  []byte(credential.Key),
+			},
+		}
+	case connection.Kubeconfig == "" && connection.Context == "":
 		if connection.Remote {
 			return nil, errors.New("remote connector has no reader credential")
 		}
 		restConfig, err = rest.InClusterConfig()
-	} else {
+	default:
 		loading := &clientcmd.ClientConfigLoadingRules{ExplicitPath: connection.Kubeconfig}
-		restConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loading, &clientcmd.ConfigOverrides{CurrentContext: connection.Context}).ClientConfig()
+		overrides := &clientcmd.ConfigOverrides{CurrentContext: connection.Context}
+		restConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loading, overrides).ClientConfig()
 	}
 	if err != nil {
 		return nil, fmt.Errorf("configure connector %q: %w", connection.ID, err)
@@ -107,12 +117,24 @@ func (r *Reader) Collect(ctx context.Context, now time.Time) store.Batch {
 }
 
 func (r *Reader) collect(ctx context.Context, now time.Time, diagnostic *CheckDiagnostic) store.Batch {
-	connection := contract.Connection{Id: r.connection.ID, Name: r.connection.Name, Region: r.connection.Region, Collection: "current", LastAttemptAt: now, Namespaces: []string{}, Operators: []contract.Operator{}, Capabilities: []contract.ApiCapability{}}
+	connection := contract.Connection{
+		Id:            r.connection.ID,
+		Name:          r.connection.Name,
+		Region:        r.connection.Region,
+		Collection:    "current",
+		LastAttemptAt: now,
+		Namespaces:    []string{},
+		Operators:     []contract.Operator{},
+		Capabilities:  []contract.ApiCapability{},
+	}
 	batch := store.Batch{Connection: connection, Deployments: []contract.Deployment{}}
 	for _, namespace := range r.connection.Namespaces {
 		batch.Connection.Namespaces = append(batch.Connection.Namespaces, namespace.Name)
 		for _, resource := range []contract.ApiCapabilityResource{"openbaoclusters", "openbaorestores", "openbaorecoveries"} {
-			batch.Connection.Capabilities = append(batch.Connection.Capabilities, contract.ApiCapability{Namespace: namespace.Name, Resource: resource, State: "notChecked"})
+			batch.Connection.Capabilities = append(
+				batch.Connection.Capabilities,
+				contract.ApiCapability{Namespace: namespace.Name, Resource: resource, State: "notChecked"},
+			)
 		}
 	}
 	if r.client == nil {
@@ -125,7 +147,19 @@ func (r *Reader) collect(ctx context.Context, now time.Time, diagnostic *CheckDi
 			}
 			batch.Connection.Collection = "unreachable"
 			for _, operator := range r.connection.Operators {
-				batch.Connection.Operators = append(batch.Connection.Operators, contract.Operator{Id: operator.ID, Namespace: operator.Namespace, Name: operator.Deployment, Container: operator.Container, Namespaces: append([]string{}, operator.Namespaces...), Collection: "unreachable", Health: "unknown", LastAttemptAt: now})
+				batch.Connection.Operators = append(
+					batch.Connection.Operators,
+					contract.Operator{
+						Id:            operator.ID,
+						Namespace:     operator.Namespace,
+						Name:          operator.Deployment,
+						Container:     operator.Container,
+						Namespaces:    append([]string{}, operator.Namespaces...),
+						Collection:    "unreachable",
+						Health:        "unknown",
+						LastAttemptAt: now,
+					},
+				)
 			}
 			return batch
 		}

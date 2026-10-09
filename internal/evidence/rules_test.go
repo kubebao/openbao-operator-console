@@ -18,7 +18,11 @@ func TestMissingReadinessRemainsUnknown(t *testing.T) {
 
 func TestStaleSealedConditionDoesNotCreateCurrentIncident(t *testing.T) {
 	now := time.Now()
-	d := contract.Deployment{Id: "test", Generation: 2, Conditions: []contract.Condition{{Type: "OpenBaoSealed", Status: "True", ObservedGeneration: 1}}}
+	d := contract.Deployment{
+		Id:         "test",
+		Generation: 2,
+		Conditions: []contract.Condition{{Type: "OpenBaoSealed", Status: "True", ObservedGeneration: 1}},
+	}
 	Evaluate(&d, now.Add(-time.Hour), false, Policy{StartupGrace: time.Minute, MaxBackupAge: 24 * time.Hour}, now)
 	if len(d.Issues) != 0 {
 		t.Fatal("stale generation created a current sealed incident")
@@ -39,7 +43,11 @@ func TestPauseAndStartupGraceAvoidReadinessIncident(t *testing.T) {
 
 func TestCollectionFailurePreservesCriticalEvidence(t *testing.T) {
 	now := time.Now()
-	d := contract.Deployment{Id: "test", Health: "critical", Issues: []contract.Issue{{Id: "test:sealed", Rule: "sealed", Severity: "critical", FirstSeenAt: now.Add(-time.Hour)}}}
+	d := contract.Deployment{
+		Id:     "test",
+		Health: "critical",
+		Issues: []contract.Issue{{Id: "test:sealed", Rule: "sealed", Severity: "critical", FirstSeenAt: now.Add(-time.Hour)}},
+	}
 	CollectionFailure(&d, "denied", now)
 	CollectionFailure(&d, "denied", now.Add(time.Minute))
 	if d.Health != "critical" || len(d.Issues) != 2 || d.Issues[0].Rule != "sealed" {

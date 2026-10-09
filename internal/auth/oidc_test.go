@@ -42,10 +42,18 @@ func TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay(t *testing.T) {
 			var issuer, nonce, challenge string
 			mux := http.NewServeMux()
 			mux.HandleFunc("GET /.well-known/openid-configuration", func(w http.ResponseWriter, _ *http.Request) {
-				_ = json.NewEncoder(w).Encode(map[string]interface{}{"issuer": issuer, "authorization_endpoint": issuer + "/authorize", "token_endpoint": issuer + "/token", "jwks_uri": issuer + "/keys", "id_token_signing_alg_values_supported": []string{"RS256"}})
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"issuer":                                issuer,
+					"authorization_endpoint":                issuer + "/authorize",
+					"token_endpoint":                        issuer + "/token",
+					"jwks_uri":                              issuer + "/keys",
+					"id_token_signing_alg_values_supported": []string{"RS256"},
+				})
 			})
 			mux.HandleFunc("GET /keys", func(w http.ResponseWriter, _ *http.Request) {
-				_ = json.NewEncoder(w).Encode(jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{Key: &key.PublicKey, KeyID: "test", Algorithm: "RS256", Use: "sig"}}})
+				_ = json.NewEncoder(w).Encode(jose.JSONWebKeySet{
+					Keys: []jose.JSONWebKey{{Key: &key.PublicKey, KeyID: "test", Algorithm: "RS256", Use: "sig"}},
+				})
 			})
 			mux.HandleFunc("POST /token", func(w http.ResponseWriter, r *http.Request) {
 				if err := r.ParseForm(); err != nil {
@@ -63,20 +71,40 @@ func TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay(t *testing.T) {
 				if scenario.wrongNonce {
 					claimNonce = "different"
 				}
-				token, err := jwt.Signed(signer).Claims(map[string]interface{}{"iss": issuer, "aud": "console", "sub": scenario.subject, "nonce": claimNonce, "exp": time.Now().Add(time.Hour).Unix(), "iat": time.Now().Unix()}).Serialize()
+				token, err := jwt.Signed(signer).
+					Claims(map[string]any{
+						"iss":   issuer,
+						"aud":   "console",
+						"sub":   scenario.subject,
+						"nonce": claimNonce,
+						"exp":   time.Now().Add(time.Hour).Unix(),
+						"iat":   time.Now().Unix(),
+					}).
+					Serialize()
 				if err != nil {
 					t.Error(err)
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 				w.Header().Set("Content-Type", "application/json")
-				_ = json.NewEncoder(w).Encode(map[string]interface{}{"access_token": "provider-token-never-in-browser", "token_type": "Bearer", "id_token": token})
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"access_token": "provider-token-never-in-browser",
+					"token_type":   "Bearer",
+					"id_token":     token,
+				})
 			})
 			provider := httptest.NewTLSServer(mux)
 			defer provider.Close()
 			issuer = provider.URL
 			ctx := oidc.ClientContext(context.Background(), provider.Client())
-			a, err := NewOIDC(ctx, issuer, "console", "test-client-secret", "https://console.example/auth/callback", []config.User{{Subject: "operator", Name: "Engineer"}})
+			a, err := NewOIDC(
+				ctx,
+				issuer,
+				"console",
+				"test-client-secret",
+				"https://console.example/auth/callback",
+				[]config.User{{Subject: "operator", Name: "Engineer"}},
+			)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -95,7 +123,8 @@ func TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay(t *testing.T) {
 			if len(cookies) != 1 || !cookies[0].Secure || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteLaxMode {
 				t.Fatal("state cookie protections missing")
 			}
-			request := httptest.NewRequest(http.MethodGet, "https://console.example/auth/callback?code=valid&state="+query.Get("state"), nil).WithContext(ctx)
+			target := "https://console.example/auth/callback?code=valid&state=" + query.Get("state")
+			request := httptest.NewRequest(http.MethodGet, target, nil).WithContext(ctx)
 			request.AddCookie(cookies[0])
 			callback := httptest.NewRecorder()
 			a.Callback(callback, request)

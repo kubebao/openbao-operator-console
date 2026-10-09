@@ -20,7 +20,14 @@ func testProviderCA(provider *httptest.Server) string {
 
 func testAuthenticator(t *testing.T, provider *httptest.Server, service *settings.Service) *auth.Authenticator {
 	t.Helper()
-	a, err := auth.NewOIDC(oidc.ClientContext(context.Background(), provider.Client()), provider.URL, "console", "secret", "https://console.example/auth/callback", nil)
+	a, err := auth.NewOIDC(
+		oidc.ClientContext(context.Background(), provider.Client()),
+		provider.URL,
+		"console",
+		"secret",
+		"https://console.example/auth/callback",
+		nil,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +35,13 @@ func testAuthenticator(t *testing.T, provider *httptest.Server, service *setting
 	return a
 }
 
-func completeTestLogin(t *testing.T, provider *httptest.Server, a *auth.Authenticator, location string, cookies []*http.Cookie) *http.Cookie {
+func completeTestLogin(
+	t *testing.T,
+	provider *httptest.Server,
+	a *auth.Authenticator,
+	location string,
+	cookies []*http.Cookie,
+) *http.Cookie {
 	t.Helper()
 	client := provider.Client()
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }

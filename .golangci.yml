@@ -1,0 +1,101 @@
+version: "2"
+
+run:
+  go: "1.27"
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - errorlint
+    - gocognit
+    - gocritic
+    - gosec
+    - lll
+    - misspell
+    - nolintlint
+    - perfsprint
+    - revive
+    - unconvert
+    - unparam
+    - usestdlibvars
+  settings:
+    gocognit:
+      min-complexity: 30
+    lll:
+      line-length: 140
+      tab-width: 4
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+        - name: package-comments
+          disabled: true
+  exclusions:
+    generated: strict
+    paths:
+      - internal/contract/generated.go
+      - internal/store/database
+    rules:
+      # Operators supply these file paths through flags and environment variables.
+      - linters: [gosec]
+        text: "G304|G703"
+      # Tests use fixed fixture credentials, cookies, and fake redirect targets.
+      - path: _test\.go
+        linters: [gosec]
+      # Known complexity debt. Remove each entry when its function is split.
+      - linters: [gocognit]
+        path: cmd/console/main.go
+        text: "func `run`"
+      - linters: [gocognit]
+        path: internal/auth/auth.go
+        text: "func `Scope`"
+      - linters: [gocognit]
+        path: internal/collector/collector.go
+        text: "func `\\(\\*Reader\\).collect`"
+      - linters: [gocognit]
+        path: internal/collector/project.go
+        text: "func `Project`"
+      - linters: [gocognit]
+        path: internal/config/config.go
+        text: "func `\\(Config\\).Validate`"
+      - linters: [gocognit]
+        path: internal/demo/demo.go
+        text: "func `New`"
+      - linters: [gocognit]
+        path: internal/evidence/rules.go
+        text: "func `Evaluate`"
+      - linters: [gocognit]
+        path: internal/httpapi/server.go
+        text: "func `\\(\\*Server\\).(snapshot|Handler)`"
+      - linters: [gocognit]
+        path: internal/httpapi/settings.go
+        text: "func `(\\(\\*Server\\).settingsRoutes|filterEnrollment)`"
+      - linters: [gocognit]
+        path: internal/settings/settings.go
+        text: "func `Open`"
+      - linters: [gocognit]
+        path: internal/store/postgres.go
+        text: "func `\\(\\*Postgres\\).Apply`"
+      - linters: [gocognit]
+        path: _test\.go
+        text: "func `(TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay|TestReaderRBACNamesAreStableAndConnectionScoped|testLiveSession|TestConnectionCheckProjectsPreviewWithoutPersistingOrExposingCredentials|TestIssuerOnlyCreatesNamedTokenThenValidatesScopedReads|TestPostgresConfigurationRestartAndConcurrentRevision)`"
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+    - golines
+  settings:
+    golines:
+      max-len: 140
+      tab-len: 4
+      reformat-tags: false
+    goimports:
+      local-prefixes:
+        - github.com/kubebao/openbao-operator-console
+  exclusions:
+    generated: strict
+    paths:
+      - internal/contract/generated.go
+      - internal/store/database

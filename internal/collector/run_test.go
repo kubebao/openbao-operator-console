@@ -56,7 +56,12 @@ func TestSlowConnectionDoesNotDelayAnotherConnection(t *testing.T) {
 	finished := make(chan struct{})
 	go func() {
 		defer close(finished)
-		collectRound(ctx, []*Reader{reader("slow", true), reader("fast", false)}, repository, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		collectRound(
+			ctx,
+			[]*Reader{reader("slow", true), reader("fast", false)},
+			repository,
+			slog.New(slog.NewTextHandler(io.Discard, nil)),
+		)
 	}()
 	select {
 	case id := <-repository.applied:

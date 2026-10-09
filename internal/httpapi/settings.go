@@ -35,7 +35,15 @@ func scopesInput(scopes []contract.Scope) []config.Scope {
 }
 
 func connectionView(c config.Connection) contract.ManagedConnection {
-	result := contract.ManagedConnection{Id: c.ID, Name: c.Name, Region: c.Region, Disabled: c.Disabled, Authentication: "local", Namespaces: []contract.ManagedNamespace{}, Operators: []contract.ManagedOperator{}}
+	result := contract.ManagedConnection{
+		Id:             c.ID,
+		Name:           c.Name,
+		Region:         c.Region,
+		Disabled:       c.Disabled,
+		Authentication: "local",
+		Namespaces:     []contract.ManagedNamespace{},
+		Operators:      []contract.ManagedOperator{},
+	}
 	if c.Credential != nil {
 		result.Authentication = "remote"
 		result.Server = c.Credential.Server
@@ -45,16 +53,40 @@ func connectionView(c config.Connection) contract.ManagedConnection {
 		result.Renewal = &contract.TokenRenewal{Namespace: c.Renewal.Namespace, ServiceAccount: c.Renewal.ServiceAccount}
 	}
 	for _, ns := range c.Namespaces {
-		result.Namespaces = append(result.Namespaces, contract.ManagedNamespace{Name: ns.Name, Team: ns.Team, Environment: contract.ManagedNamespaceEnvironment(ns.Environment), Location: ns.Location})
+		result.Namespaces = append(
+			result.Namespaces,
+			contract.ManagedNamespace{
+				Name:        ns.Name,
+				Team:        ns.Team,
+				Environment: contract.ManagedNamespaceEnvironment(ns.Environment),
+				Location:    ns.Location,
+			},
+		)
 	}
 	for _, op := range c.Operators {
-		result.Operators = append(result.Operators, contract.ManagedOperator{Id: op.ID, Namespace: op.Namespace, Deployment: op.Deployment, Container: op.Container, Namespaces: append([]string{}, op.Namespaces...)})
+		result.Operators = append(
+			result.Operators,
+			contract.ManagedOperator{
+				Id:         op.ID,
+				Namespace:  op.Namespace,
+				Deployment: op.Deployment,
+				Container:  op.Container,
+				Namespaces: append([]string{}, op.Namespaces...),
+			},
+		)
 	}
 	return result
 }
 
 func connectionInput(c contract.ManagedConnection, old *config.Connection) (config.Connection, error) {
-	result := config.Connection{ID: c.Id, Name: c.Name, Region: c.Region, Disabled: c.Disabled, Namespaces: []config.Namespace{}, Operators: []config.Operator{}}
+	result := config.Connection{
+		ID:         c.Id,
+		Name:       c.Name,
+		Region:     c.Region,
+		Disabled:   c.Disabled,
+		Namespaces: []config.Namespace{},
+		Operators:  []config.Operator{},
+	}
 	switch c.Authentication {
 	case "local":
 	case "remote":
@@ -69,10 +101,22 @@ func connectionInput(c contract.ManagedConnection, old *config.Connection) (conf
 		result.Renewal = &config.TokenRenewal{Namespace: c.Renewal.Namespace, ServiceAccount: c.Renewal.ServiceAccount}
 	}
 	for _, ns := range c.Namespaces {
-		result.Namespaces = append(result.Namespaces, config.Namespace{Name: ns.Name, Team: ns.Team, Environment: string(ns.Environment), Location: ns.Location})
+		result.Namespaces = append(
+			result.Namespaces,
+			config.Namespace{Name: ns.Name, Team: ns.Team, Environment: string(ns.Environment), Location: ns.Location},
+		)
 	}
 	for _, op := range c.Operators {
-		result.Operators = append(result.Operators, config.Operator{ID: op.Id, Namespace: op.Namespace, Deployment: op.Deployment, Container: op.Container, Namespaces: append([]string{}, op.Namespaces...)})
+		result.Operators = append(
+			result.Operators,
+			config.Operator{
+				ID:         op.Id,
+				Namespace:  op.Namespace,
+				Deployment: op.Deployment,
+				Container:  op.Container,
+				Namespaces: append([]string{}, op.Namespaces...),
+			},
+		)
 	}
 	return result, nil
 }
@@ -86,18 +130,37 @@ func resourceInput(r contract.ResourceRef) config.ResourceRef {
 }
 
 func configurationView(c config.Config) contract.Configuration {
-	result := contract.Configuration{Connections: []contract.ManagedConnection{}, Users: []contract.ManagedUser{}, Groups: []contract.GroupBinding{}, Relationships: []contract.ManagedRelationship{}, MaxBackupAgeHours: c.MaxBackupAgeHours, StartupGraceMinutes: c.StartupGraceMinutes}
+	result := contract.Configuration{
+		Connections:         []contract.ManagedConnection{},
+		Users:               []contract.ManagedUser{},
+		Groups:              []contract.GroupBinding{},
+		Relationships:       []contract.ManagedRelationship{},
+		MaxBackupAgeHours:   c.MaxBackupAgeHours,
+		StartupGraceMinutes: c.StartupGraceMinutes,
+	}
 	for _, connection := range c.Connections {
 		result.Connections = append(result.Connections, connectionView(connection))
 	}
 	for _, user := range c.Users {
-		result.Users = append(result.Users, contract.ManagedUser{Subject: user.Subject, Name: user.Name, Admin: user.Admin, Scopes: scopesView(user.Scopes)})
+		result.Users = append(
+			result.Users,
+			contract.ManagedUser{Subject: user.Subject, Name: user.Name, Admin: user.Admin, Scopes: scopesView(user.Scopes)},
+		)
 	}
 	for _, group := range c.Groups {
 		result.Groups = append(result.Groups, contract.GroupBinding{Name: group.Name, Admin: group.Admin, Scopes: scopesView(group.Scopes)})
 	}
 	for _, route := range c.Relationships {
-		result.Relationships = append(result.Relationships, contract.ManagedRelationship{Id: route.ID, Source: resourceView(route.Source), Target: resourceView(route.Target), Kind: contract.ManagedRelationshipKind(route.Kind), Repository: route.Repository})
+		result.Relationships = append(
+			result.Relationships,
+			contract.ManagedRelationship{
+				Id:         route.ID,
+				Source:     resourceView(route.Source),
+				Target:     resourceView(route.Target),
+				Kind:       contract.ManagedRelationshipKind(route.Kind),
+				Repository: route.Repository,
+			},
+		)
 	}
 	return result
 }
@@ -107,7 +170,13 @@ func credentialInput(credential *contract.ClusterCredential, kubeconfig, context
 		return nil, errors.New("supply structured credentials or a kubeconfig")
 	}
 	if credential != nil {
-		result := &config.Credential{Server: credential.Server, CA: credential.Ca, Token: credential.Token, Certificate: credential.Certificate, Key: credential.Key}
+		result := &config.Credential{
+			Server:      credential.Server,
+			CA:          credential.Ca,
+			Token:       credential.Token,
+			Certificate: credential.Certificate,
+			Key:         credential.Key,
+		}
 		return result, result.Validate()
 	}
 	if kubeconfig != nil {
@@ -122,7 +191,15 @@ func credentialInput(credential *contract.ClusterCredential, kubeconfig, context
 }
 
 func configurationInput(input contract.SettingsUpdate, previous config.Config) (config.Config, error) {
-	result := config.Config{Connections: []config.Connection{}, Users: []config.User{}, Groups: []config.Group{}, Relationships: []config.Relationship{}, MaxBackupAgeHours: input.Configuration.MaxBackupAgeHours, StartupGraceMinutes: input.Configuration.StartupGraceMinutes, Identity: previous.Identity}
+	result := config.Config{
+		Connections:         []config.Connection{},
+		Users:               []config.User{},
+		Groups:              []config.Group{},
+		Relationships:       []config.Relationship{},
+		MaxBackupAgeHours:   input.Configuration.MaxBackupAgeHours,
+		StartupGraceMinutes: input.Configuration.StartupGraceMinutes,
+		Identity:            previous.Identity,
+	}
 	old := map[string]config.Connection{}
 	for _, connection := range previous.Connections {
 		old[connection.ID] = connection
@@ -135,7 +212,8 @@ func configurationInput(input contract.SettingsUpdate, previous config.Config) (
 		credentials[update.ConnectionId] = update
 	}
 	for _, connection := range input.Configuration.Connections {
-		if existing, ok := old[connection.Id]; ok && connection.Authentication == "remote" && existing.Credential != nil && connection.Server != existing.Credential.Server {
+		if existing, ok := old[connection.Id]; ok && connection.Authentication == "remote" && existing.Credential != nil &&
+			connection.Server != existing.Credential.Server {
 			if _, updated := credentials[connection.Id]; !updated {
 				return result, errors.New("supply complete credentials when changing the API server")
 			}
@@ -164,13 +242,25 @@ func configurationInput(input contract.SettingsUpdate, previous config.Config) (
 		return result, errors.New("credential references an unknown connection")
 	}
 	for _, user := range input.Configuration.Users {
-		result.Users = append(result.Users, config.User{Subject: user.Subject, Name: user.Name, Admin: user.Admin, Scopes: scopesInput(user.Scopes)})
+		result.Users = append(
+			result.Users,
+			config.User{Subject: user.Subject, Name: user.Name, Admin: user.Admin, Scopes: scopesInput(user.Scopes)},
+		)
 	}
 	for _, group := range input.Configuration.Groups {
 		result.Groups = append(result.Groups, config.Group{Name: group.Name, Admin: group.Admin, Scopes: scopesInput(group.Scopes)})
 	}
 	for _, route := range input.Configuration.Relationships {
-		result.Relationships = append(result.Relationships, config.Relationship{ID: route.Id, Source: resourceInput(route.Source), Target: resourceInput(route.Target), Kind: string(route.Kind), Repository: route.Repository})
+		result.Relationships = append(
+			result.Relationships,
+			config.Relationship{
+				ID:         route.Id,
+				Source:     resourceInput(route.Source),
+				Target:     resourceInput(route.Target),
+				Kind:       string(route.Kind),
+				Repository: route.Repository,
+			},
+		)
 	}
 	return result, result.Validate()
 }
@@ -179,14 +269,23 @@ func (s *Server) settingsView(ctx context.Context) (contract.Settings, error) {
 	configuration, revision := s.Settings.Current()
 	result := contract.Settings{Revision: revision, Configuration: configurationView(configuration), Changes: []contract.SettingsChange{}}
 	if identity := configuration.Identity; identity != nil {
-		result.Identity = contract.IdentitySummary{Issuer: identity.Issuer, ClientId: identity.ClientID, Ca: identity.CA, GroupsClaim: identity.GroupsClaim, SecretConfigured: identity.ClientSecret != ""}
+		result.Identity = contract.IdentitySummary{
+			Issuer:           identity.Issuer,
+			ClientId:         identity.ClientID,
+			Ca:               identity.CA,
+			GroupsClaim:      identity.GroupsClaim,
+			SecretConfigured: identity.ClientSecret != "",
+		}
 	}
 	changes, err := s.Settings.History(ctx)
 	if err != nil {
 		return result, err
 	}
 	for _, change := range changes {
-		result.Changes = append(result.Changes, contract.SettingsChange{Revision: change.Revision, Actor: change.Actor, Summary: change.Summary, At: change.At})
+		result.Changes = append(
+			result.Changes,
+			contract.SettingsChange{Revision: change.Revision, Actor: change.Actor, Summary: change.Summary, At: change.At},
+		)
 	}
 	return result, nil
 }
@@ -229,7 +328,10 @@ func decodeBody[T any](w http.ResponseWriter, r *http.Request) (T, error) {
 	return result, nil
 }
 
-func (s *Server) readerAccess(connection config.Connection, authentication contract.ManagedConnectionAuthentication) (contract.ReaderAccessResult, error) {
+func (s *Server) readerAccess(
+	connection config.Connection,
+	authentication contract.ManagedConnectionAuthentication,
+) (contract.ReaderAccessResult, error) {
 	readerName, readerNamespace := "console-reader", "console-system"
 	if authentication == "local" && s.ReaderName != "" && s.ReaderNamespace != "" {
 		readerName, readerNamespace = s.ReaderName, s.ReaderNamespace
@@ -297,13 +399,26 @@ func (s *Server) settingsRoutes(mux *http.ServeMux) {
 		for _, update := range input.Credentials {
 			replacements = append(replacements, update.ConnectionId)
 		}
-		if _, err := s.Settings.SaveReplacing(ctx, input.Revision, next, user.Subject, settings.Summary(previous, next), replacements); err != nil {
-			if errors.Is(err, settings.ErrConflict) {
+		if _, err := s.Settings.SaveReplacing(
+			ctx,
+			input.Revision,
+			next,
+			user.Subject,
+			settings.Summary(previous, next),
+			replacements,
+		); err != nil {
+			switch {
+			case errors.Is(err, settings.ErrConflict):
 				problem(w, http.StatusConflict, "conflict", "Settings changed. Reload before saving.")
-			} else if errors.Is(err, settings.ErrInvalid) {
+			case errors.Is(err, settings.ErrInvalid):
 				problem(w, http.StatusBadRequest, "invalid", err.Error())
-			} else {
-				problem(w, http.StatusServiceUnavailable, "unavailable", "Settings could not be saved. Retry after the database is available.")
+			default:
+				problem(
+					w,
+					http.StatusServiceUnavailable,
+					"unavailable",
+					"Settings could not be saved. Retry after the database is available.",
+				)
 			}
 			return
 		}
@@ -354,7 +469,9 @@ func (s *Server) settingsRoutes(mux *http.ServeMux) {
 			}
 		}
 		connection, err := connectionInput(input.Connection, old)
-		if err == nil && input.Connection.Authentication == "remote" && connection.Credential != nil && input.Credential == nil && input.Kubeconfig == nil && input.Connection.Server != connection.Credential.Server {
+		if err == nil && input.Connection.Authentication == "remote" && connection.Credential != nil && input.Credential == nil &&
+			input.Kubeconfig == nil &&
+			input.Connection.Server != connection.Credential.Server {
 			err = errors.New("supply complete credentials when changing the API server")
 		}
 		if err == nil && input.Connection.Authentication == "local" && (input.Credential != nil || input.Kubeconfig != nil) {
@@ -366,7 +483,11 @@ func (s *Server) settingsRoutes(mux *http.ServeMux) {
 		if err == nil && input.Connection.Authentication == "remote" && connection.Credential == nil {
 			err = errors.New("supply a remote reader credential")
 		}
-		checkConfig := config.Config{Connections: []config.Connection{connection}, MaxBackupAgeHours: current.MaxBackupAgeHours, StartupGraceMinutes: current.StartupGraceMinutes}
+		checkConfig := config.Config{
+			Connections:         []config.Connection{connection},
+			MaxBackupAgeHours:   current.MaxBackupAgeHours,
+			StartupGraceMinutes: current.StartupGraceMinutes,
+		}
 		if err == nil {
 			err = checkConfig.Validate()
 		}
@@ -376,7 +497,13 @@ func (s *Server) settingsRoutes(mux *http.ServeMux) {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
-		reader := collector.Unconfigured(connection, evidence.Policy{MaxBackupAge: time.Duration(current.MaxBackupAgeHours) * time.Hour, StartupGrace: time.Duration(current.StartupGraceMinutes) * time.Minute})
+		reader := collector.Unconfigured(
+			connection,
+			evidence.Policy{
+				MaxBackupAge: time.Duration(current.MaxBackupAgeHours) * time.Hour,
+				StartupGrace: time.Duration(current.StartupGraceMinutes) * time.Minute,
+			},
+		)
 		batch, diagnostic := reader.Check(ctx, time.Now().UTC())
 		access, err := s.readerAccess(connection, input.Connection.Authentication)
 		if err != nil {
@@ -423,7 +550,13 @@ func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request) {
 	if input.Identity.ClientSecret != nil {
 		secret = *input.Identity.ClientSecret
 	}
-	candidateIdentity := config.Identity{Issuer: input.Identity.Issuer, ClientID: input.Identity.ClientId, ClientSecret: secret, CA: input.Identity.Ca, GroupsClaim: input.Identity.GroupsClaim}
+	candidateIdentity := config.Identity{
+		Issuer:       input.Identity.Issuer,
+		ClientID:     input.Identity.ClientId,
+		ClientSecret: secret,
+		CA:           input.Identity.Ca,
+		GroupsClaim:  input.Identity.GroupsClaim,
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
 	providerContext, err := auth.ProviderContextPEM(ctx, []byte(candidateIdentity.CA))
@@ -431,7 +564,14 @@ func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request) {
 		problem(w, http.StatusBadRequest, "invalid", "Check the identity provider CA certificate.")
 		return
 	}
-	candidate, err := auth.NewOIDC(providerContext, candidateIdentity.Issuer, candidateIdentity.ClientID, candidateIdentity.ClientSecret, s.Origin+"/auth/callback", nil)
+	candidate, err := auth.NewOIDC(
+		providerContext,
+		candidateIdentity.Issuer,
+		candidateIdentity.ClientID,
+		candidateIdentity.ClientSecret,
+		s.Origin+"/auth/callback",
+		nil,
+	)
 	if err != nil {
 		problem(w, http.StatusBadRequest, "invalid", "Identity discovery failed. Check the issuer, HTTPS trust, and client settings.")
 		return
@@ -478,9 +618,18 @@ func filterEnrollment(snapshot contract.Snapshot, c config.Config) contract.Snap
 			}
 			operators := []contract.Operator{}
 			for _, declared := range current.Operators {
-				observation := contract.Operator{Id: declared.ID, Namespace: declared.Namespace, Name: declared.Deployment, Container: declared.Container, Collection: "pending", Health: "unknown", LastAttemptAt: connection.LastAttemptAt}
+				observation := contract.Operator{
+					Id:            declared.ID,
+					Namespace:     declared.Namespace,
+					Name:          declared.Deployment,
+					Container:     declared.Container,
+					Collection:    "pending",
+					Health:        "unknown",
+					LastAttemptAt: connection.LastAttemptAt,
+				}
 				for _, previous := range connection.Operators {
-					if previous.Id == declared.ID && previous.Namespace == declared.Namespace && previous.Name == declared.Deployment && previous.Container == declared.Container {
+					if previous.Id == declared.ID && previous.Namespace == declared.Namespace && previous.Name == declared.Deployment &&
+						previous.Container == declared.Container {
 						observation = previous
 						break
 					}

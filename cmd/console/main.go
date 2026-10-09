@@ -30,7 +30,11 @@ func run() error {
 	mode := flag.String("mode", "demo", "demo or live")
 	address := flag.String("listen", "127.0.0.1:8090", "HTTP listen address")
 	path := flag.String("config", "", "optional first-start enrollment YAML file")
-	recoverIdentity := flag.Bool("recover-identity", false, "replace stored identity and enroll administrators from bootstrap environment; exit without serving")
+	recoverIdentity := flag.Bool(
+		"recover-identity",
+		false,
+		"replace stored identity and enroll administrators from bootstrap environment; exit without serving",
+	)
 	check := flag.Bool("check", false, "check enrolled Kubernetes reads and print approved projections; no database or OIDC required")
 	printRBAC := flag.String("print-rbac", "", "print reader RBAC for this connection ID; does not apply manifests")
 	readerName := flag.String("reader-name", "console-reader", "local reader ServiceAccount name for RBAC manifests")
@@ -135,7 +139,14 @@ func run() error {
 			if err != nil {
 				return err
 			}
-			authentication, err = auth.NewOIDC(providerContext, identity.Issuer, identity.ClientID, identity.ClientSecret, callback, enrollment.Users)
+			authentication, err = auth.NewOIDC(
+				providerContext,
+				identity.Issuer,
+				identity.ClientID,
+				identity.ClientSecret,
+				callback,
+				enrollment.Users,
+			)
 			if err != nil {
 				return errors.New("authentication startup failed")
 			}
@@ -175,7 +186,17 @@ func run() error {
 			<-renewalStopped
 		}
 	}()
-	application := &httpapi.Server{Repository: repository, Auth: authentication, Config: enrollment, Settings: configuration, Setup: browserSetup, Demo: *mode == "demo", Origin: origin, ReaderName: *readerName, ReaderNamespace: *readerNamespace}
+	application := &httpapi.Server{
+		Repository:      repository,
+		Auth:            authentication,
+		Config:          enrollment,
+		Settings:        configuration,
+		Setup:           browserSetup,
+		Demo:            *mode == "demo",
+		Origin:          origin,
+		ReaderName:      *readerName,
+		ReaderNamespace: *readerNamespace,
+	}
 	server := &http.Server{
 		Addr: *address, Handler: application.Handler(),
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,

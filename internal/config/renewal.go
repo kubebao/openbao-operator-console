@@ -42,7 +42,8 @@ func (c Connection) ValidateRenewal() error {
 		var claims struct {
 			Subject string `json:"sub"`
 		}
-		if json.Unmarshal(payload, &claims) != nil || claims.Subject != "system:serviceaccount:"+c.Renewal.Namespace+":"+c.Renewal.ServiceAccount {
+		if json.Unmarshal(payload, &claims) != nil ||
+			claims.Subject != "system:serviceaccount:"+c.Renewal.Namespace+":"+c.Renewal.ServiceAccount {
 			return errors.New("token subject must match the renewal ServiceAccount")
 		}
 	}

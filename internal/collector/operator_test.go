@@ -17,17 +17,49 @@ import (
 )
 
 func TestOperatorObservationUsesNamedWorkloadAndCurrentGeneration(t *testing.T) {
-	workload := &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": "apps/v1", "kind": "Deployment",
-		"metadata": map[string]interface{}{"name": "controller", "namespace": "system", "uid": "controller-uid", "generation": int64(3), "labels": map[string]interface{}{"app.kubernetes.io/version": "0.5.1"}},
-		"spec":     map[string]interface{}{"replicas": int64(1), "template": map[string]interface{}{"spec": map[string]interface{}{"containers": []interface{}{map[string]interface{}{"name": "manager", "image": "registry.example/operator:v0.5.1", "env": []interface{}{map[string]interface{}{"name": "PRIVATE", "value": "must-never-project"}}}}}}},
-		"status":   map[string]interface{}{"observedGeneration": int64(2), "readyReplicas": int64(1), "updatedReplicas": int64(1), "conditions": []interface{}{map[string]interface{}{"type": "Available", "status": "True"}}},
+	workload := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata": map[string]any{
+			"name":       "controller",
+			"namespace":  "system",
+			"uid":        "controller-uid",
+			"generation": int64(3),
+			"labels":     map[string]any{"app.kubernetes.io/version": "0.5.1"},
+		},
+		"spec": map[string]any{
+			"replicas": int64(1),
+			"template": map[string]any{
+				"spec": map[string]any{
+					"containers": []any{
+						map[string]any{
+							"name":  "manager",
+							"image": "registry.example/operator:v0.5.1",
+							"env":   []any{map[string]any{"name": "PRIVATE", "value": "must-never-project"}},
+						},
+					},
+				},
+			},
+		},
+		"status": map[string]any{
+			"observedGeneration": int64(2),
+			"readyReplicas":      int64(1),
+			"updatedReplicas":    int64(1),
+			"conditions":         []any{map[string]any{"type": "Available", "status": "True"}},
+		},
 	}}
 	client := fake.NewSimpleDynamicClient(runtime.NewScheme(), workload)
 	reader := &Reader{client: client}
-	enrolled := config.Operator{ID: "operator", Namespace: "system", Deployment: "controller", Container: "manager", Namespaces: []string{"team"}}
+	enrolled := config.Operator{
+		ID:         "operator",
+		Namespace:  "system",
+		Deployment: "controller",
+		Container:  "manager",
+		Namespaces: []string{"team"},
+	}
 	observation := reader.operator(context.Background(), enrolled, time.Now())
-	if observation.Collection != "current" || observation.Health != "unknown" || observation.Version == nil || *observation.Version != "0.5.1" {
+	if observation.Collection != "current" || observation.Health != "unknown" || observation.Version == nil ||
+		*observation.Version != "0.5.1" {
 		t.Fatal("stale generation became a current healthy controller")
 	}
 	_ = unstructured.SetNestedField(workload.Object, int64(3), "status", "observedGeneration")
@@ -47,7 +79,12 @@ func TestOperatorObservationUsesNamedWorkloadAndCurrentGeneration(t *testing.T) 
 	}
 	unstructured.RemoveNestedField(workload.Object, "status", "readyReplicas")
 	unstructured.RemoveNestedField(workload.Object, "status", "updatedReplicas")
-	if result := reader.operator(context.Background(), enrolled, time.Now()); result.Health != "unavailable" || result.ReadyReplicas == nil || *result.ReadyReplicas != 0 {
+	if result := reader.operator(
+		context.Background(),
+		enrolled,
+		time.Now(),
+	); result.Health != "unavailable" || result.ReadyReplicas == nil ||
+		*result.ReadyReplicas != 0 {
 		t.Fatal("observed zero replicas became unknown or available")
 	}
 	enrolled.Container = "wrong"

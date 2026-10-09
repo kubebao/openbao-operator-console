@@ -29,7 +29,9 @@ func TestCollectorPaginationAndOptionalAPIs(t *testing.T) {
 		}
 		pages++
 		page := &unstructured.UnstructuredList{}
-		page.Items = []unstructured.Unstructured{{Object: map[string]interface{}{"metadata": map[string]interface{}{"name": "first", "namespace": "team", "uid": "first-uid"}}}}
+		page.Items = []unstructured.Unstructured{
+			{Object: map[string]any{"metadata": map[string]any{"name": "first", "namespace": "team", "uid": "first-uid"}}},
+		}
 		if pages == 1 {
 			page.SetContinue("next")
 		} else {
@@ -38,12 +40,16 @@ func TestCollectorPaginationAndOptionalAPIs(t *testing.T) {
 		}
 		return true, page, nil
 	})
-	reader := &Reader{client: client, connection: config.Connection{ID: "one", Namespaces: []config.Namespace{{Name: "team", Environment: "production"}}}}
+	reader := &Reader{
+		client:     client,
+		connection: config.Connection{ID: "one", Namespaces: []config.Namespace{{Name: "team", Environment: "production"}}},
+	}
 	batch := reader.Collect(context.Background(), time.Now())
 	if pages != 2 || len(batch.Deployments) != 2 || batch.Connection.Collection != "current" {
 		t.Fatal("pagination or optional CRD handling lost inventory")
 	}
-	if len(batch.Connection.Capabilities) != 3 || batch.Connection.Capabilities[0].State != "available" || batch.Connection.Capabilities[1].State != "unsupported" {
+	if len(batch.Connection.Capabilities) != 3 || batch.Connection.Capabilities[0].State != "available" ||
+		batch.Connection.Capabilities[1].State != "unsupported" {
 		t.Fatal("API absence was not reported separately from a successful list")
 	}
 	client.PrependReactor("list", "openbaorestores", func(action ktesting.Action) (bool, runtime.Object, error) {
@@ -59,7 +65,15 @@ func TestCollectorPaginationAndOptionalAPIs(t *testing.T) {
 }
 
 func TestRecoveryProjectionKeepsSubmissionSeparateFromApplication(t *testing.T) {
-	request := unstructured.Unstructured{Object: map[string]interface{}{"status": map[string]interface{}{"phase": "Unknown", "execution": map[string]interface{}{"stage": "RestoreSubmitted"}, "completionTime": metav1.Now().Format(time.RFC3339)}}}
+	request := unstructured.Unstructured{
+		Object: map[string]any{
+			"status": map[string]any{
+				"phase":          "Unknown",
+				"execution":      map[string]any{"stage": "RestoreSubmitted"},
+				"completionTime": metav1.Now().Format(time.RFC3339),
+			},
+		},
+	}
 	result := ProjectRecovery(request, "snapshot")
 	if result.Phase != "unknown" || result.Stage != "RestoreSubmitted" || result.ApplicationConfirmedAt != nil {
 		t.Fatal("submission became confirmed restore application")

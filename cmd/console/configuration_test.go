@@ -37,7 +37,13 @@ func TestReadSetupTokenRequiresPrivateBoundedRegularFile(t *testing.T) {
 
 func clearBootstrapEnvironment(t *testing.T) {
 	t.Helper()
-	for _, key := range []string{"CONSOLE_OIDC_ISSUER", "CONSOLE_OIDC_CLIENT_ID", "CONSOLE_OIDC_CLIENT_SECRET", "CONSOLE_OIDC_CA_FILE", "CONSOLE_BOOTSTRAP_ADMIN_SUBJECTS"} {
+	for _, key := range []string{
+		"CONSOLE_OIDC_ISSUER",
+		"CONSOLE_OIDC_CLIENT_ID",
+		"CONSOLE_OIDC_CLIENT_SECRET",
+		"CONSOLE_OIDC_CA_FILE",
+		"CONSOLE_BOOTSTRAP_ADMIN_SUBJECTS",
+	} {
 		t.Setenv(key, "")
 	}
 }
@@ -64,7 +70,21 @@ func TestBootstrapSeedPermitsBrowserSetupAndRejectsPartialIdentity(t *testing.T)
 func TestBootstrapSeedRetainsCompleteYAMLIdentity(t *testing.T) {
 	clearBootstrapEnvironment(t)
 	path := filepath.Join(t.TempDir(), "seed.yaml")
-	if err := os.WriteFile(path, []byte("maxBackupAgeHours: 24\nstartupGraceMinutes: 10\nidentity:\n  issuer: https://identity.example\n  clientId: console\n  clientSecret: seed-secret\n  groupsClaim: groups\nusers:\n  - subject: seeded-admin\n    admin: true\n"), 0o600); err != nil {
+	if err := os.WriteFile(
+		path,
+		[]byte(`maxBackupAgeHours: 24
+startupGraceMinutes: 10
+identity:
+  issuer: https://identity.example
+  clientId: console
+  clientSecret: seed-secret
+  groupsClaim: groups
+users:
+  - subject: seeded-admin
+    admin: true
+`),
+		0o600,
+	); err != nil {
 		t.Fatal(err)
 	}
 	seed, err := bootstrapSeed(path)

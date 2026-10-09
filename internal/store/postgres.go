@@ -61,7 +61,10 @@ func Open(ctx context.Context, dsn string, retention time.Duration) (*Postgres, 
 	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(694263281)"); err != nil {
 		return nil, err
 	}
-	if _, err := tx.Exec(ctx, "CREATE TABLE IF NOT EXISTS console_schema_migration (version integer PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())"); err != nil {
+	if _, err := tx.Exec(
+		ctx,
+		"CREATE TABLE IF NOT EXISTS console_schema_migration (version integer PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())",
+	); err != nil {
 		return nil, err
 	}
 	var version int
@@ -197,13 +200,19 @@ func (p *Postgres) Apply(ctx context.Context, batch Batch) error {
 			return err
 		}
 		ids = append(ids, current.Id)
-		if err := queries.UpsertDeployment(ctx, database.UpsertDeploymentParams{ID: current.Id, ConnectionID: current.ConnectionId, Projection: projection}); err != nil {
+		if err := queries.UpsertDeployment(
+			ctx,
+			database.UpsertDeploymentParams{ID: current.Id, ConnectionID: current.ConnectionId, Projection: projection},
+		); err != nil {
 			return err
 		}
 		stamp := pgtype.Timestamptz{Time: batch.Connection.LastAttemptAt, Valid: true}
 		// Record an observation only for a displayed change, not for resource version churn.
 		if !exists || ObservationChanged(current, old) {
-			if err := queries.InsertObservation(ctx, database.InsertObservationParams{DeploymentID: current.Id, RecordedAt: stamp, Projection: projection}); err != nil {
+			if err := queries.InsertObservation(
+				ctx,
+				database.InsertObservationParams{DeploymentID: current.Id, RecordedAt: stamp, Projection: projection},
+			); err != nil {
 				return err
 			}
 			if activity := Transition(current, old, stamp.Time); exists && activity != nil {
@@ -211,14 +220,20 @@ func (p *Postgres) Apply(ctx context.Context, batch Batch) error {
 				if err != nil {
 					return err
 				}
-				if err := queries.InsertActivity(ctx, database.InsertActivityParams{ID: activity.Id, RecordedAt: stamp, Projection: encoded}); err != nil {
+				if err := queries.InsertActivity(
+					ctx,
+					database.InsertActivityParams{ID: activity.Id, RecordedAt: stamp, Projection: encoded},
+				); err != nil {
 					return err
 				}
 			}
 		}
 	}
 	if batch.Connection.Collection == "current" {
-		if err := queries.DeleteMissingDeployments(ctx, database.DeleteMissingDeploymentsParams{ConnectionID: batch.Connection.Id, Column2: ids}); err != nil {
+		if err := queries.DeleteMissingDeployments(
+			ctx,
+			database.DeleteMissingDeploymentsParams{ConnectionID: batch.Connection.Id, Column2: ids},
+		); err != nil {
 			return err
 		}
 	}
@@ -240,7 +255,14 @@ func (p *Postgres) Snapshot(ctx context.Context) (contract.Snapshot, error) {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	q := database.New(tx)
-	result := contract.Snapshot{Mode: "live", CollectedAt: time.Now().UTC(), Connections: []contract.Connection{}, Deployments: []contract.Deployment{}, Relationships: []contract.Relationship{}, Activity: []contract.Activity{}}
+	result := contract.Snapshot{
+		Mode:          "live",
+		CollectedAt:   time.Now().UTC(),
+		Connections:   []contract.Connection{},
+		Deployments:   []contract.Deployment{},
+		Relationships: []contract.Relationship{},
+		Activity:      []contract.Activity{},
+	}
 	connections, err := q.ListConnections(ctx)
 	if err != nil {
 		return result, err

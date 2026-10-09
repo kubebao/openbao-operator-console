@@ -54,9 +54,13 @@ func TestCheckOptionalWarningsAndCredentialFailures(t *testing.T) {
 	client.PrependReactor("list", "openbaorestores", func(action ktesting.Action) (bool, runtime.Object, error) {
 		return true, nil, apierrors.NewForbidden(action.GetResource().GroupResource(), "team", nil)
 	})
-	reader := &Reader{client: client, connection: config.Connection{ID: "one", Namespaces: []config.Namespace{{Name: "team", Environment: "production"}}}}
+	reader := &Reader{
+		client:     client,
+		connection: config.Connection{ID: "one", Namespaces: []config.Namespace{{Name: "team", Environment: "production"}}},
+	}
 	batch, diagnostic := reader.Check(context.Background(), time.Now())
-	if diagnostic.State != "available" || batch.Connection.Collection != "current" || len(batch.Deployments) != 0 || batch.Connection.Capabilities[1].State != "denied" {
+	if diagnostic.State != "available" || batch.Connection.Collection != "current" || len(batch.Deployments) != 0 ||
+		batch.Connection.Capabilities[1].State != "denied" {
 		t.Fatal("empty cluster or optional denied API blocked the required access check")
 	}
 	client.PrependReactor("list", "openbaorecoveries", func(action ktesting.Action) (bool, runtime.Object, error) {

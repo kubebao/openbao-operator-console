@@ -40,12 +40,16 @@ func ProviderContextPEM(ctx context.Context, data []byte) (context.Context, erro
 		}
 		transport.TLSClientConfig.RootCAs = roots
 	}
-	client := &http.Client{Transport: transport, Timeout: 10 * time.Second, CheckRedirect: func(request *http.Request, _ []*http.Request) error {
-		if !httpsEndpoint(request.URL) {
-			return errors.New("OIDC redirect must use HTTPS")
-		}
-		return nil
-	}}
+	client := &http.Client{
+		Transport: transport,
+		Timeout:   10 * time.Second,
+		CheckRedirect: func(request *http.Request, _ []*http.Request) error {
+			if !httpsEndpoint(request.URL) {
+				return errors.New("OIDC redirect must use HTTPS")
+			}
+			return nil
+		},
+	}
 	return oidc.ClientContext(ctx, client), nil
 }
 

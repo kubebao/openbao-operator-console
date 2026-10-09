@@ -27,7 +27,23 @@ func TestRealServiceAccountSelfRenewalAndNamedPermissionBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatal("import isolated renewal credential")
 	}
-	connection := config.Connection{ID: "renewal-test", Name: "Renewal test", Remote: true, Credential: &credential, Renewal: &config.TokenRenewal{Namespace: "console-system", ServiceAccount: "console-renewal-test"}, Namespaces: []config.Namespace{{Name: "console-sample", Environment: "development"}}, Operators: []config.Operator{{ID: "operator", Namespace: "console-system", Deployment: "console-operator-openbao-operator-controller", Container: "manager", Namespaces: []string{"console-sample"}}}}
+	connection := config.Connection{
+		ID:         "renewal-test",
+		Name:       "Renewal test",
+		Remote:     true,
+		Credential: &credential,
+		Renewal:    &config.TokenRenewal{Namespace: "console-system", ServiceAccount: "console-renewal-test"},
+		Namespaces: []config.Namespace{{Name: "console-sample", Environment: "development"}},
+		Operators: []config.Operator{
+			{
+				ID:         "operator",
+				Namespace:  "console-system",
+				Deployment: "console-operator-openbao-operator-controller",
+				Container:  "manager",
+				Namespaces: []string{"console-sample"},
+			},
+		},
+	}
 	if connection.ValidateRenewal() != nil {
 		t.Fatal("refusing an unscoped or administrator credential")
 	}
@@ -41,7 +57,14 @@ func TestRealServiceAccountSelfRenewalAndNamedPermissionBoundary(t *testing.T) {
 	if issued.Token == credential.Token || !expires.After(now.Add(2*time.Minute)) {
 		t.Fatal("API did not replace the token with a usable lifetime")
 	}
-	client, err := rest.HTTPClientFor(&rest.Config{Host: issued.Server, BearerToken: issued.Token, Timeout: 10 * time.Second, TLSClientConfig: rest.TLSClientConfig{CAData: []byte(issued.CA)}})
+	client, err := rest.HTTPClientFor(
+		&rest.Config{
+			Host:            issued.Server,
+			BearerToken:     issued.Token,
+			Timeout:         10 * time.Second,
+			TLSClientConfig: rest.TLSClientConfig{CAData: []byte(issued.CA)},
+		},
+	)
 	if err != nil {
 		t.Fatal("configure renewed reader")
 	}
@@ -52,7 +75,12 @@ func TestRealServiceAccountSelfRenewalAndNamedPermissionBoundary(t *testing.T) {
 		{http.MethodGet, "/apis/openbao.org/v1alpha1/namespaces/kube-system/openbaoclusters"},
 		{http.MethodGet, "/apis/apps/v1/namespaces/console-system/deployments"},
 	} {
-		request, err := http.NewRequestWithContext(ctx, boundary.method, issued.Server+boundary.path, strings.NewReader(`{"apiVersion":"authentication.k8s.io/v1","kind":"TokenRequest","spec":{"expirationSeconds":600}}`))
+		request, err := http.NewRequestWithContext(
+			ctx,
+			boundary.method,
+			issued.Server+boundary.path,
+			strings.NewReader(`{"apiVersion":"authentication.k8s.io/v1","kind":"TokenRequest","spec":{"expirationSeconds":600}}`),
+		)
 		if err != nil {
 			t.Fatal("construct boundary check")
 		}

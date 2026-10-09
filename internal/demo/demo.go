@@ -24,11 +24,51 @@ func New(now time.Time) *Repository {
 		Mode: "demo", CollectedAt: now, Policy: contract.AttentionPolicy{MaxBackupAgeHours: 24, StartupGraceMinutes: 10},
 		Deployments: []contract.Deployment{}, Relationships: []contract.Relationship{}, Activity: []contract.Activity{},
 		Connections: []contract.Connection{
-			{Id: "prod-eu-1", Name: "prod-eu-1", Region: "eu-west-1", Collection: "current", LastAttemptAt: now, LastSuccessAt: &now, Namespaces: []string{"payments", "identity", "platform"}},
-			{Id: "prod-eu-2", Name: "prod-eu-2", Region: "eu-central-1", Collection: "current", LastAttemptAt: now, LastSuccessAt: &now, Namespaces: []string{"payments", "customer-x", "finance"}},
-			{Id: "dr-eu-1", Name: "dr-eu-1", Region: "eu-central-1", Collection: "current", LastAttemptAt: now, LastSuccessAt: &now, Namespaces: []string{"recovery"}},
-			{Id: "nonprod", Name: "nonprod", Region: "eu-west-1", Collection: "current", LastAttemptAt: now, LastSuccessAt: &now, Namespaces: []string{"staging", "development"}},
-			{Id: "edge", Name: "edge-dc-1", Region: "on-premises", Collection: "unreachable", LastAttemptAt: now, LastSuccessAt: ptr(now.Add(-24 * time.Hour)), Namespaces: []string{"edge"}},
+			{
+				Id:            "prod-eu-1",
+				Name:          "prod-eu-1",
+				Region:        "eu-west-1",
+				Collection:    "current",
+				LastAttemptAt: now,
+				LastSuccessAt: &now,
+				Namespaces:    []string{"payments", "identity", "platform"},
+			},
+			{
+				Id:            "prod-eu-2",
+				Name:          "prod-eu-2",
+				Region:        "eu-central-1",
+				Collection:    "current",
+				LastAttemptAt: now,
+				LastSuccessAt: &now,
+				Namespaces:    []string{"payments", "customer-x", "finance"},
+			},
+			{
+				Id:            "dr-eu-1",
+				Name:          "dr-eu-1",
+				Region:        "eu-central-1",
+				Collection:    "current",
+				LastAttemptAt: now,
+				LastSuccessAt: &now,
+				Namespaces:    []string{"recovery"},
+			},
+			{
+				Id:            "nonprod",
+				Name:          "nonprod",
+				Region:        "eu-west-1",
+				Collection:    "current",
+				LastAttemptAt: now,
+				LastSuccessAt: &now,
+				Namespaces:    []string{"staging", "development"},
+			},
+			{
+				Id:            "edge",
+				Name:          "edge-dc-1",
+				Region:        "on-premises",
+				Collection:    "unreachable",
+				LastAttemptAt: now,
+				LastSuccessAt: ptr(now.Add(-24 * time.Hour)),
+				Namespaces:    []string{"edge"},
+			},
 		},
 	}
 	for i := range snapshot.Connections {
@@ -37,7 +77,27 @@ func New(now time.Time) *Repository {
 		if connection.Collection != "current" {
 			collection = "unreachable"
 		}
-		connection.Operators = []contract.Operator{{Id: "operator-" + connection.Id, Namespace: "operator-system", Name: "openbao-controller", Container: "manager", Namespaces: append([]string{}, connection.Namespaces...), Uid: ptr("demo-controller-" + connection.Id), Image: ptr("example.invalid/openbao-operator:development"), Version: ptr("development"), Collection: collection, LastAttemptAt: now, LastSuccessAt: connection.LastSuccessAt, Health: "available", Generation: 1, ObservedGeneration: ptr(int64(1)), ReadyReplicas: ptr(int32(1)), DesiredReplicas: ptr(int32(1)), UpdatedReplicas: ptr(int32(1))}}
+		connection.Operators = []contract.Operator{
+			{
+				Id:                 "operator-" + connection.Id,
+				Namespace:          "operator-system",
+				Name:               "openbao-controller",
+				Container:          "manager",
+				Namespaces:         append([]string{}, connection.Namespaces...),
+				Uid:                ptr("demo-controller-" + connection.Id),
+				Image:              ptr("example.invalid/openbao-operator:development"),
+				Version:            ptr("development"),
+				Collection:         collection,
+				LastAttemptAt:      now,
+				LastSuccessAt:      connection.LastSuccessAt,
+				Health:             "available",
+				Generation:         1,
+				ObservedGeneration: ptr(int64(1)),
+				ReadyReplicas:      ptr(int32(1)),
+				DesiredReplicas:    ptr(int32(1)),
+				UpdatedReplicas:    ptr(int32(1)),
+			},
+		}
 		connection.Capabilities = []contract.ApiCapability{}
 		for _, namespace := range connection.Namespaces {
 			for _, resource := range []contract.ApiCapabilityResource{"openbaoclusters", "openbaorestores", "openbaorecoveries"} {
@@ -48,7 +108,10 @@ func New(now time.Time) *Repository {
 				if connection.Collection != "current" {
 					state = "unreachable"
 				}
-				connection.Capabilities = append(connection.Capabilities, contract.ApiCapability{Namespace: namespace, Resource: resource, State: state, CheckedAt: &now})
+				connection.Capabilities = append(
+					connection.Capabilities,
+					contract.ApiCapability{Namespace: namespace, Resource: resource, State: state, CheckedAt: &now},
+				)
 			}
 		}
 	}
@@ -72,31 +135,86 @@ func New(now time.Time) *Repository {
 	}
 	for _, row := range rows {
 		d := contract.Deployment{
-			Id: row.id, Uid: "demo-" + row.id, Name: row.name, Namespace: row.namespace,
-			ConnectionId: row.connection, Location: row.location, Team: row.team, Environment: row.environment,
-			Version: "2.7.0", DesiredVersion: "2.7.0", OperatorVersion: ptr("development"), Role: row.role,
-			Generation: 3, ResourceVersion: "demo-42", ReadyReplicas: ptr(int32(3)), DesiredReplicas: ptr(int32(3)),
-			Evidence:   contract.Evidence{CollectedAt: now, LastAttemptAt: now, Collection: "current", ProducerFreshness: "unknown"},
-			Conditions: []contract.Condition{{Type: "Available", Status: "True", Reason: "AllReplicasReady", Message: "All configured replicas are ready.", ObservedGeneration: 3, LastTransitionAt: ptr(now.Add(-48 * time.Hour))}},
+			Id:              row.id,
+			Uid:             "demo-" + row.id,
+			Name:            row.name,
+			Namespace:       row.namespace,
+			ConnectionId:    row.connection,
+			Location:        row.location,
+			Team:            row.team,
+			Environment:     row.environment,
+			Version:         "2.7.0",
+			DesiredVersion:  "2.7.0",
+			OperatorVersion: ptr("development"),
+			Role:            row.role,
+			Generation:      3,
+			ResourceVersion: "demo-42",
+			ReadyReplicas:   ptr(int32(3)),
+			DesiredReplicas: ptr(int32(3)),
+			Evidence:        contract.Evidence{CollectedAt: now, LastAttemptAt: now, Collection: "current", ProducerFreshness: "unknown"},
+			Conditions: []contract.Condition{
+				{
+					Type:               "Available",
+					Status:             "True",
+					Reason:             "AllReplicasReady",
+					Message:            "All configured replicas are ready.",
+					ObservedGeneration: 3,
+					LastTransitionAt:   ptr(now.Add(-48 * time.Hour)),
+				},
+			},
 			Backup: &contract.Backup{
-				LastSuccessAt: ptr(now.Add(-14 * time.Minute)), NextAt: ptr(now.Add(24 * time.Hour)), Key: ptr(row.namespace + "/" + now.Format("2006-01-02") + ".snapshot"), Digest: ptr("sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"), SizeBytes: ptr(int64(1288490188)),
-				RestoreTest: &contract.RestoreTest{Outcome: "passed", FinishedAt: ptr(now.Add(-72 * time.Hour)), LastSuccessAt: ptr(now.Add(-72 * time.Hour)), Key: ptr(row.namespace + "/restore-test.snapshot"), Reason: "SnapshotApplied"},
+				LastSuccessAt: ptr(
+					now.Add(-14 * time.Minute),
+				),
+				NextAt:    ptr(now.Add(24 * time.Hour)),
+				Key:       ptr(row.namespace + "/" + now.Format("2006-01-02") + ".snapshot"),
+				Digest:    ptr("sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+				SizeBytes: ptr(int64(1288490188)),
+				RestoreTest: &contract.RestoreTest{
+					Outcome:       "passed",
+					FinishedAt:    ptr(now.Add(-72 * time.Hour)),
+					LastSuccessAt: ptr(now.Add(-72 * time.Hour)),
+					Key:           ptr(row.namespace + "/restore-test.snapshot"),
+					Reason:        "SnapshotApplied",
+				},
 			},
 		}
 		if row.role == "replica" {
 			d.Backup = nil
-			d.Replica = &contract.Replica{ObservedAt: ptr(now.Add(-12 * time.Second)), LocalIndex: ptr("9007199254741007"), SourceIndex: ptr("9007199254741014")}
+			d.Replica = &contract.Replica{
+				ObservedAt:  ptr(now.Add(-12 * time.Second)),
+				LocalIndex:  ptr("9007199254741007"),
+				SourceIndex: ptr("9007199254741014"),
+			}
 		}
 		d.OperatorId = ptr("operator-" + row.connection)
 		if row.role == "recoveryTarget" {
 			d.Backup = nil
 			d.ReadyReplicas = ptr(int32(1))
 			d.DesiredReplicas = ptr(int32(1))
-			d.Recovery = &contract.Recovery{RequestName: "payments-recovery-drill", Mechanism: "snapshot", Phase: "completed", Stage: "FollowThroughComplete", StartedAt: ptr(now.Add(-73 * time.Hour)), CompletedAt: ptr(now.Add(-72 * time.Hour)), ApplicationConfirmedAt: ptr(now.Add(-72 * time.Hour)), Cleanup: "notApplicable"}
+			d.Recovery = &contract.Recovery{
+				RequestName:            "payments-recovery-drill",
+				Mechanism:              "snapshot",
+				Phase:                  "completed",
+				Stage:                  "FollowThroughComplete",
+				StartedAt:              ptr(now.Add(-73 * time.Hour)),
+				CompletedAt:            ptr(now.Add(-72 * time.Hour)),
+				ApplicationConfirmedAt: ptr(now.Add(-72 * time.Hour)),
+				Cleanup:                "notApplicable",
+			}
 		}
 		if row.id == "identity" {
 			d.ReadyReplicas = ptr(int32(0))
-			d.Conditions = []contract.Condition{{Type: "OpenBaoSealed", Status: "True", Reason: "Sealed", Message: "The operator reports sealed state.", ObservedGeneration: 3, LastTransitionAt: ptr(now.Add(-3 * time.Hour))}}
+			d.Conditions = []contract.Condition{
+				{
+					Type:               "OpenBaoSealed",
+					Status:             "True",
+					Reason:             "Sealed",
+					Message:            "The operator reports sealed state.",
+					ObservedGeneration: 3,
+					LastTransitionAt:   ptr(now.Add(-3 * time.Hour)),
+				},
+			}
 		}
 		if row.id == "customer-x" {
 			d.Backup.ConsecutiveFailures = 2
@@ -105,14 +223,30 @@ func New(now time.Time) *Repository {
 		if row.id == "staging" {
 			d.Version = "2.6.1"
 			d.UpgradeFailure = &contract.OperationFailure{Reason: "PodNotReady", At: ptr(now.Add(-7 * time.Hour))}
-			d.Conditions = append(d.Conditions, contract.Condition{Type: "Upgrading", Status: "False", Reason: "UpgradeFailed", Message: "Post-upgrade checks failed: PodNotReady.", ObservedGeneration: 3, LastTransitionAt: ptr(now.Add(-7 * time.Hour))})
+			d.Conditions = append(
+				d.Conditions,
+				contract.Condition{
+					Type:               "Upgrading",
+					Status:             "False",
+					Reason:             "UpgradeFailed",
+					Message:            "Post-upgrade checks failed: PodNotReady.",
+					ObservedGeneration: 3,
+					LastTransitionAt:   ptr(now.Add(-7 * time.Hour)),
+				},
+			)
 		}
 		if row.id == "edge" {
 			d.Backup = nil
 			d.ReadyReplicas = nil
 			d.Evidence.CollectedAt = now.Add(-24 * time.Hour)
 		}
-		evidence.Evaluate(&d, now.Add(-7*24*time.Hour), false, evidence.Policy{MaxBackupAge: 24 * time.Hour, StartupGrace: 10 * time.Minute}, now)
+		evidence.Evaluate(
+			&d,
+			now.Add(-7*24*time.Hour),
+			false,
+			evidence.Policy{MaxBackupAge: 24 * time.Hour, StartupGrace: 10 * time.Minute},
+			now,
+		)
 		if row.id == "edge" {
 			evidence.CollectionFailure(&d, "unreachable", now)
 		}
@@ -122,15 +256,64 @@ func New(now time.Time) *Repository {
 		snapshot.Deployments = append(snapshot.Deployments, d)
 	}
 	snapshot.Relationships = []contract.Relationship{
-		{Id: "payments-replication", SourceId: "payments", TargetId: "payments-read", Kind: "replication", Provenance: "declared", ObservedAt: ptr(now.Add(-12 * time.Second))},
-		{Id: "payments-recovery", SourceId: "payments", TargetId: "payments-dr", Kind: "snapshotRecovery", Provenance: "declared", Repository: ptr("s3://platform-recovery/payments")},
+		{
+			Id:         "payments-replication",
+			SourceId:   "payments",
+			TargetId:   "payments-read",
+			Kind:       "replication",
+			Provenance: "declared",
+			ObservedAt: ptr(now.Add(-12 * time.Second)),
+		},
+		{
+			Id:         "payments-recovery",
+			SourceId:   "payments",
+			TargetId:   "payments-dr",
+			Kind:       "snapshotRecovery",
+			Provenance: "declared",
+			Repository: ptr("s3://platform-recovery/payments"),
+		},
 	}
 	snapshot.Activity = []contract.Activity{
-		{Id: "event-1", DeploymentId: "payments", At: now.Add(-14 * time.Minute), Title: "Backup completed", Detail: "Successful Job completion recorded · payments-bao", Outcome: "success"},
-		{Id: "event-2", DeploymentId: "customer-x", At: now.Add(-2 * time.Hour), Title: "Backup failure observed", Detail: "Two consecutive failures · customer-x-bao", Outcome: "warning"},
-		{Id: "event-3", DeploymentId: "identity", At: now.Add(-3 * time.Hour), Title: "Sealed state observed", Detail: "No ready replicas · identity-bao", Outcome: "error"},
-		{Id: "event-4", DeploymentId: "staging", At: now.Add(-7 * time.Hour), Title: "Upgrade failure observed", Detail: "Post-upgrade checks · staging-bao", Outcome: "warning"},
-		{Id: "event-5", DeploymentId: "payments-dr", At: now.Add(-72 * time.Hour), Title: "Recovery target application confirmed", Detail: "Expected source identity · historical receipt", Outcome: "success"},
+		{
+			Id:           "event-1",
+			DeploymentId: "payments",
+			At:           now.Add(-14 * time.Minute),
+			Title:        "Backup completed",
+			Detail:       "Successful Job completion recorded · payments-bao",
+			Outcome:      "success",
+		},
+		{
+			Id:           "event-2",
+			DeploymentId: "customer-x",
+			At:           now.Add(-2 * time.Hour),
+			Title:        "Backup failure observed",
+			Detail:       "Two consecutive failures · customer-x-bao",
+			Outcome:      "warning",
+		},
+		{
+			Id:           "event-3",
+			DeploymentId: "identity",
+			At:           now.Add(-3 * time.Hour),
+			Title:        "Sealed state observed",
+			Detail:       "No ready replicas · identity-bao",
+			Outcome:      "error",
+		},
+		{
+			Id:           "event-4",
+			DeploymentId: "staging",
+			At:           now.Add(-7 * time.Hour),
+			Title:        "Upgrade failure observed",
+			Detail:       "Post-upgrade checks · staging-bao",
+			Outcome:      "warning",
+		},
+		{
+			Id:           "event-5",
+			DeploymentId: "payments-dr",
+			At:           now.Add(-72 * time.Hour),
+			Title:        "Recovery target application confirmed",
+			Detail:       "Expected source identity · historical receipt",
+			Outcome:      "success",
+		},
 	}
 	repository := &Repository{snapshot: snapshot, history: map[string][]contract.Observation{}}
 	for _, deployment := range snapshot.Deployments {
@@ -169,7 +352,16 @@ func history(current contract.Deployment, now time.Time) []contract.Observation 
 	}
 	state.UpgradeFailure = nil
 	state.Recovery = nil
-	state.Conditions = []contract.Condition{{Type: "Available", Status: "True", Reason: "AllReplicasReady", Message: "All configured replicas are ready.", ObservedGeneration: state.Generation, LastTransitionAt: ptr(created)}}
+	state.Conditions = []contract.Condition{
+		{
+			Type:               "Available",
+			Status:             "True",
+			Reason:             "AllReplicasReady",
+			Message:            "All configured replicas are ready.",
+			ObservedGeneration: state.Generation,
+			LastTransitionAt:   ptr(created),
+		},
+	}
 	events := []demoEvent{}
 	// The final observation is the current fixture, recorded at the latest change.
 	final := start
@@ -195,7 +387,13 @@ func history(current contract.Deployment, now time.Time) []contract.Observation 
 		}
 		if test := backup.RestoreTest; test != nil && test.FinishedAt != nil {
 			events = append(events, demoEvent{*test.FinishedAt, func(d *contract.Deployment) {
-				d.Backup.RestoreTest = &contract.RestoreTest{Outcome: test.Outcome, FinishedAt: test.FinishedAt, LastSuccessAt: test.LastSuccessAt, Key: test.Key, Reason: test.Reason}
+				d.Backup.RestoreTest = &contract.RestoreTest{
+					Outcome:       test.Outcome,
+					FinishedAt:    test.FinishedAt,
+					LastSuccessAt: test.LastSuccessAt,
+					Key:           test.Key,
+					Reason:        test.Reason,
+				}
 			}})
 		}
 	}
@@ -215,7 +413,17 @@ func history(current contract.Deployment, now time.Time) []contract.Observation 
 		events = append(events,
 			demoEvent{now.Add(-8 * time.Hour), func(d *contract.Deployment) {
 				d.DesiredVersion, d.Generation = "2.7.0", 3
-				d.Conditions = []contract.Condition{d.Conditions[0], {Type: "Upgrading", Status: "True", Reason: "RollingUpgrade", Message: "Upgrading from 2.6.1 to 2.7.0.", ObservedGeneration: 3, LastTransitionAt: ptr(now.Add(-8 * time.Hour))}}
+				d.Conditions = []contract.Condition{
+					d.Conditions[0],
+					{
+						Type:               "Upgrading",
+						Status:             "True",
+						Reason:             "RollingUpgrade",
+						Message:            "Upgrading from 2.6.1 to 2.7.0.",
+						ObservedGeneration: 3,
+						LastTransitionAt:   ptr(now.Add(-8 * time.Hour)),
+					},
+				}
 				d.Conditions[0].ObservedGeneration = 3
 			}},
 			demoEvent{now.Add(-7 * time.Hour), func(d *contract.Deployment) {

@@ -53,10 +53,23 @@ func TestPostgresConfigurationRestartAndConcurrentRevision(t *testing.T) {
 	}
 	repository := open()
 	key := bytes.Repeat([]byte{6}, 32)
-	token := "e30." + base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"system:serviceaccount:reader-system:reader","marker":"private-integration-token"}`)) + ".signature"
-	seed := config.Config{MaxBackupAgeHours: 24, Users: []config.User{{Subject: "admin", Admin: true}}, Connections: []config.Connection{{ID: "test", Name: "Test", Namespaces: []config.Namespace{{Name: "team", Environment: "development"}}, Renewal: &config.TokenRenewal{Namespace: "reader-system", ServiceAccount: "reader"}, Credential: &config.Credential{Server: "https://api.example", Token: token}}}}
-	service, err := settings.New(ctx, repository, key, seed)
-	if err != nil {
+	token := "e30." + base64.RawURLEncoding.EncodeToString(
+		[]byte(`{"sub":"system:serviceaccount:reader-system:reader","marker":"private-integration-token"}`),
+	) + ".signature"
+	seed := config.Config{
+		MaxBackupAgeHours: 24,
+		Users:             []config.User{{Subject: "admin", Admin: true}},
+		Connections: []config.Connection{
+			{
+				ID:         "test",
+				Name:       "Test",
+				Namespaces: []config.Namespace{{Name: "team", Environment: "development"}},
+				Renewal:    &config.TokenRenewal{Namespace: "reader-system", ServiceAccount: "reader"},
+				Credential: &config.Credential{Server: "https://api.example", Token: token},
+			},
+		},
+	}
+	if _, err := settings.New(ctx, repository, key, seed); err != nil {
 		t.Fatal(err)
 	}
 	record, err := repository.LoadSettings(ctx)
@@ -66,7 +79,7 @@ func TestPostgresConfigurationRestartAndConcurrentRevision(t *testing.T) {
 	repository.Close()
 	repository = open()
 	defer repository.Close()
-	service, err = settings.New(ctx, repository, key, config.Config{})
+	service, err := settings.New(ctx, repository, key, config.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +92,7 @@ func TestPostgresConfigurationRestartAndConcurrentRevision(t *testing.T) {
 	if _, err := service.Save(ctx, revision, configuration, "admin", "Updated policies"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := second.Save(ctx, revision, configuration, "other", "Stale save"); err != settings.ErrConflict {
+	if _, err := second.Save(ctx, revision, configuration, "other", "Stale save"); !errors.Is(err, settings.ErrConflict) {
 		t.Fatalf("concurrent revision = %v", err)
 	}
 	restarted, err := settings.New(ctx, repository, key, seed)
@@ -101,7 +114,9 @@ func TestPostgresConfigurationRestartAndConcurrentRevision(t *testing.T) {
 	state := target.State
 	now := time.Now().UTC()
 	expires, next := now.Add(time.Hour), now.Add(20*time.Minute)
-	state.Credential.Token = "e30." + base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"system:serviceaccount:reader-system:reader","marker":"replacement"}`)) + ".signature"
+	state.Credential.Token = "e30." + base64.RawURLEncoding.EncodeToString(
+		[]byte(`{"sub":"system:serviceaccount:reader-system:reader","marker":"replacement"}`),
+	) + ".signature"
 	state.State, state.ExpiryVerified = settings.RenewalHealthy, true
 	state.ExpiresAt, state.NextAttemptAt = &expires, &next
 	state.LastAttemptAt, state.LastSuccessAt = &now, &now
@@ -115,13 +130,31 @@ func TestPostgresConfigurationRestartAndConcurrentRevision(t *testing.T) {
 	if err := repository.SaveCredential(ctx, revision, rows[0]); !errors.Is(err, settings.ErrConflict) {
 		t.Fatal("stale credential revision accepted")
 	}
-	if err := repository.SaveCredential(ctx, revision-1, settings.CredentialRecord{ConnectionID: "test", Revision: 3, Payload: rows[0].Payload}); !errors.Is(err, settings.ErrConflict) {
+	if err := repository.SaveCredential(
+		ctx,
+		revision-1,
+		settings.CredentialRecord{ConnectionID: "test", Revision: 3, Payload: rows[0].Payload},
+	); !errors.Is(
+		err,
+		settings.ErrConflict,
+	) {
 		t.Fatal("stale enrollment revision accepted")
 	}
 	configuration, revision = restarted.Current()
 	configuration.MaxBackupAgeHours = 6
 	// Configuration and credential replacements must roll back together on conflict.
-	if _, err := repository.SaveSettings(ctx, revision, record.Payload, "admin", "must roll back", rows, []string{"test"}); !errors.Is(err, settings.ErrConflict) {
+	if _, err := repository.SaveSettings(
+		ctx,
+		revision,
+		record.Payload,
+		"admin",
+		"must roll back",
+		rows,
+		[]string{"test"},
+	); !errors.Is(
+		err,
+		settings.ErrConflict,
+	) {
 		t.Fatal("credential conflict accepted during settings commit")
 	}
 	after, err := repository.LoadSettings(ctx)
@@ -136,7 +169,8 @@ func TestPostgresConfigurationRestartAndConcurrentRevision(t *testing.T) {
 		t.Fatal(err)
 	}
 	latest := reopened.CredentialTargets()[0]
-	if latest.ConfigurationRevision != 3 || latest.State.Credential.Token != state.Credential.Token || !latest.State.NextAttemptAt.Equal(next) {
+	if latest.ConfigurationRevision != 3 || latest.State.Credential.Token != state.Credential.Token ||
+		!latest.State.NextAttemptAt.Equal(next) {
 		t.Fatal("restart lost current credential or schedule")
 	}
 }
