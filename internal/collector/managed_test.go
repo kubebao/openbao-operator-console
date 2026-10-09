@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dc-tec/openbao-operator-console/internal/config"
-	"github.com/dc-tec/openbao-operator-console/internal/contract"
-	"github.com/dc-tec/openbao-operator-console/internal/settings"
-	"github.com/dc-tec/openbao-operator-console/internal/store"
+	"github.com/kubebao/openbao-operator-console/internal/config"
+	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/settings"
+	"github.com/kubebao/openbao-operator-console/internal/store"
 )
 
 type managedConfiguration struct {

@@ -3,9 +3,9 @@ package store
 import (
 	"context"
 	"errors"
-	"github.com/dc-tec/openbao-operator-console/internal/settings"
-	"github.com/dc-tec/openbao-operator-console/internal/store/database"
 	"github.com/jackc/pgx/v5"
+	"github.com/kubebao/openbao-operator-console/internal/settings"
+	"github.com/kubebao/openbao-operator-console/internal/store/database"
 )
 
 func (p *Postgres) LoadSettings(ctx context.Context) (settings.Record, error) {

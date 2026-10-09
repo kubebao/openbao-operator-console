@@ -17,7 +17,7 @@ import (
 	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
 
-	"github.com/dc-tec/openbao-operator-console/internal/config"
+	"github.com/kubebao/openbao-operator-console/internal/config"
 )
 
 func TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay(t *testing.T) {

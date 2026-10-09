@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/dc-tec/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/contract"
 )
 
 type Batch struct {

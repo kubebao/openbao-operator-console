@@ -11,10 +11,10 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/dc-tec/openbao-operator-console/internal/collector"
-	"github.com/dc-tec/openbao-operator-console/internal/config"
-	"github.com/dc-tec/openbao-operator-console/internal/evidence"
-	"github.com/dc-tec/openbao-operator-console/internal/settings"
+	"github.com/kubebao/openbao-operator-console/internal/collector"
+	"github.com/kubebao/openbao-operator-console/internal/config"
+	"github.com/kubebao/openbao-operator-console/internal/evidence"
+	"github.com/kubebao/openbao-operator-console/internal/settings"
 	"k8s.io/client-go/rest"
 )
 

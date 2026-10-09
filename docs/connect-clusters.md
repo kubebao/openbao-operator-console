@@ -59,13 +59,13 @@ This command needs neither PostgreSQL nor OIDC. It prints approved connection, A
 It exits with status 1 when a connection or enrolled controller read fails. A controller with zero ready replicas or a sealed
 OpenBao deployment can still pass the transport check; inspect their separate health fields.
 
-| Result | Meaning | Action |
-| --- | --- | --- |
-| `available` | The namespace list succeeded. | Inspect workload evidence. |
-| `unsupported` | The resource API is not served. | Install a compatible operator feature build if that API is needed. |
-| `denied` | Kubernetes denied the read. | Check RBAC and credential expiry. |
-| `unreachable` | The read or reader configuration failed. | Check the kubeconfig, context, API endpoint, and network. |
-| `notChecked` | Collection stopped before this API read. | Resolve the preceding failure. |
+| Result        | Meaning                                  | Action                                                             |
+| ------------- | ---------------------------------------- | ------------------------------------------------------------------ |
+| `available`   | The namespace list succeeded.            | Inspect workload evidence.                                         |
+| `unsupported` | The resource API is not served.          | Install a compatible operator feature build if that API is needed. |
+| `denied`      | Kubernetes denied the read.              | Check RBAC and credential expiry.                                  |
+| `unreachable` | The read or reader configuration failed. | Check the kubeconfig, context, API endpoint, and network.          |
+| `notChecked`  | Collection stopped before this API read. | Resolve the preceding failure.                                     |
 
 API availability does not verify an unreleased field schema or an enabled controller feature gate. Absent optional restore
 or recovery APIs do not block core inventory. Forbidden optional reads remain capability warnings and leave the affected

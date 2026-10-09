@@ -16,14 +16,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/dc-tec/openbao-operator-console/internal/auth"
-	"github.com/dc-tec/openbao-operator-console/internal/collector"
-	"github.com/dc-tec/openbao-operator-console/internal/config"
-	"github.com/dc-tec/openbao-operator-console/internal/demo"
-	"github.com/dc-tec/openbao-operator-console/internal/httpapi"
-	"github.com/dc-tec/openbao-operator-console/internal/renewal"
-	"github.com/dc-tec/openbao-operator-console/internal/settings"
-	"github.com/dc-tec/openbao-operator-console/internal/store"
+	"github.com/kubebao/openbao-operator-console/internal/auth"
+	"github.com/kubebao/openbao-operator-console/internal/collector"
+	"github.com/kubebao/openbao-operator-console/internal/config"
+	"github.com/kubebao/openbao-operator-console/internal/demo"
+	"github.com/kubebao/openbao-operator-console/internal/httpapi"
+	"github.com/kubebao/openbao-operator-console/internal/renewal"
+	"github.com/kubebao/openbao-operator-console/internal/settings"
+	"github.com/kubebao/openbao-operator-console/internal/store"
 )
 
 func run() error {

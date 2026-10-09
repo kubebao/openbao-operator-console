@@ -10,8 +10,8 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
-	"github.com/dc-tec/openbao-operator-console/internal/contract"
-	"github.com/dc-tec/openbao-operator-console/internal/store"
+	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/store"
 )
 
 // CheckDiagnostic describes only the required workload access check. Optional

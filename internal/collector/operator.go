@@ -10,8 +10,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/dc-tec/openbao-operator-console/internal/config"
-	"github.com/dc-tec/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/config"
+	"github.com/kubebao/openbao-operator-console/internal/contract"
 )
 
 // OCI references cannot contain credentials, query strings, or whitespace.

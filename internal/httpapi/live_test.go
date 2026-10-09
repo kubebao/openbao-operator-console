@@ -26,13 +26,13 @@ import (
 	"github.com/go-jose/go-jose/v4/jwt"
 	"golang.org/x/net/html"
 
-	"github.com/dc-tec/openbao-operator-console/internal/auth"
-	"github.com/dc-tec/openbao-operator-console/internal/collector"
-	"github.com/dc-tec/openbao-operator-console/internal/config"
-	"github.com/dc-tec/openbao-operator-console/internal/contract"
-	"github.com/dc-tec/openbao-operator-console/internal/evidence"
-	consolesettings "github.com/dc-tec/openbao-operator-console/internal/settings"
-	"github.com/dc-tec/openbao-operator-console/internal/store"
+	"github.com/kubebao/openbao-operator-console/internal/auth"
+	"github.com/kubebao/openbao-operator-console/internal/collector"
+	"github.com/kubebao/openbao-operator-console/internal/config"
+	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/evidence"
+	consolesettings "github.com/kubebao/openbao-operator-console/internal/settings"
+	"github.com/kubebao/openbao-operator-console/internal/store"
 )
 
 // This optional integration test exercises the real reader, database, OIDC

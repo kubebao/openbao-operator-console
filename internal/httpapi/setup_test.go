@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dc-tec/openbao-operator-console/internal/auth"
-	"github.com/dc-tec/openbao-operator-console/internal/config"
-	"github.com/dc-tec/openbao-operator-console/internal/contract"
-	"github.com/dc-tec/openbao-operator-console/internal/settings"
+	"github.com/kubebao/openbao-operator-console/internal/auth"
+	"github.com/kubebao/openbao-operator-console/internal/config"
+	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
 const setupTestToken = "a1042a15bc3a01f189e840797934e107cb7228f2ab29f8943c67d6e73042bf4a"

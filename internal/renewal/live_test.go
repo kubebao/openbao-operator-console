@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dc-tec/openbao-operator-console/internal/config"
+	"github.com/kubebao/openbao-operator-console/internal/config"
 	"k8s.io/client-go/rest"
 )
 

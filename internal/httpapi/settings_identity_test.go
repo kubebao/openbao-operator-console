@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/dc-tec/openbao-operator-console/internal/auth"
-	"github.com/dc-tec/openbao-operator-console/internal/settings"
+	"github.com/kubebao/openbao-operator-console/internal/auth"
+	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
 func testProviderCA(provider *httptest.Server) string {

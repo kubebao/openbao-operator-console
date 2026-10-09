@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dc-tec/openbao-operator-console/internal/config"
-	"github.com/dc-tec/openbao-operator-console/internal/settings"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/kubebao/openbao-operator-console/internal/config"
+	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
 func TestPostgresConfigurationRestartAndConcurrentRevision(t *testing.T) {

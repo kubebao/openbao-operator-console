@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dc-tec/openbao-operator-console/internal/config"
-	"github.com/dc-tec/openbao-operator-console/internal/settings"
+	"github.com/kubebao/openbao-operator-console/internal/config"
+	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
 type Issuer interface {

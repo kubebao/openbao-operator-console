@@ -3,12 +3,16 @@
 ## Product boundary
 
 The console helps platform teams find issues across an OpenBao fleet. It observes public Kubernetes resources
-published by the [OpenBao Operator](https://github.com/dc-tec/openbao-operator) and retains operational evidence. It
+published by the [OpenBao Operator](https://github.com/kubebao/openbao-operator) and retains operational evidence. It
 does not run lifecycle operations, manage secrets, or contact OpenBao.
 
 Some operator APIs that the console reads are still in development, such as restore tests, snapshot restores, native
 recovery, and remote replica observations. The console reads only fields that the installed schema supplies; missing
 fields remain unknown. The `OpenBaoBackup` catalog is out of scope.
+
+The Go module path is `github.com/kubebao/openbao-operator-console`. The collector and reader RBAC still target
+`openbao.org/v1alpha1`; changing the repository owner does not change the Kubernetes API group. Support for
+`kubebao.org/v1alpha1` requires a separate compatibility change when the operator serves that API.
 
 ## Interface principles
 

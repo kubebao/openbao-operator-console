@@ -3,8 +3,8 @@ package store
 import (
 	"context"
 
-	"github.com/dc-tec/openbao-operator-console/internal/settings"
-	"github.com/dc-tec/openbao-operator-console/internal/store/database"
+	"github.com/kubebao/openbao-operator-console/internal/settings"
+	"github.com/kubebao/openbao-operator-console/internal/store/database"
 )
 
 func (p *Postgres) LoadCredentials(ctx context.Context) ([]settings.CredentialRecord, error) {

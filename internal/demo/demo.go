@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dc-tec/openbao-operator-console/internal/contract"
-	"github.com/dc-tec/openbao-operator-console/internal/evidence"
-	"github.com/dc-tec/openbao-operator-console/internal/store"
+	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/evidence"
+	"github.com/kubebao/openbao-operator-console/internal/store"
 )
 
 type Repository struct {

@@ -13,9 +13,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/dc-tec/openbao-operator-console/internal/contract"
-	"github.com/dc-tec/openbao-operator-console/internal/evidence"
-	"github.com/dc-tec/openbao-operator-console/internal/store/database"
+	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/evidence"
+	"github.com/kubebao/openbao-operator-console/internal/store/database"
 )
 
 //go:embed migrations/001_initial.sql

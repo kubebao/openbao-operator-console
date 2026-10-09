@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/dc-tec/openbao-operator-console/internal/auth"
-	"github.com/dc-tec/openbao-operator-console/internal/config"
-	"github.com/dc-tec/openbao-operator-console/internal/settings"
+	"github.com/kubebao/openbao-operator-console/internal/auth"
+	"github.com/kubebao/openbao-operator-console/internal/config"
+	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
 func readSetupToken(path string) ([]byte, error) {

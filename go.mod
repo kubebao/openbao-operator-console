@@ -1,4 +1,4 @@
-module github.com/dc-tec/openbao-operator-console
+module github.com/kubebao/openbao-operator-console
 
 go 1.27.1
 

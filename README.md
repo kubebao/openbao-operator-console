@@ -4,9 +4,9 @@
 
 # OpenBao Operator Console
 
-**A read-only fleet console for the [OpenBao Operator](https://github.com/dc-tec/openbao-operator).**
+**A read-only fleet console for the [OpenBao Operator](https://github.com/kubebao/openbao-operator).**
 
-[![Check](https://github.com/dc-tec/openbao-operator-console/actions/workflows/check.yml/badge.svg)](https://github.com/dc-tec/openbao-operator-console/actions/workflows/check.yml)
+[![Check](https://github.com/kubebao/openbao-operator-console/actions/workflows/check.yml/badge.svg)](https://github.com/kubebao/openbao-operator-console/actions/workflows/check.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 [Quick start](#quick-start) • [Install](docs/installation.md) • [Documentation](#documentation) • [Contributing](CONTRIBUTING.md)
@@ -70,7 +70,7 @@ Try the console locally with demonstration data. No Kubernetes cluster, database
 Requirements: Go 1.27, Node.js 24 or later, and pnpm 11.
 
 ```sh
-git clone https://github.com/dc-tec/openbao-operator-console.git
+git clone https://github.com/kubebao/openbao-operator-console.git
 cd openbao-operator-console
 make install
 make build
@@ -102,7 +102,7 @@ and encrypted configuration in PostgreSQL. See [architecture](docs/architecture.
 
 | Component | Requirement |
 | --- | --- |
-| OpenBao Operator | Clusters managed by the [OpenBao Operator](https://github.com/dc-tec/openbao-operator) (`v1alpha1` APIs) |
+| OpenBao Operator | Clusters managed by the [OpenBao Operator](https://github.com/kubebao/openbao-operator) (`openbao.org/v1alpha1` APIs) |
 | Kubernetes | A namespace-scoped reader per cluster; the hosting cluster can use the console's ServiceAccount |
 | PostgreSQL | An external database; CI tests PostgreSQL 18 |
 | Identity provider | An OpenID Connect provider with authorization code flow and PKCE, such as Keycloak |

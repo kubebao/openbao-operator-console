@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 	ktesting "k8s.io/client-go/testing"
 
-	"github.com/dc-tec/openbao-operator-console/internal/config"
+	"github.com/kubebao/openbao-operator-console/internal/config"
 )
 
 func TestCollectorPaginationAndOptionalAPIs(t *testing.T) {

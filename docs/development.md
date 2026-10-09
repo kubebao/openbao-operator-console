@@ -95,7 +95,7 @@ mkdir -p .local
 kind create cluster --name console-dev --image kindest/node:v1.36.1 --kubeconfig .local/kubeconfig
 ```
 
-Install the [OpenBao Operator](https://github.com/dc-tec/openbao-operator) in single-tenant mode with `console-sample`
+Install the [OpenBao Operator](https://github.com/kubebao/openbao-operator) in single-tenant mode with `console-sample`
 as the target namespace. Use an operator image and chart from the same version so admission policies match. Then apply
 `examples/kind-cluster.yaml`, which creates one disposable development OpenBao deployment with a 1 GiB volume.
 

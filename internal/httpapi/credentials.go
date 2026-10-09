@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dc-tec/openbao-operator-console/internal/contract"
-	"github.com/dc-tec/openbao-operator-console/internal/settings"
+	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
 func (s *Server) credentialStatuses(w http.ResponseWriter, r *http.Request) {

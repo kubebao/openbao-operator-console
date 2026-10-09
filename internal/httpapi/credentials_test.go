@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dc-tec/openbao-operator-console/internal/config"
-	"github.com/dc-tec/openbao-operator-console/internal/contract"
-	"github.com/dc-tec/openbao-operator-console/internal/settings"
+	"github.com/kubebao/openbao-operator-console/internal/config"
+	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
 func TestCredentialStatusesAuthorizeAndProjectOnlyLifecycleEvidence(t *testing.T) {
