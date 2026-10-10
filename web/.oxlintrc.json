@@ -260,22 +260,6 @@
         "typescript/switch-exhaustiveness-check": "error"
       },
       "plugins": ["react"]
-    },
-    {
-      // Known structural debt. Remove a file from this list when it is split.
-      "files": [
-        "e2e/onboarding.spec.ts",
-        "src/components/shell.tsx",
-        "src/pages/attention.tsx",
-        "src/pages/recovery.tsx",
-        "src/pages/setup.tsx"
-      ],
-      "rules": {
-        "complexity": "off",
-        "max-lines": "off",
-        "max-lines-per-function": "off",
-        "no-nested-ternary": "off"
-      }
     }
   ]
 }
