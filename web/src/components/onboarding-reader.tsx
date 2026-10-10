@@ -1,8 +1,9 @@
 import { Download } from 'lucide-react'
 import type { ReaderAccessResult } from '../api/schema'
-import { Field } from './settings-editor'
+import { Field } from './form'
 import { Button } from './ui/button'
 import { CodeBlock } from './code-block'
+import { downloadText } from '../lib/download'
 
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", "'\"'\"'")}'`
@@ -55,15 +56,6 @@ ln "$CONSOLE_READER_FILE" "$CONSOLE_READER_TARGET"
 )`
 }
 
-function downloadManifests(value: string) {
-  const url = URL.createObjectURL(new Blob([value], { type: 'application/yaml' }))
-  const link = document.createElement('a')
-  link.href = url
-  link.download = 'console-reader.yaml'
-  link.click()
-  URL.revokeObjectURL(url)
-}
-
 export function OnboardingReader({
   access,
   local,
@@ -107,7 +99,7 @@ export function OnboardingReader({
                   type="button"
                   size="small"
                   onClick={() => {
-                    downloadManifests(access.rbac)
+                    downloadText(access.rbac, 'console-reader.yaml')
                     onNotice('Saved console-reader.yaml.')
                   }}
                 >

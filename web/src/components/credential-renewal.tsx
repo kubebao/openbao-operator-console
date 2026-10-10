@@ -2,7 +2,8 @@ import { useState } from 'react'
 import type { CredentialStatus, ManagedConnection } from '../api/schema'
 import { generateReaderAccess } from '../api/client'
 import { formError } from '../lib/errors'
-import { Field } from './settings-editor'
+import { downloadText } from '../lib/download'
+import { Field } from './form'
 import { Button } from './ui/button'
 import { Timestamp } from './status'
 
@@ -90,12 +91,7 @@ export function RenewalAccess({ connection }: { connection: ManagedConnection })
           setError('')
           void generateReaderAccess(connection)
             .then((access) => {
-              const url = URL.createObjectURL(new Blob([access.rbac], { type: 'application/yaml' }))
-              const link = document.createElement('a')
-              link.href = url
-              link.download = 'console-reader.yaml'
-              link.click()
-              URL.revokeObjectURL(url)
+              downloadText(access.rbac, 'console-reader.yaml')
             })
             .catch((error: unknown) => {
               setError(formError(error))

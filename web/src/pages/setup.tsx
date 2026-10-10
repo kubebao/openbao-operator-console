@@ -5,7 +5,7 @@ import { Check, Copy, LockKeyhole } from 'lucide-react'
 import { useSetup, unlockSetup, startSetupIdentity, lockSetup } from '../api/client'
 import type { IdentityInput } from '../api/schema'
 import { Brand } from '../components/brand'
-import { Field } from '../components/settings-editor'
+import { Field } from '../components/form'
 import { Button } from '../components/ui/button'
 import { formError } from '../lib/errors'
 

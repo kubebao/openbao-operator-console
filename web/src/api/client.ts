@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import createClient from 'openapi-fetch'
 import type { paths } from './generated'
 import {
@@ -17,9 +17,19 @@ import type {
   ConnectionCheck,
   IdentityInput,
   ManagedConnection,
+  SetupStatus,
 } from './schema'
 
 const client = createClient<paths>()
+
+// Query keys are shared by queries and the mutations that refresh them.
+export const queryKeys = {
+  snapshot: ['snapshot'],
+  setup: ['setup'],
+  settings: ['settings'],
+  credentialStatuses: ['credentialStatuses'],
+  history: (id: string) => ['history', id] as const,
+} as const
 
 export class APIError extends Error {
   constructor(
@@ -32,7 +42,7 @@ export class APIError extends Error {
 }
 
 export const snapshotOptions = {
-  queryKey: ['snapshot'],
+  queryKey: queryKeys.snapshot,
   queryFn: async () => {
     const response = await client.GET('/api/v1/snapshot')
     if (!response.response.ok)
@@ -50,7 +60,7 @@ export function useSnapshot(enabled = true) {
 }
 
 export const setupOptions = {
-  queryKey: ['setup'],
+  queryKey: queryKeys.setup,
   queryFn: async () => {
     const response = await client.GET('/api/v1/setup')
     if (!response.response.ok)
@@ -95,7 +105,7 @@ export async function lockSetup() {
 
 export function useHistory(id: string) {
   return useQuery({
-    queryKey: ['history', id],
+    queryKey: queryKeys.history(id),
     queryFn: async () => {
       const response = await client.GET('/api/v1/deployments/{id}/history', {
         params: { path: { id } },
@@ -110,7 +120,7 @@ export function useHistory(id: string) {
 
 export function useSettings(enabled: boolean) {
   return useQuery({
-    queryKey: ['settings'],
+    queryKey: queryKeys.settings,
     enabled,
     // Keep the edit revision stable. A concurrent administrator's save is
     // reported as a conflict instead of silently replacing the form's base.
@@ -177,7 +187,7 @@ export async function trialIdentity(revision: number, identity: IdentityInput) {
 
 export function useCredentialStatuses(enabled: boolean) {
   return useQuery({
-    queryKey: ['credentialStatuses'],
+    queryKey: queryKeys.credentialStatuses,
     enabled,
     queryFn: async () => {
       const response = await client.GET('/api/v1/settings/connections/credentials')
@@ -187,5 +197,46 @@ export function useCredentialStatuses(enabled: boolean) {
     },
     refetchInterval: 15_000,
     retry: false,
+  })
+}
+
+export interface SettingsSave {
+  revision: number
+  configuration: Configuration
+  credentials?: readonly CredentialUpdate[]
+}
+
+// useSaveSettings stores the new revision and refreshes every view derived from settings.
+export function useSaveSettings() {
+  const queries = useQueryClient()
+  return useMutation({
+    mutationFn: ({ revision, configuration, credentials }: SettingsSave) =>
+      saveSettings(revision, configuration, credentials),
+    onSuccess: async (result) => {
+      queries.setQueryData(queryKeys.settings, result)
+      await Promise.all([
+        queries.invalidateQueries({ queryKey: queryKeys.snapshot }),
+        queries.invalidateQueries({ queryKey: queryKeys.credentialStatuses }),
+      ])
+    },
+  })
+}
+
+export function useCheckConnection() {
+  return useMutation({ mutationFn: checkConnection })
+}
+
+export function useReaderAccess() {
+  return useMutation({ mutationFn: generateReaderAccess })
+}
+
+// useSetupStep runs a setup request and stores the returned status.
+export function useSetupStep<T>(request: (input: T) => Promise<SetupStatus>) {
+  const queries = useQueryClient()
+  return useMutation({
+    mutationFn: request,
+    onSuccess: (status) => {
+      queries.setQueryData(queryKeys.setup, status)
+    },
   })
 }

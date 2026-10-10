@@ -30,7 +30,7 @@ import type {
   ReaderAccessResult,
 } from '../api/schema'
 import { DetailRows, EmptyState, PageHeading } from '../components/page'
-import { Field } from '../components/settings-editor'
+import { Field } from '../components/form'
 import { Button } from '../components/ui/button'
 import { formError } from '../lib/errors'
 import { OnboardingChecks } from '../components/onboarding-checks'

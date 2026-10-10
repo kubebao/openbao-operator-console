@@ -1,7 +1,8 @@
 import { formError } from '../lib/errors'
 import { useState } from 'react'
 import type { Deployment, ManagedRelationship } from '../api/schema'
-import { SettingsEditor, Field } from './settings-editor'
+import { SettingsEditor } from './settings-editor'
+import { Field } from './form'
 import { Button } from './ui/button'
 
 export function RelationshipEditor({
