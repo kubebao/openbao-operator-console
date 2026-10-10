@@ -38,7 +38,7 @@ h1 {
 }
 
 h2 {
-  font-size: 15px;
+  font-size: var(--text-xl);
   font-weight: 650;
   letter-spacing: -0.2px;
 }

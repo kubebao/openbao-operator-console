@@ -17,7 +17,7 @@
   align-items: center;
   gap: 0.5rem;
   margin: 0;
-  font-size: 0.9rem;
+  font-size: var(--text-lg);
 }
 
 .operator-evidence code {
@@ -81,7 +81,7 @@
 
 .cluster-details h3 {
   margin: 0 0 0.6rem;
-  font-size: 0.75rem;
+  font-size: var(--text-base);
   letter-spacing: 0;
 }
 

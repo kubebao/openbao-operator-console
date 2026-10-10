@@ -143,13 +143,13 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.8rem;
+  font-size: var(--text-md);
   overflow-wrap: anywhere;
 }
 
 .relationship-list small {
   display: block;
-  font-size: 0.72rem;
+  font-size: var(--text-sm);
   color: var(--muted-foreground);
   margin-top: 0.5rem;
 }
@@ -159,7 +159,7 @@
 }
 
 .relationship-detail h2 {
-  font-size: 1rem;
+  font-size: var(--text-xl);
 }
 
 .relationship-path {
@@ -202,13 +202,13 @@
 }
 
 .relationship-node strong {
-  font-size: 0.85rem;
+  font-size: var(--text-lg);
   overflow-wrap: anywhere;
 }
 
 .relationship-node small,
 .relationship-storage small {
-  font-size: 0.72rem;
+  font-size: var(--text-sm);
   color: var(--muted-foreground);
 }
 
@@ -217,16 +217,16 @@
 }
 
 .relationship-storage strong {
-  font-size: 0.78rem;
+  font-size: var(--text-base);
 }
 
 .relationship-storage code {
-  font-size: 0.7rem;
+  font-size: var(--text-sm);
   overflow-wrap: anywhere;
 }
 
 .path-role {
-  font-size: 0.7rem;
+  font-size: var(--text-sm);
   color: var(--muted-foreground);
 }
 
@@ -235,7 +235,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem;
-  font-size: 0.72rem;
+  font-size: var(--text-sm);
   margin-top: 0.2rem;
 }
 
@@ -248,7 +248,7 @@
 }
 
 .relationship-arrow span {
-  font-size: 0.65rem;
+  font-size: var(--text-xs);
 }
 
 .relationship-inspector {
@@ -263,7 +263,7 @@
 }
 
 .relationship-inspector h3 {
-  font-size: 0.95rem;
+  font-size: var(--text-xl);
   margin-bottom: 1rem;
 }
 

@@ -7,7 +7,7 @@
 }
 
 .page-heading p {
-  font-size: 14px;
+  font-size: var(--text-lg);
   color: var(--muted-foreground);
   margin-top: 8px;
 }
@@ -339,7 +339,7 @@ tr.finding-critical > td {
   border-radius: var(--radius-panel);
   border: 1px solid transparent;
   margin: 1rem 0;
-  font-size: 0.8rem;
+  font-size: var(--text-md);
 }
 
 .callout > svg {
@@ -381,7 +381,7 @@ tr.finding-critical > td {
   padding: 4px 6px 4px 12px;
   border-bottom: 1px solid var(--border);
   color: var(--muted-foreground);
-  font-size: 0.72rem;
+  font-size: var(--text-sm);
 }
 
 .code-block pre {
@@ -409,7 +409,7 @@ tr.finding-critical > td {
   align-items: center;
   gap: 0.6rem;
   color: var(--muted-foreground);
-  font-size: 0.82rem;
+  font-size: var(--text-md);
 }
 
 .progress-list li > svg {

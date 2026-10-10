@@ -25,7 +25,7 @@
 }
 
 .setup-panel h2 {
-  font-size: 1.25rem;
+  font-size: var(--text-2xl);
   margin-bottom: 1rem;
 }
 
@@ -73,13 +73,13 @@
 }
 
 .setup-callback code {
-  font-size: 0.8rem;
+  font-size: var(--text-md);
 }
 
 .setup-help,
 .onboarding-help {
   margin: 1.4rem 0;
-  font-size: 0.8rem;
+  font-size: var(--text-md);
 }
 
 .setup-help summary,
@@ -109,7 +109,7 @@
 }
 
 .onboarding-content h2 {
-  font-size: 1.15rem;
+  font-size: var(--text-2xl);
   margin-bottom: 1.5rem;
 }
 
@@ -132,7 +132,7 @@
 .onboarding-summary {
   align-self: start;
   color: var(--muted-foreground);
-  font-size: 0.8rem;
+  font-size: var(--text-md);
 }
 
 .onboarding-namespace {
@@ -233,7 +233,7 @@
 
 @media (max-width: 850px) {
   .onboarding-preview {
-    font-size: 0.75rem;
+    font-size: var(--text-base);
   }
 }
 
@@ -251,7 +251,7 @@
   .onboarding-steps,
   .setup-progress {
     gap: 0.5rem 0.9rem;
-    font-size: 0.75rem;
+    font-size: var(--text-base);
   }
   .onboarding-actions > .button {
     min-height: 40px;
@@ -296,7 +296,7 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 0.72rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--accent);
   background: var(--accent-soft);
@@ -313,7 +313,7 @@
 
 .reader-step-heading h3 {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: var(--text-lg);
   letter-spacing: 0;
   color: var(--heading);
 }
@@ -328,7 +328,7 @@
 
 .manifest-details summary {
   cursor: pointer;
-  font-size: 0.78rem;
+  font-size: var(--text-base);
   color: var(--accent);
 }
 
@@ -338,5 +338,5 @@
   flex-wrap: wrap;
   gap: 0.9rem;
   margin: 1.2rem 0 0.4rem;
-  font-size: 0.78rem;
+  font-size: var(--text-base);
 }

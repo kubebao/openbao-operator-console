@@ -110,7 +110,7 @@
 }
 
 .tile-body strong {
-  font-size: 14px;
+  font-size: var(--text-lg);
   font-weight: 600;
   color: var(--heading);
 }
@@ -372,7 +372,7 @@
 }
 
 .summary-stat strong {
-  font-size: 18px;
+  font-size: var(--text-2xl);
   font-weight: 600;
   color: var(--heading);
 }

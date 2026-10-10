@@ -9,12 +9,15 @@
   -webkit-font-smoothing: antialiased;
   --font-sans: 'DM Sans Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'DM Mono', 'SFMono-Regular', Consolas, monospace;
-  /* Type scale for the dense console layout. Headings and one-off sizes stay literal. */
+  /* Type scale for the dense console layout. Page titles and one-off sizes stay literal. */
   --text-2xs: 9px;
   --text-xs: 10px;
   --text-sm: 11px;
   --text-base: 12px;
   --text-md: 13px;
+  --text-lg: 14px;
+  --text-xl: 15px;
+  --text-2xl: 18px;
   /* Corner radii by element role. Circles use 50%. */
   --radius-chip: 3px;
   --radius-control: 5px;
