@@ -79,7 +79,7 @@
   color: var(--muted-foreground);
   background: var(--muted);
   padding: 0.2rem 0.4rem;
-  border-radius: 3px;
+  border-radius: var(--radius-chip);
 }
 
 .settings-form {
@@ -117,7 +117,7 @@
   width: 100%;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   padding: 0.6rem 0.7rem;
   color: var(--foreground);
   font: inherit;
@@ -126,7 +126,7 @@
 .settings-field textarea,
 .connection-check textarea {
   resize: vertical;
-  font-family: 'DM Mono', 'SFMono-Regular', Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.75rem;
 }
 
@@ -143,7 +143,7 @@
 
 .settings-dialog {
   position: fixed;
-  z-index: 101;
+  z-index: var(--layer-dialog);
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
@@ -262,7 +262,7 @@
   color: var(--red);
   background: var(--red-soft);
   padding: 0.8rem 1rem;
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   font-size: 0.83rem;
   margin: 1rem 0;
   overflow-wrap: anywhere;

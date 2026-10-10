@@ -1,17 +1,31 @@
 :root {
   /* OpenBao brand: DM Sans for text, primary #336d5c and shadow green #79c0ab for interaction,
      border ink #091a28 for headings. Status colors stay separate from the brand accent. */
-  font-family:
-    'DM Sans Variable',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif;
+  font-family: var(--font-sans);
   color: #1b2c31;
   background: #f6f8f7;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  --font-sans: 'DM Sans Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'DM Mono', 'SFMono-Regular', Consolas, monospace;
+  /* Type scale for the dense console layout. Headings and one-off sizes stay literal. */
+  --text-2xs: 9px;
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-base: 12px;
+  --text-md: 13px;
+  /* Corner radii by element role. Circles use 50%. */
+  --radius-chip: 3px;
+  --radius-control: 5px;
+  --radius-panel: 6px;
+  --radius-surface: 7px;
+  --radius-pill: 20px;
+  /* Stacking order. */
+  --layer-sidebar: 30;
+  --layer-tooltip: 40;
+  --layer-overlay: 100;
+  --layer-dialog: 101;
   --background: #f6f8f7;
   --surface: #fff;
   --sidebar: #f0f4f2;

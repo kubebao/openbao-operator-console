@@ -3,7 +3,7 @@
   background: var(--muted);
   padding: 3px 8px;
   border-radius: 15px;
-  font-size: 10px;
+  font-size: var(--text-xs);
   white-space: nowrap;
 }
 
@@ -18,7 +18,7 @@
 }
 
 .topology-count {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 
 .topology-context {
@@ -31,7 +31,7 @@
 .topology-table th,
 .topology-table td {
   padding: 13px 9px;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 
 .deployment-select {
@@ -47,7 +47,7 @@
 .topology-inspector {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-panel);
   padding: 19px;
   align-self: start;
 }
@@ -64,7 +64,7 @@
 }
 
 .inspector-heading p {
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: var(--muted-foreground);
   margin-top: 3px;
 }
@@ -102,7 +102,7 @@
   .topology-table th,
   .topology-table td {
     padding: 11px 5px;
-    font-size: 10px;
+    font-size: var(--text-xs);
   }
   .topology-table th:nth-child(2),
   .topology-table td:nth-child(2) {
@@ -129,7 +129,7 @@
   display: block;
   width: 100%;
   padding: 1rem 0.8rem;
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   text-align: left;
   margin-bottom: 0.5rem;
 }
@@ -180,7 +180,7 @@
   min-width: 0;
   padding: 1.1rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-panel);
   background: var(--surface);
   text-align: left;
 }

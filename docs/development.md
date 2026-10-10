@@ -78,6 +78,12 @@ make generate
 make check-generated
 ```
 
+## Styles
+
+The web application uses plain CSS in `web/src/styles`, with one file per area. `index.css` imports them, and its import
+order is the cascade order. `reset.css` holds the element reset in a cascade layer, so every unlayered rule overrides
+it. Use the color, type, radius, and stacking tokens in `tokens.css` instead of repeating literal values.
+
 ## Local PostgreSQL
 
 The Compose database listens on loopback. Its credentials are disposable development values.

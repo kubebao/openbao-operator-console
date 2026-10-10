@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   background: #091a2866;
-  z-index: 100;
+  z-index: var(--layer-overlay);
   backdrop-filter: blur(3px);
   animation: fade-in 0.15s ease;
 }
@@ -16,7 +16,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 9px;
-  z-index: 101;
+  z-index: var(--layer-dialog);
   box-shadow: var(--shadow);
 }
 
@@ -52,7 +52,7 @@
   border: 0;
   padding: 11px;
   text-align: left;
-  border-radius: 5px;
+  border-radius: var(--radius-control);
 }
 
 .command-results button:hover,
@@ -70,7 +70,7 @@
 }
 
 .command-results button strong {
-  font-size: 12px;
+  font-size: var(--text-base);
 }
 
 .command-results p {

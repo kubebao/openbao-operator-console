@@ -45,7 +45,7 @@
   align-items: center;
   gap: 7px;
   color: var(--muted-foreground);
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 
 .health-legend strong {
@@ -68,11 +68,11 @@
 .environment-label {
   text-transform: capitalize;
   color: var(--muted-foreground);
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 
 .environment-bars strong {
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 500;
   text-align: right;
 }
@@ -80,7 +80,7 @@
 .stacked-bar {
   display: flex;
   height: 9px;
-  border-radius: 3px;
+  border-radius: var(--radius-chip);
   overflow: hidden;
   background: var(--muted);
 }
@@ -121,7 +121,7 @@
   width: 29px;
   height: 29px;
   flex-shrink: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-panel);
   background: var(--accent-soft);
   color: var(--accent);
 }
@@ -142,19 +142,19 @@
 }
 
 .activity-list strong {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 
 .activity-list small {
   max-width: 320px;
-  font-size: 10px;
+  font-size: var(--text-xs);
   margin-top: 2px;
 }
 
 .activity-list time {
   margin-left: auto;
   white-space: nowrap;
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: var(--muted-foreground);
 }
 
@@ -162,7 +162,7 @@
   max-width: 1000px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius-surface);
   padding: 24px;
 }
 
@@ -180,12 +180,12 @@
 }
 
 .activity-workspace .activity-list strong {
-  font-size: 13px;
+  font-size: var(--text-md);
 }
 
 .activity-workspace .activity-list small {
   max-width: 650px;
-  font-size: 12px;
+  font-size: var(--text-base);
 }
 
 @media (min-width: 1600px) {
@@ -243,9 +243,9 @@
   padding: 12px 14px;
   margin-bottom: 18px;
   border: 1px solid color-mix(in srgb, var(--amber) 22%, var(--border));
-  border-radius: 6px;
+  border-radius: var(--radius-panel);
   background: var(--amber-soft);
-  font-size: 12px;
+  font-size: var(--text-base);
   line-height: 1.5;
 }
 

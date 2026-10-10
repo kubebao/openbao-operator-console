@@ -39,14 +39,14 @@
     height: auto;
     padding: 0;
     border: 0;
-    font-size: 11px;
+    font-size: var(--text-sm);
   }
   .attention-table td[data-label]::before,
   .fleet-table td[data-label]::before,
   .clusters-table td[data-label]::before {
     content: attr(data-label) ' ';
     color: var(--muted-foreground);
-    font-size: 10px;
+    font-size: var(--text-xs);
   }
   .attention-table td:nth-child(2) {
     order: -1;

@@ -17,11 +17,11 @@
   align-items: center;
   gap: 10px;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   padding: 7px 11px;
   background: var(--surface);
   color: var(--muted-foreground);
-  font-size: 11px;
+  font-size: var(--text-sm);
   white-space: nowrap;
   transition: 0.15s;
 }
@@ -33,10 +33,10 @@
 }
 
 .segmented button span {
-  font-size: 10px;
+  font-size: var(--text-xs);
   padding: 0 5px;
   min-width: 17px;
-  border-radius: 3px;
+  border-radius: var(--radius-chip);
   background: var(--muted);
   font-weight: 550;
 }
@@ -46,18 +46,18 @@
   align-items: center;
   gap: 9px;
   color: var(--muted-foreground);
-  font-size: 11px;
+  font-size: var(--text-sm);
   white-space: nowrap;
 }
 
 .sort-label select {
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 
 .table-surface {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius-surface);
   overflow: auto;
 }
 
@@ -68,7 +68,7 @@ table {
 }
 
 th {
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 500;
   color: var(--muted-foreground);
   border-bottom: 1px solid var(--border);
@@ -79,7 +79,7 @@ th {
 td {
   border-bottom: 1px solid var(--border);
   padding: 16px;
-  font-size: 12px;
+  font-size: var(--text-base);
   vertical-align: middle;
 }
 
@@ -102,7 +102,7 @@ tbody tr:hover {
 
 .row-description {
   color: var(--muted-foreground);
-  font-size: 11px;
+  font-size: var(--text-sm);
   margin-top: 5px;
   max-width: 370px;
   overflow: hidden;
@@ -113,13 +113,13 @@ tbody tr:hover {
 
 .category-text {
   color: var(--muted-foreground);
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 
 .time-cell {
   color: var(--muted-foreground);
   white-space: nowrap;
-  font-size: 11px;
+  font-size: var(--text-sm);
 }
 
 .table-footer {
@@ -127,7 +127,7 @@ tbody tr:hover {
   justify-content: space-between;
   gap: 20px;
   color: var(--muted-foreground);
-  font-size: 10px;
+  font-size: var(--text-xs);
   padding-top: 17px;
 }
 
@@ -142,14 +142,14 @@ tbody tr:hover {
 
 @media (max-width: 1250px) {
   .category-text {
-    font-size: 10px;
+    font-size: var(--text-xs);
   }
   .segmented {
     gap: 5px;
   }
   .segmented button {
     padding: 6px 8px;
-    font-size: 10px;
+    font-size: var(--text-xs);
     gap: 6px;
   }
 }
