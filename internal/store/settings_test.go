@@ -65,7 +65,10 @@ func TestPostgresConfigurationRestartAndConcurrentRevision(t *testing.T) {
 				Name:       "Test",
 				Namespaces: []config.Namespace{{Name: "team", Environment: "development"}},
 				Renewal:    &config.TokenRenewal{Namespace: "reader-system", ServiceAccount: "reader"},
-				Credential: &config.Credential{Server: "https://api.example", Token: token},
+				Access: config.Access{
+					Mode:       config.AccessRemote,
+					Credential: &config.Credential{Server: "https://api.example", Token: token},
+				},
 			},
 		},
 	}
@@ -100,7 +103,7 @@ func TestPostgresConfigurationRestartAndConcurrentRevision(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, revision := restarted.Current()
-	if got.MaxBackupAgeHours != 12 || revision != 2 || got.Connections[0].Credential.Token != token {
+	if got.MaxBackupAgeHours != 12 || revision != 2 || got.Connections[0].Access.Credential.Token != token {
 		t.Fatal("restart overwrote stored configuration")
 	}
 	history, err := restarted.History(ctx)

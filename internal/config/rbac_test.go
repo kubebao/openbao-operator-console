@@ -11,6 +11,7 @@ import (
 
 func TestOperatorEnrollmentAndNamedRBAC(t *testing.T) {
 	connection := Connection{
+		Access:     Access{Mode: AccessInCluster},
 		ID:         "one",
 		Name:       "One",
 		Namespaces: []Namespace{{Name: "team", Environment: "production"}},
@@ -49,6 +50,7 @@ func TestOperatorEnrollmentAndNamedRBAC(t *testing.T) {
 
 func TestReaderRBACNamesAreStableAndConnectionScoped(t *testing.T) {
 	first := Connection{
+		Access:     Access{Mode: AccessInCluster},
 		ID:         "first",
 		Name:       "First",
 		Namespaces: []Namespace{{Name: "team", Environment: "other"}},
@@ -57,6 +59,7 @@ func TestReaderRBACNamesAreStableAndConnectionScoped(t *testing.T) {
 		},
 	}
 	second := Connection{
+		Access:     Access{Mode: AccessInCluster},
 		ID:         "second",
 		Name:       "Second",
 		Namespaces: []Namespace{{Name: "team", Environment: "other"}},
@@ -120,10 +123,21 @@ func TestReaderRBACNamesAreStableAndConnectionScoped(t *testing.T) {
 
 func TestReaderRBACRejectsInvalidScopeBeforeWriting(t *testing.T) {
 	for _, connection := range []Connection{
-		{ID: "one", Name: "One", Namespaces: []Namespace{{Name: "invalid/namespace", Environment: "other"}}},
-		{ID: "one", Name: "One", Namespaces: []Namespace{{Name: "team", Environment: "other"}}, Operators: []Operator{
-			{ID: "operator", Namespace: "system", Deployment: "controller", Container: "manager", Namespaces: []string{"unenrolled"}},
-		}},
+		{
+			ID:         "one",
+			Name:       "One",
+			Access:     Access{Mode: AccessInCluster},
+			Namespaces: []Namespace{{Name: "invalid/namespace", Environment: "other"}},
+		},
+		{
+			ID:         "one",
+			Name:       "One",
+			Access:     Access{Mode: AccessInCluster},
+			Namespaces: []Namespace{{Name: "team", Environment: "other"}},
+			Operators: []Operator{
+				{ID: "operator", Namespace: "system", Deployment: "controller", Container: "manager", Namespaces: []string{"unenrolled"}},
+			},
+		},
 	} {
 		var output bytes.Buffer
 		if WriteRBAC(&output, connection, "reader", "console") == nil || output.Len() != 0 {

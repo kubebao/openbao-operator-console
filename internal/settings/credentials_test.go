@@ -19,7 +19,7 @@ func renewalToken(marker string) string {
 
 func renewableSeed() config.Config {
 	configuration := seed()
-	configuration.Connections[0].Credential.Token = renewalToken("initial")
+	configuration.Connections[0].Access.Credential.Token = renewalToken("initial")
 	configuration.Connections[0].Renewal = &config.TokenRenewal{Namespace: "console-system", ServiceAccount: "reader"}
 	return configuration
 }
@@ -52,7 +52,8 @@ func TestRenewalSurvivesRestartAndStaleSettingsWithoutChangingRevision(t *testin
 		t.Fatal(err)
 	}
 	current, currentRevision := service.Current()
-	if currentRevision != revision || current.Connections[0].Credential.Token != state.Credential.Token || len(repository.changes) != 1 {
+	if currentRevision != revision || current.Connections[0].Access.Credential.Token != state.Credential.Token ||
+		len(repository.changes) != 1 {
 		t.Fatal("renewal changed editable settings or configuration history")
 	}
 	if err := service.ApplyCollection(
@@ -92,7 +93,8 @@ func TestRenewalSurvivesRestartAndStaleSettingsWithoutChangingRevision(t *testin
 		t.Fatal("restart or stale form discarded the current credential or its schedule")
 	}
 	storedConfig, err := restarted.decrypt(repository.record.Payload)
-	if err != nil || storedConfig.Connections[0].Credential != nil || !storedConfig.Connections[0].Remote {
+	if err != nil || storedConfig.Connections[0].Access.Credential != nil ||
+		storedConfig.Connections[0].Access.Mode != config.AccessRemote {
 		t.Fatal("reader credential remained embedded in editable settings")
 	}
 	row := repository.credentials["cluster"]
@@ -119,7 +121,7 @@ func TestDelayedRenewalCannotUndoReplacementPauseRemovalOrPolicyChange(t *testin
 			var replacements []string
 			switch change {
 			case "replace":
-				configuration.Connections[0].Credential.Token = renewalToken("manual-replacement")
+				configuration.Connections[0].Access.Credential.Token = renewalToken("manual-replacement")
 				replacements = []string{"cluster"}
 			case "pause":
 				configuration.Connections[0].Disabled = true
@@ -136,7 +138,7 @@ func TestDelayedRenewalCannotUndoReplacementPauseRemovalOrPolicyChange(t *testin
 				t.Fatal("delayed renewal undid an administrative change")
 			}
 			current, _ := service.Current()
-			if change == "replace" && current.Connections[0].Credential.Token != renewalToken("manual-replacement") {
+			if change == "replace" && current.Connections[0].Access.Credential.Token != renewalToken("manual-replacement") {
 				t.Fatal("replacement lost")
 			}
 			if change == "remove" && len(repository.credentials) != 0 {

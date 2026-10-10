@@ -140,7 +140,7 @@ func (s *Service) UpdateCredential(ctx context.Context, target RenewalTarget, st
 		state.Credential.Key != old.Key {
 		return fmt.Errorf("%w: renewal cannot change server or TLS identity", ErrInvalid)
 	}
-	connection.Credential = &state.Credential
+	connection.Access.Credential = &state.Credential
 	if err := connection.ValidateRenewal(); err != nil {
 		return fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
@@ -157,7 +157,7 @@ func (s *Service) UpdateCredential(ctx context.Context, target RenewalTarget, st
 		for i := range s.configuration.Connections {
 			if s.configuration.Connections[i].ID == connection.ID {
 				credential := state.Credential
-				s.configuration.Connections[i].Credential = &credential
+				s.configuration.Connections[i].Access.Credential = &credential
 			}
 		}
 		s.readerGeneration++

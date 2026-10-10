@@ -219,11 +219,11 @@ func TestConnectionCheckProjectsPreviewWithoutPersistingOrExposingCredentials(t 
 			ID:         "preview",
 			Name:       "Preview",
 			Namespaces: []config.Namespace{{Name: "team", Environment: "other"}},
-			Credential: &config.Credential{
+			Access: config.Access{Mode: config.AccessRemote, Credential: &config.Credential{
 				Server: cluster.URL,
 				CA:     string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cluster.Certificate().Raw})),
 				Token:  "private-reader-token",
-			},
+			}},
 		},
 		configured.Policy(),
 	)
@@ -329,7 +329,10 @@ func configurationService(t *testing.T) *settings.Service {
 					ID:         "cluster",
 					Name:       "Cluster",
 					Namespaces: []config.Namespace{{Name: "team", Environment: "production"}},
-					Credential: &config.Credential{Server: "https://api.example", Token: "private-reader-token"},
+					Access: config.Access{
+						Mode:       config.AccessRemote,
+						Credential: &config.Credential{Server: "https://api.example", Token: "private-reader-token"},
+					},
 				},
 			},
 		},
@@ -377,7 +380,7 @@ func TestSettingsAuthorizationRedactionConflictAndCredentialPreservation(t *test
 		t.Fatalf("save = %d: %s", got.Code, got.Body.String())
 	}
 	current, revision := service.Current()
-	if current.Connections[0].Credential.Token != "private-reader-token" || revision != 2 {
+	if current.Connections[0].Access.Credential.Token != "private-reader-token" || revision != 2 {
 		t.Fatal("saving public metadata changed the credential")
 	}
 	if got := request("PUT", "/api/v1/settings", string(payload), "https://console.example"); got.Code != 409 {

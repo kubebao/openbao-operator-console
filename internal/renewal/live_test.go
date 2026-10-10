@@ -30,8 +30,6 @@ func TestRealServiceAccountSelfRenewalAndNamedPermissionBoundary(t *testing.T) {
 	connection := config.Connection{
 		ID:         "renewal-test",
 		Name:       "Renewal test",
-		Remote:     true,
-		Credential: &credential,
 		Renewal:    &config.TokenRenewal{Namespace: "console-system", ServiceAccount: "console-renewal-test"},
 		Namespaces: []config.Namespace{{Name: "console-sample", Environment: "development"}},
 		Operators: []config.Operator{
@@ -43,6 +41,7 @@ func TestRealServiceAccountSelfRenewalAndNamedPermissionBoundary(t *testing.T) {
 				Namespaces: []string{"console-sample"},
 			},
 		},
+		Access: config.Access{Mode: config.AccessRemote, Credential: &credential},
 	}
 	if connection.ValidateRenewal() != nil {
 		t.Fatal("refusing an unscoped or administrator credential")

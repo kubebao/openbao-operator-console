@@ -88,8 +88,6 @@ func testLiveSession(t *testing.T, keycloak bool) {
 	connection := config.Connection{
 		ID:         id,
 		Name:       "Qualification",
-		Kubeconfig: kubeconfig,
-		Context:    "kind-console-dev",
 		Namespaces: []config.Namespace{{Name: "console-sample", Environment: "development"}},
 		Operators: []config.Operator{
 			{
@@ -100,6 +98,7 @@ func testLiveSession(t *testing.T, keycloak bool) {
 				Namespaces: []string{"console-sample"},
 			},
 		},
+		Access: config.Access{Mode: config.AccessKubeconfig, Kubeconfig: kubeconfig, Context: "kind-console-dev"},
 	}
 	reader, err := collector.New(connection, fleet.Policy{MaxBackupAge: 24 * time.Hour})
 	if err != nil {

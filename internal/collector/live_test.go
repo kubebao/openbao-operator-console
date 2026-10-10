@@ -20,8 +20,6 @@ func TestKindOperatorProjection(t *testing.T) {
 		config.Connection{
 			ID:         "kind-console-dev",
 			Name:       "Console development",
-			Kubeconfig: path,
-			Context:    "kind-console-dev",
 			Namespaces: []config.Namespace{{Name: "console-sample", Team: "Platform", Environment: "development", Location: "Local"}},
 			Operators: []config.Operator{
 				{
@@ -32,6 +30,7 @@ func TestKindOperatorProjection(t *testing.T) {
 					Namespaces: []string{"console-sample"},
 				},
 			},
+			Access: config.Access{Mode: config.AccessKubeconfig, Kubeconfig: path, Context: "kind-console-dev"},
 		},
 		fleet.Policy{MaxBackupAge: 24 * time.Hour, StartupGrace: 10 * time.Minute},
 	)

@@ -16,9 +16,9 @@ func (s *Server) credentialStatuses(w http.ResponseWriter, r *http.Request) {
 	result := contract.CredentialStatuses{Credentials: []contract.CredentialStatus{}}
 	for _, target := range s.Settings.CredentialTargets() {
 		status := contract.CredentialStatus{ConnectionId: target.Connection.ID, Mode: "local", State: "ready", ExpirySource: "unknown"}
-		if target.Connection.Credential != nil {
+		if credential := target.Connection.Access.Credential; credential != nil {
 			status.Mode = "manual"
-			expiry := credentialExpiryView(target.Connection.Credential)
+			expiry := credentialExpiryView(credential)
 			status.ExpiresAt = expiry.ExpiresAt
 			status.ExpirySource = contract.CredentialStatusExpirySource(expiry.Source)
 			if target.Connection.Renewal != nil {

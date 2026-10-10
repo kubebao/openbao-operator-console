@@ -32,11 +32,11 @@ func (KubernetesIssuer) Issue(ctx context.Context, connection config.Connection,
 	fail := func(state settings.RenewalState) (config.Credential, time.Time, error) {
 		return config.Credential{}, time.Time{}, &Failure{State: state}
 	}
-	if connection.Credential == nil || connection.Renewal == nil || connection.ValidateRenewal() != nil ||
-		connection.Credential.Validate() != nil {
+	if connection.Access.Mode != config.AccessRemote || connection.Renewal == nil || connection.Access.Validate() != nil ||
+		connection.ValidateRenewal() != nil {
 		return fail(settings.RenewalReconnectRequired)
 	}
-	credential := *connection.Credential
+	credential := *connection.Access.Credential
 	client, err := rest.HTTPClientFor(
 		&rest.Config{
 			Host:            credential.Server,
@@ -111,7 +111,7 @@ func (KubernetesIssuer) Issue(ctx context.Context, connection config.Connection,
 		return fail(settings.RenewalRetrying)
 	}
 	credential.Token = issued.Status.Token
-	connection.Credential = &credential
+	connection.Access.Credential = &credential
 	if connection.ValidateRenewal() != nil || credential.Validate() != nil {
 		return fail(settings.RenewalRetrying)
 	}

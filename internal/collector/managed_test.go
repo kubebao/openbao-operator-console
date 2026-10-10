@@ -106,8 +106,8 @@ func TestManagedCollectionAddsPausesAndReconfiguresReaders(t *testing.T) {
 	one := config.Connection{
 		ID:         "one",
 		Name:       "One",
-		Credential: credential,
 		Namespaces: []config.Namespace{{Name: "before", Environment: "development"}},
+		Access:     config.Access{Mode: config.AccessRemote, Credential: credential},
 	}
 	service, err := settings.New(
 		context.Background(),

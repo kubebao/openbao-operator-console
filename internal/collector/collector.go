@@ -36,34 +36,38 @@ func Unconfigured(connection config.Connection, policy fleet.Policy) *Reader {
 	return &Reader{connection: connection, policy: policy}
 }
 
-func New(connection config.Connection, policy fleet.Policy) (*Reader, error) {
-	var restConfig *rest.Config
-	var err error
-	switch {
-	case connection.Credential != nil:
-		credential := connection.Credential
-		if err := credential.Validate(); err != nil {
-			return nil, err
-		}
-		restConfig = &rest.Config{
-			Host:        credential.Server,
-			BearerToken: credential.Token,
-			TLSClientConfig: rest.TLSClientConfig{
-				CAData:   []byte(credential.CA),
-				CertData: []byte(credential.Certificate),
-				KeyData:  []byte(credential.Key),
-			},
-		}
-	case connection.Kubeconfig == "" && connection.Context == "":
-		if connection.Remote {
+func clientConfig(connection config.Connection) (*rest.Config, error) {
+	access := connection.Access
+	switch access.Mode {
+	case config.AccessRemote:
+		if access.Credential == nil {
 			return nil, errors.New("remote connector has no reader credential")
 		}
-		restConfig, err = rest.InClusterConfig()
+		if err := access.Credential.Validate(); err != nil {
+			return nil, err
+		}
+		return &rest.Config{
+			Host:        access.Credential.Server,
+			BearerToken: access.Credential.Token,
+			TLSClientConfig: rest.TLSClientConfig{
+				CAData:   []byte(access.Credential.CA),
+				CertData: []byte(access.Credential.Certificate),
+				KeyData:  []byte(access.Credential.Key),
+			},
+		}, nil
+	case config.AccessKubeconfig:
+		loading := &clientcmd.ClientConfigLoadingRules{ExplicitPath: access.Kubeconfig}
+		overrides := &clientcmd.ConfigOverrides{CurrentContext: access.Context}
+		return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loading, overrides).ClientConfig()
+	case config.AccessInCluster:
+		return rest.InClusterConfig()
 	default:
-		loading := &clientcmd.ClientConfigLoadingRules{ExplicitPath: connection.Kubeconfig}
-		overrides := &clientcmd.ConfigOverrides{CurrentContext: connection.Context}
-		restConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loading, overrides).ClientConfig()
+		return nil, fmt.Errorf("unknown access mode %q", access.Mode)
 	}
+}
+
+func New(connection config.Connection, policy fleet.Policy) (*Reader, error) {
+	restConfig, err := clientConfig(connection)
 	if err != nil {
 		return nil, fmt.Errorf("configure connector %q: %w", connection.ID, err)
 	}

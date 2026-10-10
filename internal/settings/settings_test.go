@@ -137,7 +137,10 @@ func seed() config.Config {
 				ID:         "cluster",
 				Name:       "Cluster",
 				Namespaces: []config.Namespace{{Name: "team", Environment: "production"}},
-				Credential: &config.Credential{Server: "https://api.example", Token: "credential-never-plaintext"},
+				Access: config.Access{
+					Mode:       config.AccessRemote,
+					Credential: &config.Credential{Server: "https://api.example", Token: "credential-never-plaintext"},
+				},
 			},
 		},
 	}
@@ -197,10 +200,10 @@ func TestCurrentReturnsAnIndependentConfiguration(t *testing.T) {
 		t.Fatal(err)
 	}
 	current, _ := service.Current()
-	current.Connections[0].Credential.Token = "changed"
+	current.Connections[0].Access.Credential.Token = "changed"
 	current.Connections[0].Namespaces[0].Name = "other"
 	actual, _ := service.Current()
-	if actual.Connections[0].Credential.Token == "changed" || actual.Connections[0].Namespaces[0].Name == "other" {
+	if actual.Connections[0].Access.Credential.Token == "changed" || actual.Connections[0].Namespaces[0].Name == "other" {
 		t.Fatal("caller changed live configuration")
 	}
 }

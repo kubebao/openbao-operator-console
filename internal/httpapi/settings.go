@@ -44,10 +44,12 @@ func connectionView(c config.Connection) contract.ManagedConnection {
 		Namespaces:     []contract.ManagedNamespace{},
 		Operators:      []contract.ManagedOperator{},
 	}
-	if c.Credential != nil {
+	if c.Access.Mode == config.AccessRemote {
 		result.Authentication = "remote"
-		result.Server = c.Credential.Server
-		result.CredentialConfigured = true
+		if c.Access.Credential != nil {
+			result.Server = c.Access.Credential.Server
+			result.CredentialConfigured = true
+		}
 	}
 	if c.Renewal != nil {
 		result.Renewal = &contract.TokenRenewal{Namespace: c.Renewal.Namespace, ServiceAccount: c.Renewal.ServiceAccount}
@@ -88,11 +90,12 @@ func connectionInput(c contract.ManagedConnection, old *config.Connection) (conf
 		Operators:  []config.Operator{},
 	}
 	switch c.Authentication {
-	case "local":
-	case "remote":
-		result.Remote = true
+	case contract.ManagedConnectionAuthenticationLocal:
+		result.Access = config.Access{Mode: config.AccessInCluster}
+	case contract.ManagedConnectionAuthenticationRemote:
+		result.Access = config.Access{Mode: config.AccessRemote}
 		if old != nil {
-			result.Credential = old.Credential
+			result.Access.Credential = old.Access.Credential
 		}
 	default:
 		return result, errors.New("choose local or remote authentication")
@@ -212,8 +215,8 @@ func configurationInput(input contract.SettingsUpdate, previous config.Config) (
 		credentials[update.ConnectionId] = update
 	}
 	for _, connection := range input.Configuration.Connections {
-		if existing, ok := old[connection.Id]; ok && connection.Authentication == "remote" && existing.Credential != nil &&
-			connection.Server != existing.Credential.Server {
+		if existing, ok := old[connection.Id]; ok && connection.Authentication == "remote" && existing.Access.Credential != nil &&
+			connection.Server != existing.Access.Credential.Server {
 			if _, updated := credentials[connection.Id]; !updated {
 				return result, errors.New("supply complete credentials when changing the API server")
 			}
@@ -227,13 +230,13 @@ func configurationInput(input contract.SettingsUpdate, previous config.Config) (
 			if connection.Authentication != "remote" {
 				return result, errors.New("remote credentials require remote authentication")
 			}
-			next.Credential, err = credentialInput(update.Credential, update.Kubeconfig, update.Context)
+			next.Access.Credential, err = credentialInput(update.Credential, update.Kubeconfig, update.Context)
 			if err != nil {
 				return result, err
 			}
 			delete(credentials, connection.Id)
 		}
-		if connection.Authentication == "remote" && next.Credential == nil {
+		if connection.Authentication == "remote" && next.Access.Credential == nil {
 			return result, errors.New("remote connection requires reader credentials")
 		}
 		result.Connections = append(result.Connections, next)
@@ -469,18 +472,18 @@ func (s *Server) settingsRoutes(mux *http.ServeMux) {
 			}
 		}
 		connection, err := connectionInput(input.Connection, old)
-		if err == nil && input.Connection.Authentication == "remote" && connection.Credential != nil && input.Credential == nil &&
+		if err == nil && input.Connection.Authentication == "remote" && connection.Access.Credential != nil && input.Credential == nil &&
 			input.Kubeconfig == nil &&
-			input.Connection.Server != connection.Credential.Server {
+			input.Connection.Server != connection.Access.Credential.Server {
 			err = errors.New("supply complete credentials when changing the API server")
 		}
 		if err == nil && input.Connection.Authentication == "local" && (input.Credential != nil || input.Kubeconfig != nil) {
 			err = errors.New("remote credentials require remote authentication")
 		}
 		if err == nil && (input.Credential != nil || input.Kubeconfig != nil) {
-			connection.Credential, err = credentialInput(input.Credential, input.Kubeconfig, input.Context)
+			connection.Access.Credential, err = credentialInput(input.Credential, input.Kubeconfig, input.Context)
 		}
-		if err == nil && input.Connection.Authentication == "remote" && connection.Credential == nil {
+		if err == nil && input.Connection.Authentication == "remote" && connection.Access.Credential == nil {
 			err = errors.New("supply a remote reader credential")
 		}
 		checkConfig := config.Config{
@@ -512,7 +515,7 @@ func (s *Server) settingsRoutes(mux *http.ServeMux) {
 				State:   contract.ConnectionDiagnosticState(diagnostic.State),
 				Message: diagnostic.Message,
 			},
-			CredentialExpiry: credentialExpiryView(connection.Credential),
+			CredentialExpiry: credentialExpiryView(connection.Access.Credential),
 		})
 	})
 	mux.HandleFunc("POST /api/v1/settings/identity/trial", s.identityTrial)

@@ -36,7 +36,7 @@ func (r *lifecycleRepository) UpdateCredential(_ context.Context, target setting
 		return settings.ErrConflict
 	}
 	r.target.State = state
-	r.target.Connection.Credential = &state.Credential
+	r.target.Connection.Access.Credential = &state.Credential
 	r.target.CredentialRevision++
 	r.saves++
 	return nil
@@ -49,7 +49,7 @@ type lifecycleIssuer struct {
 
 func (i *lifecycleIssuer) Issue(_ context.Context, c config.Connection, now time.Time) (config.Credential, time.Time, error) {
 	i.requests++
-	credential := *c.Credential
+	credential := *c.Access.Credential
 	credential.Token = "replacement"
 	return credential, now.Add(24 * time.Hour), i.err
 }
@@ -61,9 +61,9 @@ func lifecycle() (*lifecycleRepository, *lifecycleIssuer, Manager) {
 			ConfigurationRevision: 1,
 			CredentialRevision:    1,
 			Connection: config.Connection{
-				ID:         "one",
-				Credential: &credential,
-				Renewal:    &config.TokenRenewal{Namespace: "reader-system", ServiceAccount: "reader"},
+				ID:      "one",
+				Renewal: &config.TokenRenewal{Namespace: "reader-system", ServiceAccount: "reader"},
+				Access:  config.Access{Mode: config.AccessRemote, Credential: &credential},
 			},
 			State: settings.CredentialState{Credential: credential, State: settings.RenewalPending},
 		},

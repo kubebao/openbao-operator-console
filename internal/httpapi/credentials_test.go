@@ -27,7 +27,7 @@ func TestCredentialStatusesAuthorizeAndProjectOnlyLifecycleEvidence(t *testing.T
 	}
 	configuration, revision := service.Current()
 	configuration.Connections[0].Renewal = &config.TokenRenewal{Namespace: "reader-system", ServiceAccount: "reader"}
-	configuration.Connections[0].Credential.Token = "e30." + base64.RawURLEncoding.EncodeToString(
+	configuration.Connections[0].Access.Credential.Token = "e30." + base64.RawURLEncoding.EncodeToString(
 		[]byte(`{"sub":"system:serviceaccount:reader-system:reader","marker":"private-reader-token"}`),
 	) + ".signature"
 	if _, err := service.SaveReplacing(

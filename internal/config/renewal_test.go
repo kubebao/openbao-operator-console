@@ -11,9 +11,9 @@ func TestRenewalRequiresMatchingServiceAccountAndScopedTokenGrant(t *testing.T) 
 	connection := Connection{
 		ID:         "one",
 		Name:       "One",
-		Remote:     true,
 		Namespaces: []Namespace{{Name: "team", Environment: "production"}},
 		Renewal:    &TokenRenewal{Namespace: "console-system", ServiceAccount: "reader"},
+		Access:     Access{Mode: AccessRemote},
 	}
 	var manifest bytes.Buffer
 	if err := WriteRBAC(&manifest, connection, "reader", "console-system"); err != nil {
@@ -30,7 +30,7 @@ func TestRenewalRequiresMatchingServiceAccountAndScopedTokenGrant(t *testing.T) 
 	if WriteRBAC(&manifest, connection, "other", "console-system") == nil || manifest.Len() != 0 {
 		t.Fatal("RBAC generated for a different identity")
 	}
-	connection.Credential = &Credential{
+	connection.Access.Credential = &Credential{
 		Server: "https://api.example",
 		Token: "e30." + base64.RawURLEncoding.EncodeToString(
 			[]byte(`{"sub":"system:serviceaccount:console-system:reader"}`),
@@ -44,12 +44,11 @@ func TestRenewalRequiresMatchingServiceAccountAndScopedTokenGrant(t *testing.T) 
 		t.Fatal("token subject mismatch accepted")
 	}
 	connection.Renewal.ServiceAccount = "reader"
-	connection.Credential.Token = "opaque-token"
+	connection.Access.Credential.Token = "opaque-token"
 	if connection.ValidateRenewal() == nil {
 		t.Fatal("opaque credential accepted for automatic renewal")
 	}
-	connection.Credential = nil
-	connection.Remote = false
+	connection.Access = Access{Mode: AccessInCluster}
 	if connection.ValidateRenewal() == nil {
 		t.Fatal("local renewal policy accepted")
 	}

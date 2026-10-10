@@ -6,7 +6,14 @@ func TestEnrollmentRejectsAmbiguousIdentityAndScope(t *testing.T) {
 	valid := func() Config {
 		return Config{
 			MaxBackupAgeHours: 24,
-			Connections:       []Connection{{ID: "one", Name: "One", Namespaces: []Namespace{{Name: "team", Environment: "production"}}}},
+			Connections: []Connection{
+				{
+					ID:         "one",
+					Name:       "One",
+					Access:     Access{Mode: AccessInCluster},
+					Namespaces: []Namespace{{Name: "team", Environment: "production"}},
+				},
+			},
 		}
 	}
 	for _, change := range []func(*Config){

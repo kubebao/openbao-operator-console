@@ -120,18 +120,16 @@ func Open(ctx context.Context, repository Repository, key []byte, initial *confi
 		result.credentials[row.ConnectionID] = StoredCredential{Revision: row.Revision, State: state}
 	}
 	for i := range configuration.Connections {
-		connection := &configuration.Connections[i]
-		if connection.Credential != nil {
-			return nil, errors.New("stored configuration is invalid")
+		access := &configuration.Connections[i].Access
+		if access.Mode != config.AccessRemote {
+			continue
 		}
-		if connection.Remote {
-			stored, found := result.credentials[connection.ID]
-			if !found {
-				return nil, errors.New("stored remote connection has no reader credential")
-			}
-			credential := stored.State.Credential
-			connection.Credential = &credential
+		stored, found := result.credentials[configuration.Connections[i].ID]
+		if !found {
+			return nil, errors.New("stored remote connection has no reader credential")
 		}
+		credential := stored.State.Credential
+		access.Credential = &credential
 	}
 	if err := configuration.Validate(); err != nil {
 		return nil, errors.New("stored configuration is invalid")
@@ -144,23 +142,26 @@ func Open(ctx context.Context, repository Repository, key []byte, initial *confi
 	return result, nil
 }
 
+// importReaders replaces kubeconfig file references from the enrollment file with
+// embedded remote credentials. The console never reads those files again.
 func importReaders(configuration *config.Config) error {
 	for i := range configuration.Connections {
 		connection := &configuration.Connections[i]
-		if connection.Kubeconfig == "" {
+		if connection.Access.Mode != config.AccessKubeconfig {
 			continue
 		}
-		data, err := os.ReadFile(connection.Kubeconfig)
+		if connection.Access.Kubeconfig == "" {
+			return fmt.Errorf("bootstrap reader %q requires a kubeconfig file", connection.ID)
+		}
+		data, err := os.ReadFile(connection.Access.Kubeconfig)
 		if err != nil {
 			return fmt.Errorf("read bootstrap reader credential for %q", connection.ID)
 		}
-		credential, err := config.ImportKubeconfig(data, connection.Context)
+		credential, err := config.ImportKubeconfig(data, connection.Access.Context)
 		if err != nil {
 			return fmt.Errorf("bootstrap reader %q: %w", connection.ID, err)
 		}
-		connection.Credential = &credential
-		connection.Kubeconfig = ""
-		connection.Context = ""
+		connection.Access = config.Access{Mode: config.AccessRemote, Credential: &credential}
 	}
 	return nil
 }
@@ -210,9 +211,9 @@ func clone(c config.Config) config.Config {
 		for j := range connection.Operators {
 			connection.Operators[j].Namespaces = slices.Clone(connection.Operators[j].Namespaces)
 		}
-		if connection.Credential != nil {
-			credential := *connection.Credential
-			connection.Credential = &credential
+		if connection.Access.Credential != nil {
+			credential := *connection.Access.Credential
+			connection.Access.Credential = &credential
 		}
 	}
 	result.Users = slices.Clone(c.Users)
@@ -283,17 +284,18 @@ func (s *Service) SaveReplacing(
 	states := map[string]StoredCredential{}
 	for i := range configuration.Connections {
 		connection := &configuration.Connections[i]
-		if connection.Credential == nil {
-			if connection.Remote {
-				return 0, fmt.Errorf("%w: remote connection requires a reader credential", ErrInvalid)
-			}
+		switch {
+		case connection.Access.Mode == config.AccessKubeconfig:
+			return 0, fmt.Errorf("%w: import kubeconfig access before saving", ErrInvalid)
+		case connection.Access.Mode != config.AccessRemote:
 			continue
+		case connection.Access.Credential == nil:
+			return 0, fmt.Errorf("%w: remote connection requires a reader credential", ErrInvalid)
 		}
-		connection.Remote = true
 		previous, exists := s.credentials[connection.ID]
 		if exists && !replace[connection.ID] {
 			credential := previous.State.Credential
-			connection.Credential = &credential
+			connection.Access.Credential = &credential
 		}
 		policyChanged := false
 		for _, old := range s.configuration.Connections {
@@ -303,7 +305,7 @@ func (s *Service) SaveReplacing(
 		}
 		state := previous
 		if !exists || replace[connection.ID] || policyChanged {
-			state = StoredCredential{Revision: previous.Revision + 1, State: initialCredential(*connection.Credential)}
+			state = StoredCredential{Revision: previous.Revision + 1, State: initialCredential(*connection.Access.Credential)}
 			row, err := s.encryptCredential(connection.ID, state)
 			if err != nil {
 				return 0, err
@@ -323,11 +325,8 @@ func (s *Service) SaveReplacing(
 	if !hasAdmin(configuration) {
 		return 0, fmt.Errorf("%w: keep at least one console administrator", ErrInvalid)
 	}
-	stored := clone(configuration)
-	for i := range stored.Connections {
-		stored.Connections[i].Credential = nil
-	}
-	payload, err := s.encrypt(stored)
+	// Reader credentials are excluded from the configuration payload and stored separately.
+	payload, err := s.encrypt(configuration)
 	if err != nil {
 		return 0, err
 	}

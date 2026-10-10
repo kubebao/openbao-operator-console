@@ -19,20 +19,20 @@ func (c Connection) ValidateRenewal() error {
 	if c.Renewal == nil {
 		return nil
 	}
-	if !c.Remote && c.Credential == nil && c.Kubeconfig == "" {
+	if c.Access.Mode == AccessInCluster {
 		return errors.New("automatic renewal requires a remote connection")
 	}
 	if len(validation.IsDNS1123Label(c.Renewal.Namespace)) != 0 || len(validation.IsDNS1123Subdomain(c.Renewal.ServiceAccount)) != 0 {
 		return errors.New("renewal ServiceAccount and namespace must be Kubernetes names")
 	}
-	if c.Credential != nil {
-		if c.Credential.Token == "" || c.Credential.Certificate != "" {
+	if credential := c.Access.Credential; credential != nil {
+		if credential.Token == "" || credential.Certificate != "" {
 			return errors.New("automatic renewal requires a ServiceAccount bearer token")
 		}
 		// This declaration selects the supported credential mode; it does not
 		// authenticate the token. Kubernetes authorizes every TokenRequest.
-		parts := strings.Split(c.Credential.Token, ".")
-		if len(parts) != 3 || len(c.Credential.Token) > 16384 {
+		parts := strings.Split(credential.Token, ".")
+		if len(parts) != 3 || len(credential.Token) > 16384 {
 			return errors.New("automatic renewal requires a ServiceAccount JWT")
 		}
 		payload, err := base64.RawURLEncoding.DecodeString(parts[1])

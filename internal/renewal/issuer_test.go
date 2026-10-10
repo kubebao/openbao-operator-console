@@ -71,14 +71,13 @@ func TestIssuerOnlyCreatesNamedTokenThenValidatesScopedReads(t *testing.T) {
 			c := config.Connection{
 				ID:         "one",
 				Name:       "One",
-				Remote:     true,
 				Namespaces: []config.Namespace{{Name: "team", Environment: "production"}},
 				Renewal:    &config.TokenRenewal{Namespace: "reader-system", ServiceAccount: "reader"},
-				Credential: &config.Credential{
+				Access: config.Access{Mode: config.AccessRemote, Credential: &config.Credential{
 					Server: server.URL,
 					Token:  serviceToken("original"),
 					CA:     string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})),
-				},
+				}},
 			}
 			credential, expires, err := (KubernetesIssuer{}).Issue(context.Background(), c, now)
 			if posts != 1 {
@@ -114,13 +113,12 @@ func TestIssuerNeverFollowsCredentialBearingRedirect(t *testing.T) {
 	}))
 	defer server.Close()
 	c := config.Connection{
-		Remote:  true,
 		Renewal: &config.TokenRenewal{Namespace: "reader-system", ServiceAccount: "reader"},
-		Credential: &config.Credential{
+		Access: config.Access{Mode: config.AccessRemote, Credential: &config.Credential{
 			Server: server.URL,
 			Token:  serviceToken("original"),
 			CA:     string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})),
-		},
+		}},
 	}
 	if _, _, err := (KubernetesIssuer{}).Issue(context.Background(), c, time.Now()); err == nil || reached {
 		t.Fatal("redirect forwarded renewal credentials")
@@ -177,22 +175,21 @@ func TestIssuerRejectsInvalidCandidatesAndKeepsCurrentToken(t *testing.T) {
 			}))
 			defer server.Close()
 			c := config.Connection{
-				Remote:     true,
 				Namespaces: []config.Namespace{{Name: "team", Environment: "production"}},
 				Renewal:    &config.TokenRenewal{Namespace: "reader-system", ServiceAccount: "reader"},
-				Credential: &config.Credential{
+				Access: config.Access{Mode: config.AccessRemote, Credential: &config.Credential{
 					Server: server.URL,
 					Token:  serviceToken("original"),
 					CA:     string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})),
-				},
+				}},
 			}
 			if scenario == "untrusted TLS" {
-				c.Credential.CA = ""
+				c.Access.Credential.CA = ""
 			}
 			credential, _, err := (KubernetesIssuer{}).Issue(context.Background(), c, now)
 			var failure *Failure
 			if !errors.As(err, &failure) || failure.State != settings.RenewalRetrying || credential.Token != "" ||
-				c.Credential.Token != serviceToken("original") {
+				c.Access.Credential.Token != serviceToken("original") {
 				t.Fatal("invalid candidate activated or discarded the current credential")
 			}
 		})

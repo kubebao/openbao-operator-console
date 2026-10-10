@@ -27,13 +27,10 @@ type Connection struct {
 	ID         string        `json:"id"`
 	Name       string        `json:"name"`
 	Region     string        `json:"region"`
-	Kubeconfig string        `json:"kubeconfig"`
-	Context    string        `json:"context"`
+	Access     Access        `json:"access"`
 	Namespaces []Namespace   `json:"namespaces"`
 	Operators  []Operator    `json:"operators"`
 	Disabled   bool          `json:"disabled,omitempty"`
-	Credential *Credential   `json:"credential,omitempty"`
-	Remote     bool          `json:"remote,omitempty"`
 	Renewal    *TokenRenewal `json:"renewal,omitempty"`
 }
 
@@ -117,15 +114,69 @@ func (c Config) Policy() fleet.Policy {
 	}
 }
 
+// enrollmentFile is the first-start YAML format. A connection names a kubeconfig file,
+// a context, or neither for the console's in-cluster ServiceAccount.
+type enrollmentFile struct {
+	Connections         []enrollmentConnection `json:"connections"`
+	Users               []User                 `json:"users"`
+	Groups              []Group                `json:"groups,omitempty"`
+	Relationships       []Relationship         `json:"relationships"`
+	MaxBackupAgeHours   int                    `json:"maxBackupAgeHours"`
+	StartupGraceMinutes int                    `json:"startupGraceMinutes"`
+	Identity            *Identity              `json:"identity,omitempty"`
+}
+
+type enrollmentConnection struct {
+	ID         string        `json:"id"`
+	Name       string        `json:"name"`
+	Region     string        `json:"region"`
+	Kubeconfig string        `json:"kubeconfig"`
+	Context    string        `json:"context"`
+	Namespaces []Namespace   `json:"namespaces"`
+	Operators  []Operator    `json:"operators"`
+	Disabled   bool          `json:"disabled,omitempty"`
+	Renewal    *TokenRenewal `json:"renewal,omitempty"`
+}
+
+func (f enrollmentFile) config() Config {
+	result := Config{
+		Connections:         []Connection{},
+		Users:               f.Users,
+		Groups:              f.Groups,
+		Relationships:       f.Relationships,
+		MaxBackupAgeHours:   f.MaxBackupAgeHours,
+		StartupGraceMinutes: f.StartupGraceMinutes,
+		Identity:            f.Identity,
+	}
+	for _, c := range f.Connections {
+		access := Access{Mode: AccessInCluster}
+		if c.Kubeconfig != "" || c.Context != "" {
+			access = Access{Mode: AccessKubeconfig, Kubeconfig: c.Kubeconfig, Context: c.Context}
+		}
+		result.Connections = append(result.Connections, Connection{
+			ID:         c.ID,
+			Name:       c.Name,
+			Region:     c.Region,
+			Access:     access,
+			Namespaces: c.Namespaces,
+			Operators:  c.Operators,
+			Disabled:   c.Disabled,
+			Renewal:    c.Renewal,
+		})
+	}
+	return result
+}
+
 func Load(path string) (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Config{}, fmt.Errorf("read enrollment: %w", err)
 	}
-	var result Config
-	if err := yaml.UnmarshalStrict(data, &result); err != nil {
+	var file enrollmentFile
+	if err := yaml.UnmarshalStrict(data, &file); err != nil {
 		return Config{}, fmt.Errorf("decode enrollment: %w", err)
 	}
+	result := file.config()
 	if err := result.Validate(); err != nil {
 		return Config{}, err
 	}
@@ -163,10 +214,8 @@ func (c Config) Validate() error {
 			namespaces[namespace.Name] = true
 		}
 		connections[connection.ID] = namespaces
-		if connection.Credential != nil {
-			if err := connection.Credential.Validate(); err != nil {
-				return fmt.Errorf("connection %q: %w", connection.ID, err)
-			}
+		if err := connection.Access.Validate(); err != nil {
+			return fmt.Errorf("connection %q: %w", connection.ID, err)
 		}
 		operators := make(map[string]bool)
 		assigned := make(map[string]bool)
