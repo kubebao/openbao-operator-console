@@ -38,23 +38,30 @@ export interface ConditionView {
   outdated: boolean
 }
 
-export function assessCondition(condition: Condition, generation: number): ConditionView {
-  const outdated = condition.observedGeneration < generation
+function assess(condition: Condition): ConditionAssessment {
   const kind = polarity(condition.type)
-  let assessment: ConditionAssessment
-  if (condition.status === 'Unknown') assessment = kind === 'neutral' ? 'informational' : 'unknown'
-  else if (kind === 'positive') assessment = condition.status === 'True' ? 'normal' : 'problem'
-  else if (kind === 'negative') assessment = condition.status === 'True' ? 'problem' : 'normal'
-  else if (kind === 'activity')
-    // A finished activity is neutral unless its reason reports that it failed.
-    assessment =
-      condition.status === 'True'
-        ? 'active'
-        : /fail|error/i.test(condition.reason)
-          ? 'problem'
-          : 'informational'
-  else assessment = 'informational'
-  return { condition, assessment, outdated }
+  if (condition.status === 'Unknown') return kind === 'neutral' ? 'informational' : 'unknown'
+  const reported = condition.status === 'True'
+  switch (kind) {
+    case 'positive':
+      return reported ? 'normal' : 'problem'
+    case 'negative':
+      return reported ? 'problem' : 'normal'
+    case 'activity':
+      // A finished activity is neutral unless its reason reports that it failed.
+      if (reported) return 'active'
+      return /fail|error/i.test(condition.reason) ? 'problem' : 'informational'
+    case 'neutral':
+      return 'informational'
+  }
+}
+
+export function assessCondition(condition: Condition, generation: number): ConditionView {
+  return {
+    condition,
+    assessment: assess(condition),
+    outdated: condition.observedGeneration < generation,
+  }
 }
 
 const order: Record<ConditionAssessment, number> = {

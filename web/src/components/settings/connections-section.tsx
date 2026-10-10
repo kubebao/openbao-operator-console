@@ -4,18 +4,22 @@ import type { Configuration, CredentialStatus, ManagedConnection, Snapshot } fro
 import { collectionLabels } from '../../lib/format'
 import { CredentialStatusLabel } from '../credential-renewal'
 import { EmptyState } from '../page'
-import { Timestamp } from '../status'
+import type { Tone } from '../../lib/tone'
+import { StatusBadge, Timestamp } from '../status'
 import { Button } from '../ui/button'
 
 type ObservedConnection = Snapshot['connections'][number]
 
 // collectionBadge describes what the console currently knows about an enrolled cluster.
-function collectionBadge(connection: ManagedConnection, observed: ObservedConnection | undefined) {
-  if (connection.disabled) return { tone: 'status-unknown', label: 'Paused' }
+function collectionBadge(
+  connection: ManagedConnection,
+  observed: ObservedConnection | undefined,
+): { tone: Tone; label: string } {
+  if (connection.disabled) return { tone: 'unknown', label: 'Paused' }
   const collection = observed?.collection ?? 'pending'
-  if (collection === 'current') return { tone: 'status-healthy', label: 'Connected' }
-  if (collection === 'pending') return { tone: 'status-unknown', label: collectionLabels.pending }
-  return { tone: 'status-attention', label: collectionLabels[collection] }
+  if (collection === 'current') return { tone: 'healthy', label: 'Connected' }
+  if (collection === 'pending') return { tone: 'unknown', label: collectionLabels.pending }
+  return { tone: 'attention', label: collectionLabels[collection] }
 }
 
 function CollectionDetail({
@@ -95,10 +99,7 @@ export function ConnectionsSection({
                 </div>
               </div>
               <div className="settings-row-state">
-                <span className={`badge ${badge.tone}`}>
-                  <span className="status-dot" />
-                  {badge.label}
-                </span>
+                <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
                 <CollectionDetail connection={item} observed={observed} />
                 <CredentialStatusLabel status={credential} />
                 {item.renewal && credentialsUnavailable && (

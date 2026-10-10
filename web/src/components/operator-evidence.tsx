@@ -1,16 +1,8 @@
 import { Cpu } from 'lucide-react'
 import type { Operator } from '../api/schema'
-import { operatorHealthLabels } from '../lib/format'
 import { DetailRows } from './page'
 import { InfoTip } from './info-tip'
-import { EvidenceBadge, Timestamp } from './status'
-
-const healthStyle = {
-  available: 'healthy',
-  progressing: 'attention',
-  unavailable: 'critical',
-  unknown: 'unknown',
-} as const
+import { EvidenceBadge, OperatorHealthBadge, Timestamp } from './status'
 
 export function OperatorEvidence({ operator }: { operator: Operator }) {
   return (
@@ -20,10 +12,7 @@ export function OperatorEvidence({ operator }: { operator: Operator }) {
           <Cpu size={16} />
           {operator.id}
         </h3>
-        <span className={`badge status-${healthStyle[operator.health]}`}>
-          <span className="status-dot" />
-          {operatorHealthLabels[operator.health]}
-        </span>
+        <OperatorHealthBadge health={operator.health} />
         {operator.collection === 'notFound' || operator.collection === 'invalid' ? (
           <span className="evidence evidence-unsupported">
             {operator.collection === 'notFound'

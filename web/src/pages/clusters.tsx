@@ -6,7 +6,7 @@ import { emptyFilter } from '../lib/filters'
 import { operatorHealthLabels } from '../lib/format'
 import type { Operator, Snapshot } from '../api/schema'
 import { EmptyState, PageHeading } from '../components/page'
-import { EvidenceBadge, Timestamp } from '../components/status'
+import { EvidenceBadge, StatusBadge, Timestamp } from '../components/status'
 import { OperatorEvidence } from '../components/operator-evidence'
 import { Button } from '../components/ui/button'
 
@@ -48,20 +48,16 @@ function OperatorSummary({ operators }: { operators: readonly Operator[] }) {
   const first = failing[0]
   if (!first)
     return (
-      <span className="badge status-healthy">
-        <span className="status-dot" />
+      <StatusBadge tone="healthy">
         {operators.length === 1 ? 'Available' : `${String(operators.length)} available`}
-      </span>
+      </StatusBadge>
     )
+  if (failing.length > 1)
+    return <StatusBadge tone="attention">{`${String(failing.length)} need attention`}</StatusBadge>
   return (
-    <span className="badge status-attention">
-      <span className="status-dot" />
-      {failing.length === 1
-        ? first.collection === 'current'
-          ? operatorHealthLabels[first.health]
-          : 'Evidence missing'
-        : `${String(failing.length)} need attention`}
-    </span>
+    <StatusBadge tone="attention">
+      {first.collection === 'current' ? operatorHealthLabels[first.health] : 'Evidence missing'}
+    </StatusBadge>
   )
 }
 

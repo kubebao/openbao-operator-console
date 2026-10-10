@@ -175,10 +175,15 @@ export function Sparkline({
   )
 }
 
+function meterTone(ratio: number): 'over' | 'near' | 'within' {
+  if (ratio > 1) return 'over'
+  return ratio > 0.75 ? 'near' : 'within'
+}
+
 // Age against a threshold. The fill turns amber near the threshold and red past it.
 export function AgeMeter({ hours, limitHours }: { hours: number; limitHours: number }) {
   const ratio = hours / limitHours
-  const tone = ratio > 1 ? 'over' : ratio > 0.75 ? 'near' : 'within'
+  const tone = meterTone(ratio)
   return (
     <div
       className={`age-meter meter-${tone}`}

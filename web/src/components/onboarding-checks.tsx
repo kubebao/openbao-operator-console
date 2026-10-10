@@ -3,6 +3,23 @@ import { capabilityCheckLabels, operatorCheckLabels } from '../lib/format'
 import { Callout, DetailRows } from './page'
 import { HealthBadge, Timestamp } from './status'
 
+function Lifetime({
+  expiry,
+  local,
+}: {
+  expiry: ConnectionCheckResult['credentialExpiry']
+  local: boolean
+}) {
+  if (local) return <>The hosting cluster manages the ServiceAccount token.</>
+  if (!expiry.expiresAt) return <>Unknown. Plan credential replacement with the cluster owner.</>
+  return (
+    <>
+      {expiry.source === 'declaredToken' ? 'Token-declared expiry' : 'Certificate expires'}{' '}
+      <Timestamp value={expiry.expiresAt} scheduled />
+    </>
+  )
+}
+
 export function CredentialLifetime({
   expiry,
   local,
@@ -15,23 +32,7 @@ export function CredentialLifetime({
   return (
     <>
       <DetailRows
-        rows={[
-          {
-            label: 'Credential lifetime',
-            value: local ? (
-              'The hosting cluster manages the ServiceAccount token.'
-            ) : expiry.expiresAt ? (
-              <>
-                {expiry.source === 'declaredToken'
-                  ? 'Token-declared expiry'
-                  : 'Certificate expires'}{' '}
-                <Timestamp value={expiry.expiresAt} scheduled />
-              </>
-            ) : (
-              'Unknown. Plan credential replacement with the cluster owner.'
-            ),
-          },
-        ]}
+        rows={[{ label: 'Credential lifetime', value: <Lifetime expiry={expiry} local={local} /> }]}
       />
       {!local && (
         <p className="onboarding-help">
@@ -43,6 +44,31 @@ export function CredentialLifetime({
         </p>
       )}
     </>
+  )
+}
+
+function DeploymentPreview({ result }: { result: ConnectionCheckResult }) {
+  if (result.diagnostics.state !== 'available')
+    return <p>Complete a successful check to preview deployments.</p>
+  if (result.deployments.length === 0)
+    return (
+      <p>
+        No OpenBao deployments found in the enrolled namespaces. You can connect this cluster and
+        collect deployments when they appear.
+      </p>
+    )
+  return (
+    <ul className="onboarding-result-list">
+      {result.deployments.map((deployment) => (
+        <li key={deployment.id}>
+          <span>
+            <strong>{deployment.name}</strong>
+            <small>{deployment.namespace}</small>
+          </span>
+          <HealthBadge health={deployment.health} />
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -102,26 +128,7 @@ export function OnboardingChecks({
       )}
       <section className="onboarding-preview">
         <h3>Deployment preview</h3>
-        {result.diagnostics.state !== 'available' ? (
-          <p>Complete a successful check to preview deployments.</p>
-        ) : result.deployments.length === 0 ? (
-          <p>
-            No OpenBao deployments found in the enrolled namespaces. You can connect this cluster
-            and collect deployments when they appear.
-          </p>
-        ) : (
-          <ul className="onboarding-result-list">
-            {result.deployments.map((deployment) => (
-              <li key={deployment.id}>
-                <span>
-                  <strong>{deployment.name}</strong>
-                  <small>{deployment.namespace}</small>
-                </span>
-                <HealthBadge health={deployment.health} />
-              </li>
-            ))}
-          </ul>
-        )}
+        <DeploymentPreview result={result} />
       </section>
     </section>
   )

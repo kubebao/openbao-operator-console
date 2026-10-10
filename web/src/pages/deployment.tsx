@@ -19,10 +19,10 @@ import { HistoryTab } from '../components/deployment/history'
 import { LifecycleTab } from '../components/deployment/lifecycle'
 import { OverviewTab } from '../components/deployment/overview'
 import { EmptyState } from '../components/page'
-import { EvidenceBadge, HealthBadge, Timestamp } from '../components/status'
+import { EvidenceBadge, HealthBadge, OperatorHealthBadge, Timestamp } from '../components/status'
 import type { DeploymentTab } from '../lib/findings'
 import { tabLabels, tabSeverity } from '../lib/findings'
-import { age, collectionLabels, environmentLabels, operatorHealthLabels } from '../lib/format'
+import { age, collectionLabels, environmentLabels } from '../lib/format'
 
 const tabs: readonly DeploymentTab[] = ['overview', 'lifecycle', 'backups', 'conditions', 'history']
 
@@ -31,13 +31,6 @@ const severityWords: Record<Issue['severity'], string> = {
   high: 'finding',
   info: 'note',
 }
-
-const operatorTone = {
-  available: 'status-healthy',
-  progressing: 'status-attention',
-  unavailable: 'status-critical',
-  unknown: 'status-unknown',
-} as const
 
 export function DeploymentPage() {
   const { deploymentId } = useParams({ from: '/deployments/$deploymentId' })
@@ -112,12 +105,7 @@ export function DeploymentPage() {
             ) : (
               <span>{deployment.operatorId ?? 'no declared operator'}</span>
             )}
-            {operator && (
-              <span className={`badge ${operatorTone[operator.health]}`}>
-                <span className="status-dot" />
-                {operatorHealthLabels[operator.health]}
-              </span>
-            )}
+            {operator && <OperatorHealthBadge health={operator.health} />}
           </span>
           <span>
             {deployment.evidence.collection === 'current' ? (

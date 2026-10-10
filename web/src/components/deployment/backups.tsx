@@ -6,18 +6,11 @@ import { bytes, restoreOutcomes } from '../../lib/format'
 import type { Observation } from '../../lib/history'
 import { backupEvents } from '../../lib/history'
 import { DetailRows, EmptyState } from '../page'
-import { Timestamp } from '../status'
+import { restoreTone } from '../../lib/tone'
+import { StatusBadge, Timestamp } from '../status'
 import { Button } from '../ui/button'
 import { AgeMeter, BackupStrip, Sparkline } from './charts'
 import { SectionTitle } from '../info-tip'
-
-const outcomeTone = {
-  passed: 'status-healthy',
-  failed: 'status-critical',
-  blocked: 'status-attention',
-  running: 'status-unknown',
-  notRun: 'status-unknown',
-} as const
 
 function Digest({ value }: { value: string }) {
   const [copied, setCopied] = useState(false)
@@ -158,10 +151,9 @@ export function BackupsTab({
                   {
                     label: 'Latest outcome',
                     value: (
-                      <span className={`badge ${outcomeTone[test.outcome]}`}>
-                        <span className="status-dot" />
+                      <StatusBadge tone={restoreTone[test.outcome]}>
                         {restoreOutcomes[test.outcome]}
-                      </span>
+                      </StatusBadge>
                     ),
                     finding: fieldSeverity(deployment, 'restoreTest'),
                   },
