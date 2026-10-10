@@ -1,6 +1,6 @@
 import { useSnapshot } from '../api/client'
 import { PageHeading, EmptyState } from '../components/page'
-import { RecentActivity } from './attention'
+import { RecentActivity } from '../components/recent-activity'
 
 export function ActivityPage() {
   const { data: snapshot } = useSnapshot()

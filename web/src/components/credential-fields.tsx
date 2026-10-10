@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import type { ManagedConnection } from '../api/schema'
 import type { CredentialDraft } from '../lib/credential'
 import { isCredentialMethod } from '../lib/credential'
@@ -44,7 +45,7 @@ export function CredentialFields({
         </select>
       </Field>
       {draft.method === 'kubeconfig' ? (
-        <>
+        <Fragment key="kubeconfig">
           <Field label="Kubeconfig file">
             <input
               type="file"
@@ -79,9 +80,9 @@ export function CredentialFields({
           <Field label="Kubeconfig context" help="Leave empty to use its current context.">
             <TextInput value={draft.context} onChange={change('context')} />
           </Field>
-        </>
+        </Fragment>
       ) : (
-        <>
+        <Fragment key="manual">
           <Field label="API server">
             <input
               required={required}
@@ -123,7 +124,7 @@ export function CredentialFields({
               </Field>
             </div>
           )}
-        </>
+        </Fragment>
       )}
     </>
   )
