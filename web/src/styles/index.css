@@ -1,0 +1,22 @@
+/* Import order is cascade order. Shared foundations come first, then areas in page order.
+   The mobile table card layout must follow every table's own rules. */
+@import './reset.css';
+@import './tokens.css';
+@import './base.css';
+@import './shell.css';
+@import './page.css';
+@import './button.css';
+@import './status.css';
+@import './table.css';
+@import './attention.css';
+@import './fleet.css';
+@import './topology.css';
+@import './recovery.css';
+@import './dialog.css';
+@import './clusters.css';
+@import './settings.css';
+@import './sign-in.css';
+@import './onboarding.css';
+@import './table-cards.css';
+@import './deployment.css';
+@import './charts.css';

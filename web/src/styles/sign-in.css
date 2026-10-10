@@ -1,0 +1,94 @@
+[data-theme='dark'] .sign-in-logo {
+  mix-blend-mode: lighten;
+}
+
+.sign-in {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 16px;
+  background:
+    radial-gradient(60rem 30rem at 50% -8rem, var(--brand-glow), transparent 70%), var(--background);
+}
+
+.sign-in-panel {
+  width: min(100%, 420px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2.5rem 2rem 2rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.sign-in-logo {
+  position: relative;
+  width: min(100%, 240px);
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  mix-blend-mode: multiply;
+}
+
+.sign-in-logo img {
+  position: absolute;
+  top: -38%;
+  left: -9%;
+  width: 118%;
+  max-width: none;
+  height: auto;
+}
+
+.sign-in h1 {
+  font-size: 22px;
+  letter-spacing: -0.5px;
+}
+
+.sign-in h1 span {
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+.sign-in-notice {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  width: 100%;
+  margin-top: 1.5rem;
+  padding: 10px 12px;
+  border-radius: 6px;
+  text-align: left;
+  color: var(--foreground);
+}
+
+.sign-in-notice svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.sign-in-notice-info {
+  background: var(--muted);
+}
+
+.sign-in-notice-info svg {
+  color: var(--muted-foreground);
+}
+
+.sign-in-notice-error {
+  background: var(--red-soft);
+}
+
+.sign-in-notice-error svg {
+  color: var(--red);
+}
+
+.sign-in-button {
+  width: 100%;
+  margin-top: 1.5rem;
+  padding: 11px 16px;
+  font-size: 13px;
+  font-weight: 550;
+}

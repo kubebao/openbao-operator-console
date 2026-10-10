@@ -1,0 +1,113 @@
+@media (max-width: 720px) {
+  /* Tables become cards on narrow screens. */
+  .attention-table,
+  .fleet-table,
+  .clusters-table {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  .attention-table thead,
+  .fleet-table thead,
+  .clusters-table thead {
+    display: none;
+  }
+  .attention-table tbody,
+  .fleet-table tbody,
+  .clusters-table tbody {
+    display: block;
+  }
+  .attention-table tr,
+  .fleet-table tr,
+  .clusters-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+    padding: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .attention-table tbody tr:last-child,
+  .fleet-table tbody tr:last-child,
+  .clusters-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .attention-table td,
+  .fleet-table td,
+  .clusters-table td {
+    display: block;
+    height: auto;
+    padding: 0;
+    border: 0;
+    font-size: 11px;
+  }
+  .attention-table td[data-label]::before,
+  .fleet-table td[data-label]::before,
+  .clusters-table td[data-label]::before {
+    content: attr(data-label) ' ';
+    color: var(--muted-foreground);
+    font-size: 10px;
+  }
+  .attention-table td:nth-child(2) {
+    order: -1;
+    flex-basis: 100%;
+    min-width: 0;
+    width: auto;
+  }
+  .attention-table td:nth-child(3) strong,
+  .attention-table td:nth-child(3) small {
+    display: inline;
+    margin-right: 6px;
+  }
+  .attention-table td:nth-child(4),
+  .attention-table td:nth-child(5),
+  .attention-table td:nth-child(7) {
+    display: none;
+  }
+  .attention-table td:nth-child(3)::before {
+    content: none;
+  }
+  /* Name and state lead each card; team, environment, and version stay in the detail view. */
+  .fleet-table td:first-child {
+    order: -2;
+    flex: 1 1 55%;
+  }
+  .fleet-table td:nth-child(6) {
+    order: -1;
+    margin-left: auto;
+  }
+  .fleet-table td:first-child::before,
+  .fleet-table td:nth-child(6)::before {
+    content: none;
+  }
+  .fleet-table td:nth-child(2),
+  .fleet-table td:nth-child(3),
+  .fleet-table td:nth-child(5),
+  .fleet-table td:nth-child(10) {
+    display: none;
+  }
+  .fleet-table td:nth-child(4) strong {
+    font-weight: 400;
+  }
+  .fleet-table td:nth-child(4) small {
+    display: none;
+  }
+  .clusters-table td:first-child {
+    flex-basis: 100%;
+  }
+  .clusters-table td:last-child:empty {
+    display: none;
+  }
+  .clusters-table .cluster-detail-row > td {
+    flex-basis: 100%;
+    min-width: 0;
+    padding: 0;
+  }
+  .clusters-table td {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .clusters-table .cluster-detail-row > td::before {
+    content: none;
+  }
+}

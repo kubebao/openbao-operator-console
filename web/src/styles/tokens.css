@@ -1,0 +1,63 @@
+:root {
+  /* OpenBao brand: DM Sans for text, primary #336d5c and shadow green #79c0ab for interaction,
+     border ink #091a28 for headings. Status colors stay separate from the brand accent. */
+  font-family:
+    'DM Sans Variable',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  color: #1b2c31;
+  background: #f6f8f7;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --background: #f6f8f7;
+  --surface: #fff;
+  --sidebar: #f0f4f2;
+  --foreground: #1b2c31;
+  --heading: #091a28;
+  --muted-foreground: #5c6d70;
+  --muted: #ebf0ee;
+  --border: #dfe7e3;
+  --accent: #336d5c;
+  --accent-soft: #e1f1ea;
+  --info: #2868dc;
+  --info-soft: #eaf1ff;
+  --green: #2e7d32;
+  --green-soft: #e7f4e6;
+  --amber: #9c6511;
+  --amber-soft: #fff5df;
+  --red: #cb3544;
+  --red-soft: #fff0f1;
+  --graph-dot: #d6e0dc;
+  --graph-edge: #7f9690;
+  --shadow: 0 12px 45px #091a2814;
+  --brand-glow: #87d6be33;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --background: #0b1620;
+  --surface: #12202b;
+  --sidebar: #0e1a24;
+  --foreground: #d8e4e7;
+  --heading: #f0f6f4;
+  --muted-foreground: #93a5ab;
+  --muted: #1b2b36;
+  --border: #253643;
+  --accent: #79c0ab;
+  --accent-soft: #19362f;
+  --info: #83acff;
+  --info-soft: #1f3350;
+  --green: #8fd17f;
+  --green-soft: #1e3a22;
+  --amber: #f0c571;
+  --amber-soft: #3a3020;
+  --red: #ff929c;
+  --red-soft: #3d2530;
+  --graph-dot: #263846;
+  --graph-edge: #8aa0a8;
+  --shadow: 0 12px 45px #0006;
+  --brand-glow: #87d6be1f;
+}

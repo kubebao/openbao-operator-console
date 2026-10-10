@@ -1,0 +1,78 @@
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: #091a2866;
+  z-index: 100;
+  backdrop-filter: blur(3px);
+  animation: fade-in 0.15s ease;
+}
+
+.search-dialog {
+  position: fixed;
+  top: 17vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(580px, calc(100vw - 36px));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  z-index: 101;
+  box-shadow: var(--shadow);
+}
+
+.command-input {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
+}
+
+.command-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+}
+
+.command-results {
+  padding: 16px 10px 10px;
+}
+
+.command-results .nav-label {
+  padding: 0 10px 8px;
+}
+
+.command-results button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 11px;
+  text-align: left;
+  border-radius: 5px;
+}
+
+.command-results button:hover,
+.command-results button.active {
+  background: var(--accent-soft);
+}
+
+.command-results button > span:not(.badge) {
+  flex: 1;
+  min-width: 0;
+}
+
+.command-results button > svg:last-child {
+  margin-left: auto;
+}
+
+.command-results button strong {
+  font-size: 12px;
+}
+
+.command-results p {
+  padding: 20px 10px;
+}

@@ -1,0 +1,355 @@
+/* Administration uses dividers and forms instead of dashboard cards. */
+.settings-tabs {
+  display: flex;
+  gap: 1.5rem;
+  border-bottom: 1px solid var(--border);
+  margin: 0 0 2rem;
+  overflow-x: auto;
+}
+
+.settings-tabs button {
+  padding: 0.8rem 0;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+}
+
+.settings-tabs button.selected {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.settings-list {
+  border-top: 1px solid var(--border);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.3rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-row > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-row h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+}
+
+.settings-row p,
+.settings-row small {
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.settings-row p {
+  margin: 0;
+}
+
+.settings-row-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.namespace-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+
+.namespace-tags span {
+  font:
+    0.73rem 'SFMono-Regular',
+    Consolas,
+    monospace;
+  color: var(--muted-foreground);
+  background: var(--muted);
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+}
+
+.settings-form {
+  max-width: 620px;
+}
+
+.settings-form h2 {
+  font-size: 1.1rem;
+  margin-bottom: 1.6rem;
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 1.1rem;
+  min-width: 0;
+  font-size: 0.8rem;
+}
+
+.settings-field > span {
+  font-weight: 500;
+}
+
+.settings-field small {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.settings-field input,
+.settings-field select,
+.settings-field textarea,
+.connection-check textarea {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0.6rem 0.7rem;
+  color: var(--foreground);
+  font: inherit;
+}
+
+.settings-field textarea,
+.connection-check textarea {
+  resize: vertical;
+  font-family: 'DM Mono', 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.75rem;
+}
+
+.settings-field input:focus,
+.settings-field select:focus,
+.settings-field textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.settings-field input:disabled {
+  opacity: 0.6;
+}
+
+.settings-dialog {
+  position: fixed;
+  z-index: 101;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(760px, calc(100vw - 2rem));
+  max-height: calc(100dvh - 3rem);
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.8rem;
+  box-shadow: 0 20px 70px #0004;
+  animation: dialog-enter 0.15s ease-out;
+}
+
+.settings-dialog > .section-heading {
+  margin-bottom: 1.8rem;
+}
+
+.settings-dialog > .section-heading h2 {
+  font-size: 1.25rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 1rem;
+}
+
+.namespace-editor {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+.namespace-editor > .form-grid {
+  flex: 1;
+}
+
+.credential-fields,
+.operator-editor {
+  border: 0;
+  border-top: 1px solid var(--border);
+  padding: 1.2rem 0 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.credential-fields legend,
+.operator-editor legend {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding-right: 0.6rem;
+}
+
+.credential-fields p {
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+  margin-bottom: 1.2rem;
+}
+
+.checkbox-field,
+.checkbox-list label,
+.scope-picker label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+  margin: 0.5rem 0;
+}
+
+.checkbox-field input,
+.checkbox-list input,
+.scope-picker input {
+  accent-color: var(--accent);
+}
+
+.checkbox-list {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.scope-picker {
+  margin: 1.5rem 0;
+  border: 0;
+  padding: 0;
+}
+
+.scope-picker legend {
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+
+.scope-picker > div {
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.scope-picker strong {
+  display: block;
+  font-size: 0.8rem;
+  margin-bottom: 0.6rem;
+}
+
+.editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  padding-top: 1.5rem;
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.form-error {
+  color: var(--red);
+  background: var(--red-soft);
+  padding: 0.8rem 1rem;
+  border-radius: 5px;
+  font-size: 0.83rem;
+  margin: 1rem 0;
+  overflow-wrap: anywhere;
+}
+
+.save-notice {
+  color: var(--green);
+  font-size: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.connection-check {
+  margin-top: 1.3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+
+.connection-check ul {
+  padding: 0;
+  list-style: none;
+}
+
+.connection-check li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.connection-check li span {
+  color: var(--muted-foreground);
+}
+
+.connection-check details {
+  margin-top: 0.8rem;
+}
+
+.connection-check textarea {
+  margin-top: 0.8rem;
+}
+
+@media (max-width: 700px) {
+  .settings-row {
+    flex-wrap: wrap;
+    gap: 0.8rem;
+  }
+  .settings-row > div:first-child {
+    flex-basis: 65%;
+  }
+  .row-actions {
+    width: 100%;
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .settings-dialog {
+    padding: 1.2rem;
+  }
+  .settings-tabs {
+    gap: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-dialog {
+    animation: none;
+  }
+}
+
+.credential-status {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.credential-status .credential-warning {
+  color: var(--red);
+}
+
+/* Long dialogs keep their actions in reach. */
+.settings-dialog .editor-actions {
+  position: sticky;
+  bottom: -1.8rem;
+  margin-bottom: -1.8rem;
+  padding-bottom: 1.2rem;
+  background: var(--surface);
+  z-index: 1;
+}

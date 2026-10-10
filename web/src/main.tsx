@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { router } from './router'
 import '@fontsource-variable/dm-sans'
 import '@fontsource/dm-mono/400.css'
-import './styles.css'
+import './styles/index.css'
 
 const element = document.getElementById('root')
 if (!element) throw new Error('Application root is missing')

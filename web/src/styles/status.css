@@ -1,0 +1,104 @@
+.dot-critical,
+.status-dot,
+.legend-dot {
+  width: 7px;
+  height: 7px;
+  display: inline-block;
+  border-radius: 50%;
+  background: var(--green);
+  flex-shrink: 0;
+}
+
+.dot-critical {
+  background: var(--red);
+}
+
+.dot-warning {
+  background: var(--amber);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 20px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.status-healthy {
+  color: var(--green);
+  background: var(--green-soft);
+}
+
+.status-healthy .status-dot {
+  background: var(--green);
+}
+
+.status-attention,
+.severity-high {
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+
+.status-attention .status-dot {
+  background: var(--amber);
+}
+
+.status-critical,
+.severity-critical {
+  color: var(--red);
+  background: var(--red-soft);
+}
+
+.status-critical .status-dot {
+  background: var(--red);
+}
+
+.status-unknown,
+.severity-info {
+  color: var(--muted-foreground);
+  background: var(--muted);
+}
+
+.status-unknown .status-dot {
+  background: var(--graph-edge);
+}
+
+.legend-dot.status-healthy {
+  background: var(--green);
+}
+
+.legend-dot.status-attention {
+  background: var(--amber);
+}
+
+.legend-dot.status-critical {
+  background: var(--red);
+}
+
+.legend-dot.status-unknown {
+  background: var(--graph-edge);
+}
+
+.tone-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--graph-edge);
+  flex-shrink: 0;
+}
+
+.tone-dot.tone-success {
+  background: var(--green);
+}
+
+.tone-dot.tone-warning {
+  background: var(--amber);
+}
+
+.tone-dot.tone-critical {
+  background: var(--red);
+}

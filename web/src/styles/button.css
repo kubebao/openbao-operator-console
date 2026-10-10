@@ -1,0 +1,63 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 8px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.button-outline {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.button-outline:hover {
+  border-color: var(--graph-edge);
+}
+
+.button-ghost {
+  background: transparent;
+  color: var(--muted-foreground);
+}
+
+.button-ghost:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.button-primary {
+  background: var(--accent);
+  color: var(--surface);
+}
+
+.button-primary:hover {
+  background: color-mix(in srgb, var(--accent) 88%, var(--heading));
+}
+
+.button-danger {
+  background: var(--red);
+  color: var(--surface);
+}
+
+.button-danger:hover {
+  background: color-mix(in srgb, var(--red) 88%, var(--heading));
+}
+
+.button-icon {
+  width: 32px;
+  height: 32px;
+  padding: 6px;
+}
+
+.button-small {
+  padding: 6px 10px;
+  font-size: 11px;
+}
