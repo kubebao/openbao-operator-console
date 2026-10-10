@@ -278,7 +278,6 @@
         "src/pages/deployment.tsx",
         "src/pages/fleet.tsx",
         "src/pages/recovery.tsx",
-        "src/pages/settings.tsx",
         "src/pages/setup.tsx",
         "src/pages/topology.tsx"
       ],

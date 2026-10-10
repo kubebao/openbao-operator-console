@@ -223,18 +223,20 @@ export function useSaveSettings() {
 }
 
 export function useCheckConnection() {
-  return useMutation({ mutationFn: checkConnection })
+  return useMutation({ mutationFn: (input: ConnectionCheck) => checkConnection(input) })
 }
 
 export function useReaderAccess() {
-  return useMutation({ mutationFn: generateReaderAccess })
+  return useMutation({
+    mutationFn: (connection: ManagedConnection) => generateReaderAccess(connection),
+  })
 }
 
 // useSetupStep runs a setup request and stores the returned status.
 export function useSetupStep<T>(request: (input: T) => Promise<SetupStatus>) {
   const queries = useQueryClient()
   return useMutation({
-    mutationFn: request,
+    mutationFn: (input: T) => request(input),
     onSuccess: (status) => {
       queries.setQueryData(queryKeys.setup, status)
     },

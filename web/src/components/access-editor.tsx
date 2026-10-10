@@ -1,27 +1,22 @@
 import { formError } from '../lib/errors'
 import { useState } from 'react'
 import type { Configuration, Scope } from '../api/schema'
+import type { AccessGrant, EditMode, GrantKind } from '../lib/settings'
 import { SettingsEditor } from './settings-editor'
 import { Field } from './form'
 import { Button } from './ui/button'
 
-export interface AccessGrant {
-  key: string
-  name: string
-  admin: boolean
-  scopes: readonly Scope[]
-}
 export function AccessEditor({
   initial,
   kind,
-  existing,
+  mode,
   configuration,
   onSave,
   onClose,
 }: {
   initial: AccessGrant
-  kind: 'user' | 'group'
-  existing: boolean
+  kind: GrantKind
+  mode: EditMode
   configuration: Configuration
   onSave: (grant: AccessGrant) => Promise<void>
   onClose: () => void
@@ -30,7 +25,7 @@ export function AccessEditor({
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
   return (
-    <SettingsEditor title={`${existing ? 'Edit' : 'Add'} ${kind}`} onClose={onClose}>
+    <SettingsEditor title={`${mode === 'edit' ? 'Edit' : 'Add'} ${kind}`} onClose={onClose}>
       <form
         onSubmit={(event) => {
           event.preventDefault()
@@ -56,7 +51,7 @@ export function AccessEditor({
         >
           <input
             required
-            disabled={existing}
+            disabled={mode === 'edit'}
             value={grant.key}
             onChange={(event) => {
               setGrant({ ...grant, key: event.target.value })

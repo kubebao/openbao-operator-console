@@ -1,6 +1,7 @@
 import { formError } from '../lib/errors'
 import { useState } from 'react'
 import type { Deployment, ManagedRelationship } from '../api/schema'
+import type { EditMode } from '../lib/settings'
 import { SettingsEditor } from './settings-editor'
 import { Field } from './form'
 import { Button } from './ui/button'
@@ -8,13 +9,13 @@ import { Button } from './ui/button'
 export function RelationshipEditor({
   initial,
   deployments,
-  existing,
+  mode,
   onSave,
   onClose,
 }: {
   initial: ManagedRelationship | null
   deployments: readonly Deployment[]
-  existing: boolean
+  mode: EditMode
   onSave: (relationship: ManagedRelationship) => Promise<void>
   onClose: () => void
 }) {
@@ -62,7 +63,10 @@ export function RelationshipEditor({
     }
   }
   return (
-    <SettingsEditor title={existing ? 'Edit relationship' : 'Add relationship'} onClose={onClose}>
+    <SettingsEditor
+      title={mode === 'edit' ? 'Edit relationship' : 'Add relationship'}
+      onClose={onClose}
+    >
       <form
         onSubmit={(event) => {
           event.preventDefault()
@@ -72,7 +76,7 @@ export function RelationshipEditor({
         <Field label="Identifier">
           <input
             required
-            disabled={existing}
+            disabled={mode === 'edit'}
             value={id}
             onChange={(event) => {
               setID(event.target.value)
