@@ -1,6 +1,6 @@
 .PHONY: install dev generate check check-generated build e2e integration helm-check e2e-production screenshots lint lint-fix
 
-GOLANGCI_LINT = go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+GOLANGCI_LINT = go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 
 install:
 	go mod download

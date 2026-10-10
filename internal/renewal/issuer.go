@@ -27,7 +27,6 @@ func (e *Failure) Error() string { return "ServiceAccount credential renewal fai
 type KubernetesIssuer struct{}
 
 func (KubernetesIssuer) Issue(ctx context.Context, connection config.Connection, now time.Time) (config.Credential, time.Time, error) {
-	//nolint:unparam // Keeps each failure return on one line.
 	fail := func(state settings.RenewalState) (config.Credential, time.Time, error) {
 		return config.Credential{}, time.Time{}, &Failure{State: state}
 	}
