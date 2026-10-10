@@ -205,13 +205,12 @@ func startLiveConsole(
 		Scopes:  []config.Scope{{ConnectionID: connection.ID, Namespaces: []string{"console-sample"}}},
 	}
 	provider := config.Identity{Issuer: identity.Issuer, ClientID: identity.ClientID, ClientSecret: identity.ClientSecret}
-	authentication, err := auth.NewOIDC(
+	identityProvider, err := auth.NewProvider(
 		providerContext,
 		provider.Issuer,
 		provider.ClientID,
 		provider.ClientSecret,
 		application.URL+"/auth/callback",
-		[]config.User{user},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -225,7 +224,7 @@ func startLiveConsole(
 	if err != nil {
 		t.Fatal(err)
 	}
-	authentication.SetResolver(configuration.Resolve)
+	authentication := auth.New(identityProvider, configuration.Resolve)
 	server := &Server{
 		Fleet:    view.Live{Observations: repository, Enrollment: configuration},
 		Auth:     authentication,

@@ -125,7 +125,7 @@ func (p *oidcProvider) beginLogin(t *testing.T, ctx context.Context, a *Authenti
 	return request
 }
 
-func sessionCookie(response *httptest.ResponseRecorder) *http.Cookie {
+func issuedSession(response *httptest.ResponseRecorder) *http.Cookie {
 	for _, cookie := range response.Result().Cookies() {
 		if cookie.Name == "__Host-console-session" {
 			return cookie
@@ -138,7 +138,7 @@ func sessionCookie(response *httptest.ResponseRecorder) *http.Cookie {
 // logout ends it.
 func assertSessionUntilLogout(t *testing.T, a *Authenticator, callback *httptest.ResponseRecorder) {
 	t.Helper()
-	cookie := sessionCookie(callback)
+	cookie := issuedSession(callback)
 	if cookie == nil || !cookie.Secure || !cookie.HttpOnly {
 		t.Fatal("session cookie missing protections")
 	}
@@ -167,17 +167,20 @@ func TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			provider := newOIDCProvider(t, scenario.subject, scenario.wrongNonce)
 			ctx := oidc.ClientContext(context.Background(), provider.server.Client())
-			a, err := NewOIDC(
+			identityProvider, err := NewProvider(
 				ctx,
 				provider.server.URL,
 				"console",
 				"test-client-secret",
 				"https://console.example/auth/callback",
-				[]config.User{{Subject: "operator", Name: "Engineer"}},
 			)
 			if err != nil {
 				t.Fatal(err)
 			}
+			enrolled := config.User{Subject: "operator", Name: "Engineer"}
+			a := New(identityProvider, func(_ context.Context, subject string, _ []string) (config.User, bool) {
+				return enrolled, subject == enrolled.Subject
+			})
 			request := provider.beginLogin(t, ctx, a)
 			callback := httptest.NewRecorder()
 			a.Callback(callback, request)

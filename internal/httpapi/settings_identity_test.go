@@ -20,19 +20,17 @@ func testProviderCA(provider *httptest.Server) string {
 
 func testAuthenticator(t *testing.T, provider *httptest.Server, service *settings.Service) *auth.Authenticator {
 	t.Helper()
-	a, err := auth.NewOIDC(
+	identityProvider, err := auth.NewProvider(
 		oidc.ClientContext(context.Background(), provider.Client()),
 		provider.URL,
 		"console",
 		"secret",
 		"https://console.example/auth/callback",
-		nil,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.SetResolver(service.Resolve)
-	return a
+	return auth.New(identityProvider, service.Resolve)
 }
 
 func completeTestLogin(

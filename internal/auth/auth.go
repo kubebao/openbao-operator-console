@@ -3,182 +3,77 @@ package auth
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/subtle"
-	"encoding/base64"
-	"encoding/json"
-	"errors"
 	"net/http"
 	"net/url"
-	"slices"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 
 	"github.com/kubebao/openbao-operator-console/internal/config"
-	"github.com/kubebao/openbao-operator-console/internal/fleet"
 )
 
-type session struct {
-	subject string
-	groups  []string
-	expires time.Time
-}
-type providerState struct {
-	oauth       oauth2.Config
-	verifier    *oidc.IDTokenVerifier
-	client      *http.Client
-	groupsClaim string
-}
-type transaction struct {
-	verifier, nonce string
-	expires         time.Time
-	provider        providerState
-	generation      int64
-	returnTo        string
-	activate        func(context.Context, string, []string) error
-	setup           bool
-}
-type (
-	Resolver      func(context.Context, string, []string) (config.User, bool)
-	Authenticator struct {
-		mu           sync.Mutex
-		demo         *config.User
-		users        map[string]config.User
-		sessions     map[string]session
-		transactions map[string]transaction
-		provider     providerState
-		generation   int64
-		resolver     Resolver
-		pending      bool
-	}
+const (
+	sessionCookie = "__Host-console-session"
+	stateCookie   = "__Host-console-state"
 )
+
+// Resolver maps an authenticated subject and its groups to current console access.
+type Resolver func(context.Context, string, []string) (config.User, bool)
+
+// Authenticator signs viewers in. It runs in one of three modes: a fixed demonstration
+// viewer, pending browser setup without a provider, or OIDC with a verified provider.
+// Access is resolved on every request, so access changes apply to existing sessions.
+type Authenticator struct {
+	demo    *config.User
+	resolve Resolver
+	logins  *store
+
+	mu       sync.Mutex
+	provider *Provider // nil while setup is pending
+}
 
 // NewDemo signs every request in as a fixed, scoped demonstration viewer.
 func NewDemo(viewer config.User) *Authenticator { return &Authenticator{demo: &viewer} }
 
 // NewPending rejects fleet access until browser setup installs a verified provider.
-func NewPending() *Authenticator {
-	return &Authenticator{
-		pending:      true,
-		users:        map[string]config.User{},
-		sessions:     map[string]session{},
-		transactions: map[string]transaction{},
-	}
+func NewPending(resolve Resolver) *Authenticator {
+	return &Authenticator{resolve: resolve, logins: newStore()}
 }
 
-func NewOIDC(ctx context.Context, issuer, clientID, clientSecret, redirect string, users []config.User) (*Authenticator, error) {
-	if err := ValidCallback(redirect); err != nil {
-		return nil, err
-	}
-	identity, err := url.Parse(issuer)
-	if err != nil || !httpsEndpoint(identity) || identity.RawQuery != "" || identity.Fragment != "" || clientID == "" {
-		return nil, errors.New("OIDC requires an HTTPS issuer and client ID")
-	}
-	provider, err := oidc.NewProvider(ctx, issuer)
-	if err != nil {
-		return nil, errors.New("discover OIDC provider")
-	}
-	var discovery struct {
-		JWKS string `json:"jwks_uri"`
-	}
-	if err := provider.Claims(&discovery); err != nil {
-		return nil, errors.New("decode OIDC discovery")
-	}
-	for _, endpoint := range []string{provider.Endpoint().AuthURL, provider.Endpoint().TokenURL, discovery.JWKS} {
-		parsed, err := url.Parse(endpoint)
-		if err != nil || !httpsEndpoint(parsed) {
-			return nil, errors.New("OIDC endpoints must use HTTPS")
-		}
-	}
-	client, ok := ctx.Value(oauth2.HTTPClient).(*http.Client)
-	if !ok || client == nil {
-		client = http.DefaultClient
-	}
-	result := &Authenticator{
-		users:        map[string]config.User{},
-		sessions:     map[string]session{},
-		transactions: map[string]transaction{},
-		provider: providerState{
-			oauth: oauth2.Config{
-				ClientID:     clientID,
-				ClientSecret: clientSecret,
-				Endpoint:     provider.Endpoint(),
-				RedirectURL:  redirect,
-				Scopes:       []string{oidc.ScopeOpenID, "profile"},
-			},
-			verifier:    provider.Verifier(&oidc.Config{ClientID: clientID}),
-			client:      client,
-			groupsClaim: "groups",
-		},
-	}
-	for _, user := range users {
-		result.users[user.Subject] = user
-	}
-	return result, nil
+// New signs viewers in through provider.
+func New(provider *Provider, resolve Resolver) *Authenticator {
+	return &Authenticator{resolve: resolve, logins: newStore(), provider: provider}
 }
 
-func (a *Authenticator) SetResolver(resolver Resolver) {
+func (a *Authenticator) activeProvider() *Provider {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.resolver = resolver
+	return a.provider
 }
 
-func (a *Authenticator) SetGroupsClaim(claim string) {
+// ReplaceProvider activates a verified provider and ends every session and pending login.
+func (a *Authenticator) ReplaceProvider(provider *Provider) {
 	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.provider.groupsClaim = claim
-}
-
-func (a *Authenticator) ReplaceProvider(candidate *Authenticator) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.provider = candidate.provider
-	a.pending = false
-	a.generation++
-	a.sessions = map[string]session{}
-	a.transactions = map[string]transaction{}
-}
-
-func (a *Authenticator) resolve(ctx context.Context, subject string, groups []string) (config.User, bool) {
-	a.mu.Lock()
-	resolver := a.resolver
-	user, allowed := a.users[subject]
+	a.provider = provider
 	a.mu.Unlock()
-	if resolver != nil {
-		return resolver(ctx, subject, groups)
-	}
-	return user, allowed
+	a.logins.reset()
 }
 
 func (a *Authenticator) Viewer(request *http.Request) (config.User, bool) {
 	if a.demo != nil {
 		return *a.demo, true
 	}
-	cookie, err := request.Cookie("__Host-console-session")
+	cookie, err := request.Cookie(sessionCookie)
 	if err != nil {
 		return config.User{}, false
 	}
-	a.mu.Lock()
-	s, exists := a.sessions[cookie.Value]
-	if !exists || !time.Now().Before(s.expires) {
-		delete(a.sessions, cookie.Value)
-		a.mu.Unlock()
+	active, ok := a.logins.lookup(cookie.Value)
+	if !ok {
 		return config.User{}, false
 	}
-	a.mu.Unlock()
-	return a.resolve(request.Context(), s.subject, s.groups)
-}
-
-func randomToken() (string, error) {
-	data := make([]byte, 32)
-	if _, err := rand.Read(data); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(data), nil
+	return a.resolve(request.Context(), active.subject, active.groups)
 }
 
 func safeReturn(value string) string {
@@ -191,60 +86,40 @@ func safeReturn(value string) string {
 	return value
 }
 
+// begin starts a PKCE login with a nonce against provider and returns the provider's
+// authorization URL.
 func (a *Authenticator) begin(
 	w http.ResponseWriter,
-	provider providerState,
+	provider *Provider,
 	returnTo string,
 	setup bool,
 	activate func(context.Context, string, []string) error,
 ) (string, error) {
-	state, err := randomToken()
-	if err != nil {
-		return "", err
-	}
 	nonce, err := randomToken()
 	if err != nil {
 		return "", err
 	}
-	now := time.Now()
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	for id, tx := range a.transactions {
-		if !now.Before(tx.expires) {
-			delete(a.transactions, id)
-		}
-	}
-	for id, s := range a.sessions {
-		if !now.Before(s.expires) {
-			delete(a.sessions, id)
-		}
-	}
-	if len(a.transactions) >= 1000 || len(a.sessions) >= 10000 {
-		return "", errors.New("login capacity reached")
-	}
 	verifier := oauth2.GenerateVerifier()
-	a.transactions[state] = transaction{
-		verifier:   verifier,
-		nonce:      nonce,
-		expires:    now.Add(5 * time.Minute),
-		provider:   provider,
-		generation: a.generation,
-		returnTo:   safeReturn(returnTo),
-		activate:   activate,
-		setup:      setup,
+	state, err := a.logins.begin(transaction{
+		verifier: verifier,
+		nonce:    nonce,
+		provider: provider,
+		returnTo: safeReturn(returnTo),
+		activate: activate,
+		setup:    setup,
+	})
+	if err != nil {
+		return "", err
 	}
-	http.SetCookie(
-		w,
-		&http.Cookie{
-			Name:     "__Host-console-state",
-			Value:    state,
-			Path:     "/",
-			Secure:   true,
-			HttpOnly: true,
-			SameSite: http.SameSiteLaxMode,
-			MaxAge:   300,
-		},
-	)
+	http.SetCookie(w, &http.Cookie{
+		Name:     stateCookie,
+		Value:    state,
+		Path:     "/",
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   int(loginLifetime.Seconds()),
+	})
 	return provider.oauth.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier), oidc.Nonce(nonce)), nil
 }
 
@@ -253,11 +128,8 @@ func (a *Authenticator) Login(w http.ResponseWriter, request *http.Request) {
 		http.Redirect(w, request, "/", http.StatusSeeOther)
 		return
 	}
-	a.mu.Lock()
-	provider := a.provider
-	pending := a.pending
-	a.mu.Unlock()
-	if pending {
+	provider := a.activeProvider()
+	if provider == nil {
 		http.Redirect(w, request, "/setup", http.StatusSeeOther)
 		return
 	}
@@ -266,247 +138,38 @@ func (a *Authenticator) Login(w http.ResponseWriter, request *http.Request) {
 		http.Redirect(w, request, "/?signin="+string(SignInUnavailable), http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, request, location, http.StatusFound)
+	// The location is the provider's authorization URL. returnTo stays in the server-side
+	// transaction after safeReturn limits it to a local path.
+	http.Redirect(w, request, location, http.StatusFound) //nolint:gosec // Provider URL, not request input.
 }
 
 // BeginTrial binds a candidate identity provider to an administrator-initiated
 // browser flow. Configuration changes only after a verified administrator login.
 func (a *Authenticator) BeginTrial(
 	w http.ResponseWriter,
-	candidate *Authenticator,
+	candidate *Provider,
 	activate func(context.Context, string, []string) error,
 ) (string, error) {
-	return a.begin(w, candidate.provider, "/settings?section=identity", false, activate)
+	return a.begin(w, candidate, "/settings?section=identity", false, activate)
 }
 
 // BeginSetup uses the normal signed OIDC flow, with a first-claim callback and
 // bounded failure destinations that never include provider errors or secrets.
 func (a *Authenticator) BeginSetup(
 	w http.ResponseWriter,
-	candidate *Authenticator,
+	candidate *Provider,
 	activate func(context.Context, string, []string) error,
 ) (string, error) {
-	return a.begin(w, candidate.provider, "/settings/clusters/new", true, activate)
-}
-
-// SignInResult is the bounded reason the sign-in page shows after a failed or ended login.
-// Provider errors never reach the browser.
-type SignInResult string
-
-const (
-	SignInExpired     SignInResult = "expired"
-	SignInDenied      SignInResult = "denied"
-	SignInFailed      SignInResult = "failed"
-	SignInUnavailable SignInResult = "unavailable"
-	SignInSignedOut   SignInResult = "signed-out"
-)
-
-func callbackFailure(w http.ResponseWriter, request *http.Request, setup bool, result SignInResult) {
-	if setup {
-		if result != SignInExpired {
-			result = SignInFailed
-		}
-		http.Redirect(w, request, "/setup?result="+string(result), http.StatusSeeOther)
-		return
-	}
-	http.Redirect(w, request, "/?signin="+string(result), http.StatusSeeOther)
-}
-
-func (a *Authenticator) Callback(w http.ResponseWriter, request *http.Request) {
-	if a.demo != nil {
-		http.NotFound(w, request)
-		return
-	}
-	state := request.URL.Query().Get("state")
-	cookie, err := request.Cookie("__Host-console-state")
-	if err != nil || state == "" || subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(state)) != 1 {
-		a.mu.Lock()
-		pending := a.pending
-		a.mu.Unlock()
-		callbackFailure(w, request, pending, SignInFailed)
-		return
-	}
-	a.mu.Lock()
-	tx, exists := a.transactions[state]
-	delete(a.transactions, state)
-	generation := a.generation
-	pending := a.pending
-	a.mu.Unlock()
-	http.SetCookie(
-		w,
-		&http.Cookie{Name: "__Host-console-state", Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: -1},
-	)
-	if !exists || !time.Now().Before(tx.expires) || tx.generation != generation {
-		callbackFailure(w, request, tx.setup || pending, SignInExpired)
-		return
-	}
-	ctx, cancel := context.WithTimeout(request.Context(), 15*time.Second)
-	defer cancel()
-	ctx = oidc.ClientContext(ctx, tx.provider.client)
-	token, err := tx.provider.oauth.Exchange(ctx, request.URL.Query().Get("code"), oauth2.VerifierOption(tx.verifier))
-	if err != nil {
-		tx.fail(w, request, http.StatusUnauthorized, "Login exchange failed", SignInFailed)
-		return
-	}
-	raw, ok := token.Extra("id_token").(string)
-	if !ok {
-		tx.fail(w, request, http.StatusUnauthorized, "Identity token missing", SignInFailed)
-		return
-	}
-	verified, err := tx.provider.verifier.Verify(ctx, raw)
-	if err != nil || subtle.ConstantTimeCompare([]byte(verifiedNonce(verified)), []byte(tx.nonce)) != 1 {
-		tx.fail(w, request, http.StatusUnauthorized, "Identity verification failed", SignInFailed)
-		return
-	}
-	groups := []string{}
-	if tx.provider.groupsClaim != "" {
-		var claims map[string]json.RawMessage
-		if err := verified.Claims(&claims); err != nil {
-			tx.fail(w, request, http.StatusUnauthorized, "Identity claims invalid", SignInFailed)
-			return
-		}
-		if value, found := claims[tx.provider.groupsClaim]; found {
-			if json.Unmarshal(value, &groups) != nil || len(groups) > 1000 {
-				tx.fail(w, request, http.StatusUnauthorized, "Identity groups invalid", SignInFailed)
-				return
-			}
-		}
-	}
-	if tx.activate != nil {
-		if err := tx.activate(ctx, verified.Subject, groups); err != nil {
-			tx.fail(
-				w,
-				request,
-				http.StatusForbidden,
-				"Identity provider was not activated. Return to Settings and retry with an enrolled administrator.",
-				SignInDenied,
-			)
-			return
-		}
-		a.mu.Lock()
-		generation = a.generation
-		a.mu.Unlock()
-	}
-	if _, allowed := a.resolve(ctx, verified.Subject, groups); !allowed {
-		tx.fail(w, request, http.StatusForbidden, "Console access is not enrolled", SignInDenied)
-		return
-	}
-	id, err := randomToken()
-	if err != nil {
-		tx.fail(w, request, http.StatusInternalServerError, "Session creation failed", SignInFailed)
-		return
-	}
-	expires := time.Now().Add(8 * time.Hour)
-	if verified.Expiry.Before(expires) {
-		expires = verified.Expiry
-	}
-	a.mu.Lock()
-	if generation != a.generation || len(a.sessions) >= 10000 {
-		a.mu.Unlock()
-		tx.fail(w, request, http.StatusBadRequest, "Login expired", SignInExpired)
-		return
-	}
-	a.sessions[id] = session{subject: verified.Subject, groups: groups, expires: expires}
-	a.mu.Unlock()
-	http.SetCookie(
-		w,
-		&http.Cookie{
-			Name:     "__Host-console-session",
-			Value:    id,
-			Path:     "/",
-			Secure:   true,
-			HttpOnly: true,
-			SameSite: http.SameSiteLaxMode,
-			Expires:  expires,
-		},
-	)
-	http.Redirect(w, request, tx.returnTo, http.StatusSeeOther)
-}
-
-// Identity trials keep an error response: the administrator still has a session, so the
-// sign-in page would not render.
-func (tx transaction) fail(w http.ResponseWriter, request *http.Request, status int, message string, result SignInResult) {
-	if tx.activate != nil && !tx.setup {
-		http.Error(w, message, status)
-		return
-	}
-	callbackFailure(w, request, tx.setup, result)
-}
-
-func verifiedNonce(token *oidc.IDToken) string {
-	if token == nil {
-		return ""
-	}
-	return token.Nonce
+	return a.begin(w, candidate, "/settings/clusters/new", true, activate)
 }
 
 func (a *Authenticator) Logout(w http.ResponseWriter, request *http.Request) {
-	if cookie, err := request.Cookie("__Host-console-session"); err == nil {
-		a.mu.Lock()
-		delete(a.sessions, cookie.Value)
-		a.mu.Unlock()
+	if cookie, err := request.Cookie(sessionCookie); err == nil && a.logins != nil {
+		a.logins.end(cookie.Value)
 	}
 	http.SetCookie(
 		w,
-		&http.Cookie{Name: "__Host-console-session", Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: -1},
+		&http.Cookie{Name: sessionCookie, Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: -1},
 	)
 	http.Redirect(w, request, "/?signin="+string(SignInSignedOut), http.StatusSeeOther)
-}
-
-// Scope removes every resource the viewer may not see, including counts that would
-// reveal hidden namespaces, relationships to hidden deployments, and their activity.
-func Scope(snapshot fleet.Snapshot, user config.User) fleet.Snapshot {
-	visible := user.CanView
-	result := fleet.Snapshot{
-		CollectedAt:   snapshot.CollectedAt,
-		Policy:        snapshot.Policy,
-		Deployments:   []fleet.Deployment{},
-		Connections:   []fleet.Connection{},
-		Relationships: []fleet.Relationship{},
-		Activity:      []fleet.Activity{},
-	}
-	deployments := make(map[string]bool)
-	for _, deployment := range snapshot.Deployments {
-		if visible(deployment.ConnectionID, deployment.Namespace) {
-			result.Deployments = append(result.Deployments, deployment)
-			deployments[deployment.ID] = true
-		}
-	}
-	for _, connection := range snapshot.Connections {
-		inScope := func(namespace string) bool { return visible(connection.ID, namespace) }
-		connection.Namespaces = slices.DeleteFunc(
-			slices.Clone(connection.Namespaces),
-			func(namespace string) bool { return !inScope(namespace) },
-		)
-		if len(connection.Namespaces) == 0 {
-			continue
-		}
-		operators := []fleet.Operator{}
-		for _, operator := range connection.Operators {
-			operator.Namespaces = slices.DeleteFunc(
-				slices.Clone(operator.Namespaces),
-				func(namespace string) bool { return !inScope(namespace) },
-			)
-			if len(operator.Namespaces) > 0 {
-				operators = append(operators, operator)
-			}
-		}
-		connection.Operators = operators
-		connection.Capabilities = slices.DeleteFunc(
-			slices.Clone(connection.Capabilities),
-			func(capability fleet.Capability) bool { return !inScope(capability.Namespace) },
-		)
-		result.Connections = append(result.Connections, connection)
-	}
-	for _, relationship := range snapshot.Relationships {
-		if deployments[relationship.SourceID] && deployments[relationship.TargetID] {
-			result.Relationships = append(result.Relationships, relationship)
-		}
-	}
-	for _, activity := range snapshot.Activity {
-		if deployments[activity.DeploymentID] {
-			result.Activity = append(result.Activity, activity)
-		}
-	}
-	return result
 }

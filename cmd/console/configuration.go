@@ -96,7 +96,7 @@ func recoverConfiguration(ctx context.Context, service *settings.Service) error 
 	if err != nil {
 		return err
 	}
-	if _, err := auth.Discover(ctx, *identity, os.Getenv("CONSOLE_OIDC_REDIRECT_URL"), nil); err != nil {
+	if _, err := auth.Discover(ctx, *identity, os.Getenv("CONSOLE_OIDC_REDIRECT_URL")); err != nil {
 		return fmt.Errorf("recovery identity discovery failed: %w", err)
 	}
 	configuration, revision := service.Current()

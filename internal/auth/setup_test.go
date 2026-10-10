@@ -6,17 +6,19 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/kubebao/openbao-operator-console/internal/config"
 )
 
 func TestPendingLoginAndExpiredSetupCallbackReturnToSetup(t *testing.T) {
-	a := NewPending()
+	a := NewPending(func(context.Context, string, []string) (config.User, bool) { return config.User{}, false })
 	login := httptest.NewRecorder()
 	a.Login(login, httptest.NewRequest(http.MethodGet, "https://console.example/auth/login", nil))
 	if login.Code != http.StatusSeeOther || login.Header().Get("Location") != "/setup" {
 		t.Fatal("pending console attempted normal authentication")
 	}
 	activated := false
-	a.transactions["expired-state"] = transaction{
+	a.logins.transactions["expired-state"] = transaction{
 		setup:   true,
 		expires: time.Now().Add(-time.Minute),
 		activate: func(context.Context, string, []string) error {

@@ -33,8 +33,7 @@ func pendingSetup(t *testing.T) setupFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	authentication := auth.NewPending()
-	authentication.SetResolver(service.Resolve)
+	authentication := auth.NewPending(service.Resolve)
 	setup, err := NewSetup(
 		service,
 		authentication,
@@ -265,7 +264,7 @@ func TestSetupClaimRequiresVerifiedLoginAndClosesPermanently(t *testing.T) {
 	}
 	if _, err := NewSetup(
 		restarted,
-		auth.NewPending(),
+		auth.NewPending(restarted.Resolve),
 		[]byte(setupTestToken),
 		"https://console.example/auth/callback",
 		config.Config{MaxBackupAgeHours: 24},

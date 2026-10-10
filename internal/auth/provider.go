@@ -12,9 +12,63 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"golang.org/x/oauth2"
 
 	"github.com/kubebao/openbao-operator-console/internal/config"
 )
+
+// Provider is a discovered OIDC identity provider with HTTPS endpoints. It is immutable,
+// so a login keeps the provider it started with.
+type Provider struct {
+	oauth       oauth2.Config
+	verifier    *oidc.IDTokenVerifier
+	client      *http.Client
+	groupsClaim string
+}
+
+// NewProvider discovers an identity provider through the HTTP client in ctx. It reads
+// groups from the "groups" claim.
+func NewProvider(ctx context.Context, issuer, clientID, clientSecret, redirect string) (*Provider, error) {
+	if err := ValidCallback(redirect); err != nil {
+		return nil, err
+	}
+	identity, err := url.Parse(issuer)
+	if err != nil || !httpsEndpoint(identity) || identity.RawQuery != "" || identity.Fragment != "" || clientID == "" {
+		return nil, errors.New("OIDC requires an HTTPS issuer and client ID")
+	}
+	provider, err := oidc.NewProvider(ctx, issuer)
+	if err != nil {
+		return nil, errors.New("discover OIDC provider")
+	}
+	var discovery struct {
+		JWKS string `json:"jwks_uri"`
+	}
+	if err := provider.Claims(&discovery); err != nil {
+		return nil, errors.New("decode OIDC discovery")
+	}
+	for _, endpoint := range []string{provider.Endpoint().AuthURL, provider.Endpoint().TokenURL, discovery.JWKS} {
+		parsed, err := url.Parse(endpoint)
+		if err != nil || !httpsEndpoint(parsed) {
+			return nil, errors.New("OIDC endpoints must use HTTPS")
+		}
+	}
+	client, ok := ctx.Value(oauth2.HTTPClient).(*http.Client)
+	if !ok || client == nil {
+		client = http.DefaultClient
+	}
+	return &Provider{
+		oauth: oauth2.Config{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			Endpoint:     provider.Endpoint(),
+			RedirectURL:  redirect,
+			Scopes:       []string{oidc.ScopeOpenID, "profile"},
+		},
+		verifier:    provider.Verifier(&oidc.Config{ClientID: clientID}),
+		client:      client,
+		groupsClaim: "groups",
+	}, nil
+}
 
 // ProviderContext adds an optional private CA without disabling TLS verification.
 // The transport is used for discovery, token exchange, and signature keys.
@@ -59,19 +113,19 @@ func providerContext(ctx context.Context, data []byte) (context.Context, error) 
 // ErrProviderCA reports an identity provider CA that contains no usable certificates.
 var ErrProviderCA = errors.New("identity provider CA is invalid")
 
-// Discover builds an OIDC authenticator for an identity provider, trusting its optional
-// CA in addition to the system roots.
-func Discover(ctx context.Context, identity config.Identity, redirect string, users []config.User) (*Authenticator, error) {
+// Discover builds the configured identity provider, trusting its optional CA in addition
+// to the system roots.
+func Discover(ctx context.Context, identity config.Identity, redirect string) (*Provider, error) {
 	providerContext, err := providerContext(ctx, []byte(identity.CA))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrProviderCA, err)
 	}
-	authenticator, err := NewOIDC(providerContext, identity.Issuer, identity.ClientID, identity.ClientSecret, redirect, users)
+	provider, err := NewProvider(providerContext, identity.Issuer, identity.ClientID, identity.ClientSecret, redirect)
 	if err != nil {
 		return nil, err
 	}
-	authenticator.SetGroupsClaim(identity.GroupsClaim)
-	return authenticator, nil
+	provider.groupsClaim = identity.GroupsClaim
+	return provider, nil
 }
 
 // ValidCallback accepts only an HTTPS callback URL ending in /auth/callback.

@@ -417,8 +417,8 @@ func (s *Server) checkConnection(w http.ResponseWriter, r *http.Request, _ confi
 
 // identityVerifier runs identity provider trials. Only OIDC authentication supports them.
 type identityVerifier interface {
-	BeginTrial(http.ResponseWriter, *auth.Authenticator, func(context.Context, string, []string) error) (string, error)
-	ReplaceProvider(*auth.Authenticator)
+	BeginTrial(http.ResponseWriter, *auth.Provider, func(context.Context, string, []string) error) (string, error)
+	ReplaceProvider(*auth.Provider)
 }
 
 // discoveryProblem distinguishes an unusable CA from a failed discovery.
@@ -460,7 +460,7 @@ func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request, actor con
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
-	candidate, err := auth.Discover(ctx, candidateIdentity, s.Origin+"/auth/callback", nil)
+	candidate, err := auth.Discover(ctx, candidateIdentity, s.Origin+"/auth/callback")
 	if err != nil {
 		return discoveryProblem(err)
 	}

@@ -205,7 +205,6 @@ func liveServer(
 	if err != nil {
 		return nil, err
 	}
-	authentication.SetResolver(configuration.Resolve)
 	return &httpapi.Server{
 		Fleet:           view.Live{Observations: pg, Enrollment: configuration},
 		Auth:            authentication,
@@ -230,17 +229,17 @@ func liveAuthentication(
 		if current.Identity == nil {
 			return nil, nil, errors.New("identity provider is not configured")
 		}
-		authentication, err := auth.Discover(ctx, *current.Identity, callback, current.Users)
+		provider, err := auth.Discover(ctx, *current.Identity, callback)
 		if err != nil {
 			return nil, nil, fmt.Errorf("authentication startup failed: %w", err)
 		}
-		return authentication, nil, nil
+		return auth.New(provider, configuration.Resolve), nil, nil
 	}
 	token, err := readSetupToken(os.Getenv("CONSOLE_SETUP_TOKEN_FILE"))
 	if err != nil {
 		return nil, nil, err
 	}
-	authentication := auth.NewPending()
+	authentication := auth.NewPending(configuration.Resolve)
 	setup, err := httpapi.NewSetup(configuration, authentication, token, callback, enrollment)
 	clear(token)
 	if err != nil {

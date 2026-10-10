@@ -49,14 +49,11 @@ func TestScopeRemovesHiddenGraphCountsHistoryAndNamespaces(t *testing.T) {
 }
 
 func TestExistingSessionUsesCurrentAccessRules(t *testing.T) {
-	a := &Authenticator{
-		sessions: map[string]session{"session": {subject: "reader", expires: time.Now().Add(time.Hour)}},
-		users:    map[string]config.User{},
-	}
 	enabled := true
-	a.SetResolver(func(context.Context, string, []string) (config.User, bool) {
+	a := NewPending(func(context.Context, string, []string) (config.User, bool) {
 		return config.User{Subject: "reader", Admin: enabled}, enabled
 	})
+	a.logins.sessions["session"] = session{subject: "reader", expires: time.Now().Add(time.Hour)}
 	request := httptest.NewRequest(http.MethodGet, "https://console.example/api/v1/settings", nil)
 	request.AddCookie(&http.Cookie{Name: "__Host-console-session", Value: "session"})
 	if user, ok := a.Viewer(request); !ok || !user.Admin {
@@ -65,5 +62,33 @@ func TestExistingSessionUsesCurrentAccessRules(t *testing.T) {
 	enabled = false
 	if _, ok := a.Viewer(request); ok {
 		t.Fatal("existing session retained revoked access")
+	}
+}
+
+func TestProviderReplacementEndsSessionsAndPendingLogins(t *testing.T) {
+	a := NewPending(func(_ context.Context, subject string, _ []string) (config.User, bool) {
+		return config.User{Subject: subject}, true
+	})
+	state, err := a.logins.begin(transaction{returnTo: "/"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := a.logins.current()
+	id, err := a.logins.open(before, session{subject: "reader", expires: time.Now().Add(time.Hour)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.ReplaceProvider(&Provider{})
+	if _, ok := a.logins.lookup(id); ok {
+		t.Fatal("session survived provider replacement")
+	}
+	if _, ok := a.logins.take(state); ok {
+		t.Fatal("login started before replacement remained valid")
+	}
+	if _, err := a.logins.open(before, session{subject: "reader", expires: time.Now().Add(time.Hour)}); err == nil {
+		t.Fatal("login from the previous generation opened a session")
+	}
+	if a.activeProvider() == nil {
+		t.Fatal("replacement did not activate the provider")
 	}
 }

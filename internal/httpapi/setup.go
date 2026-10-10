@@ -298,7 +298,7 @@ func (s *Setup) identity(w http.ResponseWriter, request *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(request.Context(), 15*time.Second)
 	defer cancel()
-	candidate, err := auth.Discover(ctx, identity, s.callback, nil)
+	candidate, err := auth.Discover(ctx, identity, s.callback)
 	if err != nil {
 		writeProblem(w, discoveryProblem(err))
 		return
