@@ -1,28 +1,18 @@
 import * as Tabs from '@radix-ui/react-tabs'
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
-import {
-  AlertTriangle,
-  ArrowLeft,
-  Boxes,
-  Cable,
-  Cpu,
-  Database,
-  Folder,
-  Layers3,
-  SearchX,
-} from 'lucide-react'
+import { AlertTriangle, ArrowLeft, SearchX } from 'lucide-react'
 import { useHistory, useSnapshot } from '../api/client'
 import type { Issue } from '../api/schema'
 import { BackupsTab } from '../components/deployment/backups'
 import { ConditionsTab } from '../components/deployment/conditions'
+import { DeploymentHeader } from '../components/deployment/header'
 import { HistoryTab } from '../components/deployment/history'
 import { LifecycleTab } from '../components/deployment/lifecycle'
 import { OverviewTab } from '../components/deployment/overview'
 import { EmptyState } from '../components/page'
-import { EvidenceBadge, HealthBadge, OperatorHealthBadge, Timestamp } from '../components/status'
 import type { DeploymentTab } from '../lib/findings'
 import { tabLabels, tabSeverity } from '../lib/findings'
-import { age, collectionLabels, environmentLabels } from '../lib/format'
+import { age, collectionLabels } from '../lib/format'
 
 const tabs: readonly DeploymentTab[] = ['overview', 'lifecycle', 'backups', 'conditions', 'history']
 
@@ -62,62 +52,7 @@ export function DeploymentPage() {
         <ArrowLeft size={14} />
         Back to fleet
       </Link>
-      <header className="deployment-header">
-        <div className="page-title">
-          <h1>{deployment.name}</h1>
-          <HealthBadge health={deployment.health} />
-        </div>
-        <ul className="deployment-meta" aria-label="Deployment details">
-          <li title="Namespace">
-            <Folder size={14} aria-hidden="true" />
-            <span className="sr-only">Namespace </span>
-            {deployment.namespace}
-          </li>
-          <li title="Team">
-            <Boxes size={14} aria-hidden="true" />
-            <span className="sr-only">Team </span>
-            {deployment.team}
-          </li>
-          <li title="Environment">
-            <Layers3 size={14} aria-hidden="true" />
-            <span className="sr-only">Environment </span>
-            {environmentLabels[deployment.environment]}
-          </li>
-          <li title="Kubernetes cluster">
-            <Cable size={14} aria-hidden="true" />
-            <span className="sr-only">Kubernetes cluster </span>
-            {connection?.name ?? deployment.connectionId}
-            {deployment.location && <span className="muted"> · {deployment.location}</span>}
-          </li>
-          <li title="OpenBao version">
-            <Database size={14} aria-hidden="true" />
-            OpenBao {deployment.version || 'version not observed'}
-          </li>
-        </ul>
-        <div className="deployment-context">
-          <span>
-            <Cpu size={14} aria-hidden="true" />
-            Managed by{' '}
-            {operator ? (
-              <Link to="/clusters" className="text-link">
-                {operator.id}
-              </Link>
-            ) : (
-              <span>{deployment.operatorId ?? 'no declared operator'}</span>
-            )}
-            {operator && <OperatorHealthBadge health={operator.health} />}
-          </span>
-          <span>
-            {deployment.evidence.collection === 'current' ? (
-              <>
-                Last collected: <Timestamp value={deployment.evidence.collectedAt} />
-              </>
-            ) : (
-              <EvidenceBadge collection={deployment.evidence.collection} />
-            )}
-          </span>
-        </div>
-      </header>
+      <DeploymentHeader deployment={deployment} connection={connection} operator={operator} />
       {deployment.evidence.collection !== 'current' && (
         <div className="notice notice-warning">
           <AlertTriangle size={17} />

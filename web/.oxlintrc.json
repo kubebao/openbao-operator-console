@@ -266,13 +266,9 @@
       "files": [
         "e2e/onboarding.spec.ts",
         "src/components/shell.tsx",
-        "src/lib/history.ts",
         "src/pages/attention.tsx",
-        "src/pages/deployment.tsx",
-        "src/pages/fleet.tsx",
         "src/pages/recovery.tsx",
-        "src/pages/setup.tsx",
-        "src/pages/topology.tsx"
+        "src/pages/setup.tsx"
       ],
       "rules": {
         "complexity": "off",

@@ -1,80 +1,84 @@
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
-import { ArrowRight, Database, GitBranch, HardDrive } from 'lucide-react'
+import { ArrowRight, GitBranch } from 'lucide-react'
 import { useSnapshot } from '../api/client'
-import type { Deployment, Snapshot } from '../api/schema'
-import { PageHeading, DetailRows, EmptyState } from '../components/page'
-import { HealthBadge, Timestamp } from '../components/status'
-import { provenanceLabels, recoveryPhases } from '../lib/format'
+import type { Relationship, Snapshot } from '../api/schema'
+import { EmptyState, PageHeading } from '../components/page'
+import { RelationshipDetail } from '../components/topology/relationship-detail'
+import { provenanceLabels, relationshipKindLabels } from '../lib/format'
 
-function DeploymentNode({
-  deployment,
-  snapshot,
-  label,
+type KindFilter = 'all' | Relationship['kind']
+
+const kindFilters: readonly { kind: KindFilter; label: string }[] = [
+  { kind: 'all', label: 'All relationships' },
+  { kind: 'replication', label: 'Read replicas' },
+  { kind: 'snapshotRecovery', label: 'Recovery' },
+]
+
+function ofKind(relationships: readonly Relationship[], kind: KindFilter): Relationship[] {
+  return relationships.filter((relationship) => kind === 'all' || relationship.kind === kind)
+}
+
+function RelationshipList({
+  relationships,
   selected,
+  snapshot,
   onSelect,
 }: {
-  deployment: Deployment
+  relationships: readonly Relationship[]
+  selected: Relationship
   snapshot: Snapshot
-  label: string
-  selected: boolean
-  onSelect: () => void
+  onSelect: (id: string) => void
 }) {
-  const connection = snapshot.connections.find(
-    (connection) => connection.id === deployment.connectionId,
-  )
+  const find = (id: string) => snapshot.deployments.find((deployment) => deployment.id === id)
   return (
-    <button
-      className={`relationship-node ${selected ? 'relationship-node-selected' : ''}`}
-      onClick={onSelect}
-      aria-label={`Inspect ${deployment.namespace}/${deployment.name}`}
-      aria-pressed={selected}
-    >
-      <span className="path-role">{label}</span>
-      <Database size={22} />
-      <strong>
-        {deployment.namespace}/{deployment.name}
-      </strong>
-      <small>{connection?.name ?? deployment.connectionId}</small>
-      <div className="node-state">
-        <HealthBadge health={deployment.health} />
-        <span>{deployment.version}</span>
-      </div>
-    </button>
+    <nav className="relationship-list" aria-label="Relationships">
+      {relationships.map((item) => {
+        const from = find(item.sourceId)
+        const to = find(item.targetId)
+        return (
+          <button
+            key={item.id}
+            aria-label={`Select ${item.id}`}
+            className={item.id === selected.id ? 'selected' : ''}
+            onClick={() => {
+              onSelect(item.id)
+            }}
+          >
+            <strong>
+              {from?.namespace}/{from?.name}
+              <ArrowRight size={14} />
+              {to?.namespace}/{to?.name}
+            </strong>
+            <small>
+              {relationshipKindLabels[item.kind]} · {provenanceLabels[item.provenance]}
+            </small>
+          </button>
+        )
+      })}
+    </nav>
   )
 }
+
 export function TopologyPage() {
   const { data: snapshot } = useSnapshot()
   const search = useSearch({ from: '/topology' })
   const navigate = useNavigate()
   if (!snapshot) return null
-  const relationships = snapshot.relationships.filter(
-    (relationship) => search.kind === 'all' || relationship.kind === search.kind,
-  )
+  const relationships = ofKind(snapshot.relationships, search.kind)
   const relationship =
-    relationships.find((relationship) => relationship.id === search.relationship) ??
-    relationships[0]
-  const source = snapshot.deployments.find((deployment) => deployment.id === relationship?.sourceId)
-  const target = snapshot.deployments.find((deployment) => deployment.id === relationship?.targetId)
+    relationships.find((item) => item.id === search.relationship) ?? relationships[0]
+  const find = (id: string | undefined) =>
+    snapshot.deployments.find((deployment) => deployment.id === id)
+  const source = find(relationship?.sourceId)
+  const target = find(relationship?.targetId)
   const selected =
     [source, target].find((deployment) => deployment?.id === search.deployment) ?? source
-  const select = (id: string) => {
-    void navigate({
-      to: '/topology',
-      search: { ...search, relationship: relationship?.id ?? '', deployment: id },
-    })
-  }
   return (
     <div className="page-enter">
       <PageHeading title="Topology" />
       <div className="table-toolbar">
         <div className="segmented" aria-label="Relationship type">
-          {(
-            [
-              { kind: 'all', label: 'All relationships' },
-              { kind: 'replication', label: 'Read replicas' },
-              { kind: 'snapshotRecovery', label: 'Recovery' },
-            ] as const
-          ).map((filter) => (
+          {kindFilters.map((filter) => (
             <button
               key={filter.kind}
               className={search.kind === filter.kind ? 'selected' : ''}
@@ -86,13 +90,7 @@ export function TopologyPage() {
               }}
             >
               {filter.label}
-              <span>
-                {
-                  snapshot.relationships.filter(
-                    (relationship) => filter.kind === 'all' || relationship.kind === filter.kind,
-                  ).length
-                }
-              </span>
+              <span>{ofKind(snapshot.relationships, filter.kind).length}</span>
             </button>
           ))}
         </div>
@@ -103,153 +101,32 @@ export function TopologyPage() {
           </Link>
         )}
       </div>
-      {relationship && source && target ? (
+      {relationship && source && target && selected ? (
         <div className="relationship-workspace">
-          <nav className="relationship-list" aria-label="Relationships">
-            {relationships.map((item) => {
-              const from = snapshot.deployments.find(
-                (deployment) => deployment.id === item.sourceId,
-              )
-              const to = snapshot.deployments.find((deployment) => deployment.id === item.targetId)
-              return (
-                <button
-                  key={item.id}
-                  aria-label={`Select ${item.id}`}
-                  className={item.id === relationship.id ? 'selected' : ''}
-                  onClick={() => {
-                    void navigate({
-                      to: '/topology',
-                      search: { ...search, relationship: item.id, deployment: '' },
-                    })
-                  }}
-                >
-                  <strong>
-                    {from?.namespace}/{from?.name}
-                    <ArrowRight size={14} />
-                    {to?.namespace}/{to?.name}
-                  </strong>
-                  <small>
-                    {item.kind === 'replication' ? 'Remote read replica' : 'Snapshot recovery'} ·{' '}
-                    {provenanceLabels[item.provenance]}
-                  </small>
-                </button>
-              )
-            })}
-          </nav>
-          <section className="relationship-detail">
-            <div className="section-heading">
-              <h2>
-                {relationship.kind === 'replication' ? 'Remote read replica' : 'Snapshot recovery'}
-              </h2>
-              <span className="muted">{provenanceLabels[relationship.provenance]}</span>
-            </div>
-            <div className="relationship-path">
-              <DeploymentNode
-                deployment={source}
-                snapshot={snapshot}
-                label="Source"
-                selected={selected?.id === source.id}
-                onSelect={() => {
-                  select(source.id)
-                }}
-              />
-              <div className="relationship-arrow">
-                <span>{relationship.kind === 'replication' ? 'Replication' : 'Snapshot'}</span>
-                <ArrowRight />
-              </div>
-              {relationship.kind === 'snapshotRecovery' && (
-                <>
-                  <div className="relationship-storage">
-                    <HardDrive size={24} />
-                    <strong>Snapshot storage</strong>
-                    <code>{relationship.repository ?? 'Location not supplied'}</code>
-                    <small>Readability unknown</small>
-                  </div>
-                  <div className="relationship-arrow">
-                    <span>Restore</span>
-                    <ArrowRight />
-                  </div>
-                </>
-              )}
-              <DeploymentNode
-                deployment={target}
-                snapshot={snapshot}
-                label={relationship.kind === 'replication' ? 'Read replica' : 'Restore target'}
-                selected={selected?.id === target.id}
-                onSelect={() => {
-                  select(target.id)
-                }}
-              />
-            </div>
-            {selected && (
-              <div className="relationship-inspector">
-                <div>
-                  <h3>
-                    {selected.namespace}/{selected.name}
-                  </h3>
-                  <DetailRows
-                    rows={[
-                      { label: 'State', value: <HealthBadge health={selected.health} /> },
-                      { label: 'OpenBao version', value: selected.version || 'Unknown' },
-                      {
-                        label: 'Last collected',
-                        value: <Timestamp value={selected.evidence.collectedAt} />,
-                      },
-                      ...(relationship.kind === 'replication' && selected.replica
-                        ? [
-                            {
-                              label: 'Replica observed',
-                              value: <Timestamp value={selected.replica.observedAt} />,
-                            },
-                            {
-                              label: 'Local Raft index',
-                              value: <code>{selected.replica.localIndex ?? 'Unknown'}</code>,
-                            },
-                            {
-                              label: 'Source Raft index',
-                              value: <code>{selected.replica.sourceIndex ?? 'Unknown'}</code>,
-                            },
-                          ]
-                        : relationship.kind === 'snapshotRecovery'
-                          ? [
-                              {
-                                label: 'Last successful backup',
-                                value: <Timestamp value={source.backup?.lastSuccessAt ?? null} />,
-                              },
-                              {
-                                label: 'Target restore',
-                                value: target.recovery
-                                  ? recoveryPhases[target.recovery.phase]
-                                  : 'Not observed',
-                              },
-                            ]
-                          : []),
-                    ]}
-                  />
-                </div>
-                <div className="inspector-links">
-                  <Link
-                    to="/deployments/$deploymentId"
-                    params={{ deploymentId: selected.id }}
-                    className="text-link"
-                  >
-                    View deployment
-                    <ArrowRight size={14} />
-                  </Link>
-                  {relationship.kind === 'snapshotRecovery' && (
-                    <Link
-                      to="/recovery/$relationshipId"
-                      params={{ relationshipId: relationship.id }}
-                      className="text-link"
-                    >
-                      Inspect recovery path
-                      <ArrowRight size={14} />
-                    </Link>
-                  )}
-                </div>
-              </div>
-            )}
-          </section>
+          <RelationshipList
+            relationships={relationships}
+            selected={relationship}
+            snapshot={snapshot}
+            onSelect={(id) => {
+              void navigate({
+                to: '/topology',
+                search: { ...search, relationship: id, deployment: '' },
+              })
+            }}
+          />
+          <RelationshipDetail
+            relationship={relationship}
+            snapshot={snapshot}
+            source={source}
+            target={target}
+            selected={selected}
+            onSelect={(id) => {
+              void navigate({
+                to: '/topology',
+                search: { ...search, relationship: relationship.id, deployment: id },
+              })
+            }}
+          />
         </div>
       ) : (
         <EmptyState title="No relationships configured" icon={GitBranch}>

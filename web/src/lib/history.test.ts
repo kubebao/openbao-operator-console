@@ -2,13 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { Deployment } from '../api/schema'
 import { assessConditions } from './conditions'
 import type { Observation } from './history'
-import {
-  backupEvents,
-  conditionTransitions,
-  describeChange,
-  describeHistory,
-  stateBand,
-} from './history'
+import { describeChange } from './changes'
+import { backupEvents, conditionTransitions, describeHistory, stateBand } from './history'
 
 function deployment(overrides: Partial<Deployment> = {}): Deployment {
   return {

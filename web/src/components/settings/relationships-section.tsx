@@ -1,5 +1,6 @@
 import { GitBranch, Plus } from 'lucide-react'
 import type { Configuration, ManagedRelationship } from '../../api/schema'
+import { relationshipKindLabels } from '../../lib/format'
 import { EmptyState } from '../page'
 import { Button } from '../ui/button'
 
@@ -32,8 +33,7 @@ export function RelationshipsSection({
                 {item.target.name}
               </h3>
               <p>
-                {item.kind === 'replication' ? 'Remote read replica' : 'Snapshot recovery'} ·{' '}
-                {item.id}
+                {relationshipKindLabels[item.kind]} · {item.id}
               </p>
             </div>
             <div className="row-actions">

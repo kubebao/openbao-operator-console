@@ -1,4 +1,4 @@
-import type { Deployment, Snapshot } from '../api/schema'
+import type { Deployment, Relationship, Snapshot } from '../api/schema'
 
 function span(seconds: number): string {
   const minutes = Math.floor(seconds / 60)
@@ -144,3 +144,8 @@ export const provenanceLabels = {
   observed: 'Observed',
   historical: 'Historical',
 } as const
+
+export const relationshipKindLabels: Record<Relationship['kind'], string> = {
+  replication: 'Remote read replica',
+  snapshotRecovery: 'Snapshot recovery',
+}
