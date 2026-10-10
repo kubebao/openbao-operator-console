@@ -1,21 +1,21 @@
 import { Slot } from '@radix-ui/react-slot'
-import { cva } from 'class-variance-authority'
-import { clsx } from 'clsx'
-import { twMerge } from 'tailwind-merge'
 import type { ComponentProps } from 'react'
 
-const variants = cva('button', {
-  variants: {
-    variant: {
-      default: 'button-primary',
-      outline: 'button-outline',
-      ghost: 'button-ghost',
-      danger: 'button-danger',
-    },
-    size: { default: '', icon: 'button-icon', small: 'button-small' },
-  },
-  defaultVariants: { variant: 'outline', size: 'default' },
-})
+type Variant = 'default' | 'outline' | 'ghost' | 'danger'
+type Size = 'default' | 'icon' | 'small'
+
+const variants: Record<Variant, string> = {
+  default: 'button-primary',
+  outline: 'button-outline',
+  ghost: 'button-ghost',
+  danger: 'button-danger',
+}
+
+const sizes: Record<Size, string | undefined> = {
+  default: undefined,
+  icon: 'button-icon',
+  small: 'button-small',
+}
 
 export function Button({
   className,
@@ -24,10 +24,11 @@ export function Button({
   asChild = false,
   ...props
 }: ComponentProps<'button'> & {
-  variant?: 'default' | 'outline' | 'ghost' | 'danger'
-  size?: 'default' | 'icon' | 'small'
+  variant?: Variant
+  size?: Size
   asChild?: boolean
 }) {
   const Component = asChild ? Slot : 'button'
-  return <Component className={twMerge(clsx(variants({ variant, size }), className))} {...props} />
+  const classes = ['button', variants[variant], sizes[size], className]
+  return <Component className={classes.filter(Boolean).join(' ')} {...props} />
 }

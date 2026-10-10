@@ -1,4 +1,7 @@
-@import 'tailwindcss';
+@layer reset, utilities;
+
+@import './styles/reset.css';
+@import './styles/utilities.css';
 
 :root {
   /* OpenBao brand: DM Sans for text, primary #336d5c and shadow green #79c0ab for interaction,
