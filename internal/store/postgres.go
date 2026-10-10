@@ -17,14 +17,11 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/store/database"
 )
 
-//go:embed migrations/001_initial.sql
+// schemaVersion identifies schema.sql. Pre-release databases are not migrated.
+const schemaVersion = 1
+
+//go:embed schema.sql
 var schema string
-
-//go:embed migrations/002_configuration.sql
-var configurationSchema string
-
-//go:embed migrations/003_credentials.sql
-var credentialSchema string
 
 type Postgres struct {
 	pool      *pgxpool.Pool
@@ -57,51 +54,44 @@ func Open(ctx context.Context, dsn string, retention time.Duration) (*Postgres, 
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(694263281)"); err != nil {
+	if err := initialize(ctx, tx); err != nil {
 		return nil, err
-	}
-	if _, err := tx.Exec(
-		ctx,
-		"CREATE TABLE IF NOT EXISTS console_schema_migration (version integer PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())",
-	); err != nil {
-		return nil, err
-	}
-	var version int
-	if err := tx.QueryRow(ctx, "SELECT COALESCE(MAX(version), 0) FROM console_schema_migration").Scan(&version); err != nil {
-		return nil, err
-	}
-	if version > 3 {
-		return nil, errors.New("database schema is newer than this application")
-	}
-	if version == 0 {
-		if _, err := tx.Exec(ctx, schema); err != nil {
-			return nil, fmt.Errorf("initialize schema: %w", err)
-		}
-		if _, err := tx.Exec(ctx, "INSERT INTO console_schema_migration(version) VALUES (1)"); err != nil {
-			return nil, err
-		}
-	}
-	if version < 2 {
-		if _, err := tx.Exec(ctx, configurationSchema); err != nil {
-			return nil, fmt.Errorf("migrate configuration schema: %w", err)
-		}
-		if _, err := tx.Exec(ctx, "INSERT INTO console_schema_migration(version) VALUES (2)"); err != nil {
-			return nil, err
-		}
-	}
-	if version < 3 {
-		if _, err := tx.Exec(ctx, credentialSchema); err != nil {
-			return nil, fmt.Errorf("migrate credential schema: %w", err)
-		}
-		if _, err := tx.Exec(ctx, "INSERT INTO console_schema_migration(version) VALUES (3)"); err != nil {
-			return nil, err
-		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	success = true
 	return &Postgres{pool: pool, retention: retention}, nil
+}
+
+// initialize creates the schema in an empty database. An advisory lock serializes
+// concurrent starts.
+func initialize(ctx context.Context, tx pgx.Tx) error {
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(694263281)"); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(
+		ctx,
+		"CREATE TABLE IF NOT EXISTS console_schema_migration (version integer PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())",
+	); err != nil {
+		return err
+	}
+	var version int
+	if err := tx.QueryRow(ctx, "SELECT COALESCE(MAX(version), 0) FROM console_schema_migration").Scan(&version); err != nil {
+		return err
+	}
+	switch version {
+	case schemaVersion:
+		return nil
+	case 0:
+		if _, err := tx.Exec(ctx, schema); err != nil {
+			return fmt.Errorf("initialize schema: %w", err)
+		}
+		_, err := tx.Exec(ctx, "INSERT INTO console_schema_migration(version) VALUES ($1)", schemaVersion)
+		return err
+	default:
+		return fmt.Errorf("database schema version %d is not supported; recreate the database", version)
+	}
 }
 
 // Database containers can become reachable after the application starts. Retry

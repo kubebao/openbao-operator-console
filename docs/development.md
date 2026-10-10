@@ -18,7 +18,7 @@ workflow and conventions, and [installation](installation.md) for running the co
 | `internal/httpapi` | HTTP API, contract projection, and embedded web assets |
 | `internal/renewal` | ServiceAccount token renewal worker |
 | `internal/settings` | Versioned, encrypted console configuration |
-| `internal/store` | PostgreSQL persistence, migrations, and sqlc queries |
+| `internal/store` | PostgreSQL persistence, schema, and sqlc queries |
 | `internal/view` | Reconciles retained observations with current enrollment and marks stale evidence |
 | `api/openapi.yaml` | API contract; Go and TypeScript types are generated from it |
 | `web/` | React application, unit tests (`src`), browser tests (`e2e`), and screenshot capture (`screenshots`) |

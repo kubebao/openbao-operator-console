@@ -119,13 +119,10 @@ func Open(ctx context.Context, repository Repository, key []byte, initial *confi
 		}
 		result.credentials[row.ConnectionID] = StoredCredential{Revision: row.Revision, State: state}
 	}
-	legacy := false
 	for i := range configuration.Connections {
 		connection := &configuration.Connections[i]
 		if connection.Credential != nil {
-			legacy = true
-			connection.Remote = true
-			continue
+			return nil, errors.New("stored configuration is invalid")
 		}
 		if connection.Remote {
 			stored, found := result.credentials[connection.ID]
@@ -144,17 +141,6 @@ func Open(ctx context.Context, repository Repository, key []byte, initial *confi
 	}
 	result.configuration = configuration
 	result.revision = stored.Revision
-	if legacy {
-		if _, err := result.Save(
-			ctx,
-			stored.Revision,
-			configuration,
-			"system",
-			"Reader credentials migrated to independent encrypted records",
-		); err != nil {
-			return nil, fmt.Errorf("migrate reader credentials: %w", err)
-		}
-	}
 	return result, nil
 }
 

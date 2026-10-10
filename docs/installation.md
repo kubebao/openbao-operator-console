@@ -34,8 +34,9 @@ CREATE USER console WITH PASSWORD '<generated password>';
 CREATE DATABASE console OWNER console;
 ```
 
-The console creates and migrates its schema at startup under a transaction lock, so the user needs privileges to create
-tables in that database. A startup refuses a database schema newer than the binary supports.
+The console creates its schema at startup under a transaction lock, so the user needs privileges to create tables in
+that database. A startup refuses a database whose schema version the binary does not support. Pre-release databases
+are not migrated; recreate them when a startup reports an unsupported version.
 
 Use a connection URL such as `postgres://console:<password>@db.example.com:5432/console?sslmode=verify-full`.
 Use TLS with certificate verification for any database outside the console's cluster network.

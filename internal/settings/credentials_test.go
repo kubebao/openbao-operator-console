@@ -146,33 +146,15 @@ func TestDelayedRenewalCannotUndoReplacementPauseRemovalOrPolicyChange(t *testin
 	}
 }
 
-func TestCredentialMigrationIsAtomicAndRunsOnce(t *testing.T) {
+func TestStoredRemoteConnectionRequiresItsCredential(t *testing.T) {
 	ctx := context.Background()
 	repository := &memoryRepository{}
 	key := bytes.Repeat([]byte{5}, 32)
-	service, err := Open(ctx, repository, key, nil)
-	if err != nil {
+	if _, err := New(ctx, repository, key, renewableSeed()); err != nil {
 		t.Fatal(err)
 	}
-	// Encode the schema-2 configuration format using the original AEAD contract.
-	legacy, err := service.encrypt(renewableSeed())
-	if err != nil {
+	if _, err := Open(ctx, repository, key, nil); err != nil {
 		t.Fatal(err)
-	}
-	repository.record = Record{Revision: 4, Payload: legacy}
-	service, err = Open(ctx, repository, key, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, revision := service.Current(); revision != 5 || len(repository.credentials) != 1 || len(repository.changes) != 1 {
-		t.Fatal("legacy credential migration did not commit once")
-	}
-	service, err = Open(ctx, repository, key, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, revision := service.Current(); revision != 5 || len(repository.changes) != 1 {
-		t.Fatal("migration repeated after restart")
 	}
 	delete(repository.credentials, "cluster")
 	if _, err := Open(ctx, repository, key, nil); err == nil {
