@@ -265,7 +265,6 @@
       // Known structural debt. Remove a file from this list when it is split.
       "files": [
         "e2e/onboarding.spec.ts",
-        "src/components/connection-editor.tsx",
         "src/components/deployment/charts.tsx",
         "src/components/deployment/lifecycle.tsx",
         "src/components/deployment/overview.tsx",
@@ -275,7 +274,6 @@
         "src/lib/conditions.ts",
         "src/lib/history.ts",
         "src/pages/attention.tsx",
-        "src/pages/cluster-onboarding.tsx",
         "src/pages/clusters.tsx",
         "src/pages/deployment.tsx",
         "src/pages/fleet.tsx",

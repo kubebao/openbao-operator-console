@@ -543,7 +543,6 @@ function AdministrationPage() {
       {connection && (
         <ConnectionEditor
           initial={connection}
-          existing
           onClose={() => {
             setConnection(null)
           }}

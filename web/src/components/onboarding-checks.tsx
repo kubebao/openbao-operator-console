@@ -1,4 +1,4 @@
-import type { ConnectionCheckResult } from '../api/schema'
+import type { ConnectionCheckResult, ManagedConnection } from '../api/schema'
 import { capabilityCheckLabels, operatorCheckLabels } from '../lib/format'
 import { Callout, DetailRows } from './page'
 import { HealthBadge, Timestamp } from './status'
@@ -123,6 +123,50 @@ export function OnboardingChecks({
           </ul>
         )}
       </section>
+    </section>
+  )
+}
+
+// ConnectionCheckSummary reports a connection check inside the connection editor.
+export function ConnectionCheckSummary({
+  result,
+  connection,
+}: {
+  result: ConnectionCheckResult
+  connection: ManagedConnection
+}) {
+  const verified = result.diagnostics.state === 'available'
+  return (
+    <section className="connection-check">
+      <Callout
+        tone={verified ? 'success' : 'error'}
+        title={verified ? 'Reader access verified' : 'Connection needs attention'}
+      >
+        {result.diagnostics.message}
+      </Callout>
+      <CredentialLifetime
+        expiry={result.credentialExpiry}
+        local={connection.authentication === 'local'}
+        renewal={!!connection.renewal}
+      />
+      <ul>
+        {result.connection.capabilities.map((capability) => (
+          <li key={`${capability.namespace}/${capability.resource}`}>
+            {capability.namespace} / {capability.resource}
+            <span>{capabilityCheckLabels[capability.state]}</span>
+          </li>
+        ))}
+        {result.connection.operators.map((operator) => (
+          <li key={operator.id}>
+            {operator.namespace}/{operator.name}
+            <span>{operatorCheckLabels[operator.collection]}</span>
+          </li>
+        ))}
+      </ul>
+      <details>
+        <summary>Reader RBAC manifests</summary>
+        <textarea aria-label="Reader RBAC manifests" readOnly rows={8} value={result.rbac} />
+      </details>
     </section>
   )
 }
