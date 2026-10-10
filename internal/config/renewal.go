@@ -1,10 +1,7 @@
 package config
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"errors"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/util/validation"
 )
@@ -31,19 +28,13 @@ func (c Connection) ValidateRenewal() error {
 		}
 		// This declaration selects the supported credential mode; it does not
 		// authenticate the token. Kubernetes authorizes every TokenRequest.
-		parts := strings.Split(credential.Token, ".")
-		if len(parts) != 3 || len(credential.Token) > 16384 {
-			return errors.New("automatic renewal requires a ServiceAccount JWT")
-		}
-		payload, err := base64.RawURLEncoding.DecodeString(parts[1])
-		if err != nil {
-			return errors.New("automatic renewal requires a ServiceAccount JWT")
-		}
 		var claims struct {
 			Subject string `json:"sub"`
 		}
-		if json.Unmarshal(payload, &claims) != nil ||
-			claims.Subject != "system:serviceaccount:"+c.Renewal.Namespace+":"+c.Renewal.ServiceAccount {
+		if err := tokenClaims(credential.Token, &claims); err != nil {
+			return errors.New("automatic renewal requires a ServiceAccount JWT")
+		}
+		if claims.Subject != "system:serviceaccount:"+c.Renewal.Namespace+":"+c.Renewal.ServiceAccount {
 			return errors.New("token subject must match the renewal ServiceAccount")
 		}
 	}

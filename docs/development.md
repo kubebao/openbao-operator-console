@@ -16,6 +16,7 @@ workflow and conventions, and [installation](installation.md) for running the co
 | `internal/evidence` | Attention rules |
 | `internal/fleet` | Domain model for deployments, connections, and controllers; defines the stored observation format |
 | `internal/httpapi` | HTTP API, contract projection, and embedded web assets |
+| `internal/kube` | Kubernetes REST clients for embedded reader credentials; never follow redirects |
 | `internal/renewal` | ServiceAccount token renewal worker |
 | `internal/settings` | Versioned, encrypted console configuration |
 | `internal/store` | PostgreSQL persistence, schema, and sqlc queries |

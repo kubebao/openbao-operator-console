@@ -134,23 +134,10 @@ func run() error {
 			if enrollment.Identity == nil {
 				return errors.New("identity provider is not configured")
 			}
-			identity := enrollment.Identity
-			providerContext, err := auth.ProviderContextPEM(startup, []byte(identity.CA))
+			authentication, err = auth.Discover(startup, *enrollment.Identity, callback, enrollment.Users)
 			if err != nil {
-				return err
+				return fmt.Errorf("authentication startup failed: %w", err)
 			}
-			authentication, err = auth.NewOIDC(
-				providerContext,
-				identity.Issuer,
-				identity.ClientID,
-				identity.ClientSecret,
-				callback,
-				enrollment.Users,
-			)
-			if err != nil {
-				return errors.New("authentication startup failed")
-			}
-			authentication.SetGroupsClaim(identity.GroupsClaim)
 		} else {
 			token, err := readSetupToken(os.Getenv("CONSOLE_SETUP_TOKEN_FILE"))
 			if err != nil {

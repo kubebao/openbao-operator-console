@@ -11,11 +11,10 @@ import (
 	"net/url"
 	"time"
 
-	"k8s.io/client-go/rest"
-
 	"github.com/kubebao/openbao-operator-console/internal/collector"
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
+	"github.com/kubebao/openbao-operator-console/internal/kube"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
@@ -37,18 +36,12 @@ func (KubernetesIssuer) Issue(ctx context.Context, connection config.Connection,
 		return fail(settings.RenewalReconnectRequired)
 	}
 	credential := *connection.Access.Credential
-	client, err := rest.HTTPClientFor(
-		&rest.Config{
-			Host:            credential.Server,
-			BearerToken:     credential.Token,
-			Timeout:         10 * time.Second,
-			TLSClientConfig: rest.TLSClientConfig{CAData: []byte(credential.CA)},
-		},
-	)
+	restConfig := kube.RESTConfig(credential)
+	restConfig.Timeout = 10 * time.Second
+	client, err := kube.HTTPClient(restConfig)
 	if err != nil {
 		return fail(settings.RenewalRetrying)
 	}
-	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	endpoint, err := url.JoinPath(
 		credential.Server,
 		"api/v1/namespaces",

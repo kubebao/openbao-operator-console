@@ -71,11 +71,8 @@ func NewPending() *Authenticator {
 }
 
 func NewOIDC(ctx context.Context, issuer, clientID, clientSecret, redirect string, users []config.User) (*Authenticator, error) {
-	callback, err := url.Parse(redirect)
-	if err != nil || callback.Scheme != "https" || callback.Host == "" || callback.Path != "/auth/callback" || callback.RawQuery != "" ||
-		callback.Fragment != "" ||
-		callback.User != nil {
-		return nil, errors.New("OIDC callback must be an HTTPS URL ending in /auth/callback")
+	if err := ValidCallback(redirect); err != nil {
+		return nil, err
 	}
 	identity, err := url.Parse(issuer)
 	if err != nil || !httpsEndpoint(identity) || identity.RawQuery != "" || identity.Fragment != "" || clientID == "" {

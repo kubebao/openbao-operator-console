@@ -10,7 +10,6 @@ import (
 	"errors"
 	"net"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -63,11 +62,8 @@ func NewSetup(
 	if !validSetupToken(value) {
 		return nil, errors.New("setup token must contain 32 random bytes encoded as 64 hexadecimal or 43 URL-safe base64 characters")
 	}
-	parsed, err := url.Parse(callback)
-	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.Path != "/auth/callback" || parsed.RawQuery != "" ||
-		parsed.Fragment != "" ||
-		parsed.User != nil {
-		return nil, errors.New("OIDC callback must be an HTTPS URL ending in /auth/callback")
+	if err := auth.ValidCallback(callback); err != nil {
+		return nil, err
 	}
 	if service == nil || authentication == nil || service.Initialized() {
 		return nil, errors.New("browser setup requires an uninitialized configuration")
@@ -302,17 +298,11 @@ func (s *Setup) identity(w http.ResponseWriter, request *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(request.Context(), 15*time.Second)
 	defer cancel()
-	providerContext, err := auth.ProviderContextPEM(ctx, []byte(identity.CA))
+	candidate, err := auth.Discover(ctx, identity, s.callback, nil)
 	if err != nil {
-		problem(w, http.StatusBadRequest, "invalid", "Check the identity provider CA certificate.")
+		writeProblem(w, discoveryProblem(err))
 		return
 	}
-	candidate, err := auth.NewOIDC(providerContext, identity.Issuer, identity.ClientID, identity.ClientSecret, s.callback, nil)
-	if err != nil {
-		problem(w, http.StatusBadRequest, "invalid", "Identity discovery failed. Check the issuer, HTTPS trust, and client settings.")
-		return
-	}
-	candidate.SetGroupsClaim(identity.GroupsClaim)
 	location, err := s.authentication.BeginSetup(w, candidate, func(ctx context.Context, subject string, _ []string) error {
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -323,20 +313,7 @@ func (s *Setup) identity(w http.ResponseWriter, request *http.Request) {
 		}
 		configuration := s.seed
 		configuration.Identity = &identity
-		configuration.Users = append([]config.User{}, configuration.Users...)
-		enrolled := false
-		for i := range configuration.Users {
-			if configuration.Users[i].Subject == subject {
-				configuration.Users[i].Admin = true
-				enrolled = true
-			}
-		}
-		if !enrolled {
-			configuration.Users = append(
-				configuration.Users,
-				config.User{Subject: subject, Name: subject, Admin: true, Scopes: []config.Scope{}},
-			)
-		}
+		configuration.GrantAdministrator(subject)
 		if err := s.settings.Initialize(ctx, configuration, subject); err != nil {
 			return err
 		}

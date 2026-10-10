@@ -5,8 +5,6 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -350,29 +348,12 @@ func (s *Service) notify() {
 }
 
 func (s *Service) encrypt(configuration config.Config) ([]byte, error) {
-	plaintext, err := json.Marshal(configuration)
-	if err != nil {
-		return nil, err
-	}
-	defer clear(plaintext)
-	nonce := make([]byte, s.cipher.NonceSize())
-	if _, err := rand.Read(nonce); err != nil {
-		return nil, err
-	}
-	return s.cipher.Seal(nonce, nonce, plaintext, []byte("console-configuration-v1")), nil
+	return s.seal(configuration, configurationPurpose)
 }
 
 func (s *Service) decrypt(payload []byte) (config.Config, error) {
 	var result config.Config
-	if len(payload) < s.cipher.NonceSize() {
-		return result, errors.New("invalid ciphertext")
-	}
-	plaintext, err := s.cipher.Open(nil, payload[:s.cipher.NonceSize()], payload[s.cipher.NonceSize():], []byte("console-configuration-v1"))
-	if err != nil {
-		return result, err
-	}
-	defer clear(plaintext)
-	err = json.Unmarshal(plaintext, &result)
+	err := s.unseal(payload, configurationPurpose, &result)
 	return result, err
 }
 

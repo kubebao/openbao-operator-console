@@ -3,9 +3,6 @@ package config
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
-	"encoding/json"
-	"strings"
 	"time"
 )
 
@@ -41,21 +38,10 @@ func (c *Credential) Expiry() CredentialExpiry {
 		expires := certificate.NotAfter.UTC()
 		return CredentialExpiry{ExpiresAt: &expires, Source: ExpiryCertificate}
 	}
-	if len(c.Token) > 16384 {
-		return unknown
-	}
-	parts := strings.Split(c.Token, ".")
-	if len(parts) != 3 {
-		return unknown
-	}
-	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return unknown
-	}
 	var declaration struct {
 		Expiry int64 `json:"exp"`
 	}
-	if json.Unmarshal(payload, &declaration) != nil || declaration.Expiry <= 0 || declaration.Expiry > 253402300799 {
+	if tokenClaims(c.Token, &declaration) != nil || declaration.Expiry <= 0 || declaration.Expiry > 253402300799 {
 		return unknown
 	}
 	expires := time.Unix(declaration.Expiry, 0).UTC()

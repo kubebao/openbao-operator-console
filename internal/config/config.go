@@ -56,6 +56,19 @@ type User struct {
 	Admin   bool    `json:"admin,omitempty"`
 }
 
+// GrantAdministrator makes a subject a console administrator, enrolling it when absent.
+// It never modifies the caller's user slice in place.
+func (c *Config) GrantAdministrator(subject string) {
+	c.Users = slices.Clone(c.Users)
+	for i := range c.Users {
+		if c.Users[i].Subject == subject {
+			c.Users[i].Admin = true
+			return
+		}
+	}
+	c.Users = append(c.Users, User{Subject: subject, Name: subject, Admin: true, Scopes: []Scope{}})
+}
+
 // CanView reports whether the user's scopes include a namespace of a connection.
 func (u User) CanView(connectionID, namespace string) bool {
 	for _, scope := range u.Scopes {

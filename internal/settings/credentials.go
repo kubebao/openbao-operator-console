@@ -2,8 +2,6 @@ package settings
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/json"
 	"errors"
 	"reflect"
 	"time"
@@ -181,38 +179,19 @@ func (s *Service) ApplyCollection(ctx context.Context, revision int64, generatio
 }
 
 func (s *Service) encryptCredential(id string, stored StoredCredential) (CredentialRecord, error) {
-	plaintext, err := json.Marshal(stored.State)
+	payload, err := s.seal(stored.State, credentialPurpose+id)
 	if err != nil {
 		return CredentialRecord{}, err
 	}
-	defer clear(plaintext)
-	nonce := make([]byte, s.cipher.NonceSize())
-	if _, err := rand.Read(nonce); err != nil {
-		return CredentialRecord{}, err
-	}
-	return CredentialRecord{
-		ConnectionID: id,
-		Revision:     stored.Revision,
-		Payload:      s.cipher.Seal(nonce, nonce, plaintext, []byte("console-reader-credential-v1:"+id)),
-	}, nil
+	return CredentialRecord{ConnectionID: id, Revision: stored.Revision, Payload: payload}, nil
 }
 
 func (s *Service) decryptCredential(row CredentialRecord) (CredentialState, error) {
 	var state CredentialState
-	if row.Revision < 1 || len(row.Payload) < s.cipher.NonceSize() {
+	if row.Revision < 1 {
 		return state, errors.New("invalid reader ciphertext")
 	}
-	plaintext, err := s.cipher.Open(
-		nil,
-		row.Payload[:s.cipher.NonceSize()],
-		row.Payload[s.cipher.NonceSize():],
-		[]byte("console-reader-credential-v1:"+row.ConnectionID),
-	)
-	if err != nil {
-		return state, err
-	}
-	defer clear(plaintext)
-	if err := json.Unmarshal(plaintext, &state); err != nil {
+	if err := s.unseal(row.Payload, credentialPurpose+row.ConnectionID, &state); err != nil {
 		return state, err
 	}
 	return state, state.validate()

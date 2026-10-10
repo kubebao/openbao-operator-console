@@ -415,10 +415,24 @@ func (s *Server) checkConnection(w http.ResponseWriter, r *http.Request, _ confi
 	return nil
 }
 
+// identityVerifier runs identity provider trials. Only OIDC authentication supports them.
+type identityVerifier interface {
+	BeginTrial(http.ResponseWriter, *auth.Authenticator, func(context.Context, string, []string) error) (string, error)
+	ReplaceProvider(*auth.Authenticator)
+}
+
+// discoveryProblem distinguishes an unusable CA from a failed discovery.
+func discoveryProblem(err error) error {
+	if errors.Is(err, auth.ErrProviderCA) {
+		return badRequest("Check the identity provider CA certificate.")
+	}
+	return badRequest("Identity discovery failed. Check the issuer, HTTPS trust, and client settings.")
+}
+
 // identityTrial activates a candidate identity provider only after an enrolled
 // administrator signs in through it.
 func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request, actor config.User) error {
-	authentication, ok := s.Auth.(*auth.Authenticator)
+	verifier, ok := s.Auth.(identityVerifier)
 	if !ok {
 		return retryLater("Identity setup is unavailable.")
 	}
@@ -446,23 +460,11 @@ func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request, actor con
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
-	providerContext, err := auth.ProviderContextPEM(ctx, []byte(candidateIdentity.CA))
+	candidate, err := auth.Discover(ctx, candidateIdentity, s.Origin+"/auth/callback", nil)
 	if err != nil {
-		return badRequest("Check the identity provider CA certificate.")
+		return discoveryProblem(err)
 	}
-	candidate, err := auth.NewOIDC(
-		providerContext,
-		candidateIdentity.Issuer,
-		candidateIdentity.ClientID,
-		candidateIdentity.ClientSecret,
-		s.Origin+"/auth/callback",
-		nil,
-	)
-	if err != nil {
-		return badRequest("Identity discovery failed. Check the issuer, HTTPS trust, and client settings.")
-	}
-	candidate.SetGroupsClaim(candidateIdentity.GroupsClaim)
-	location, err := authentication.BeginTrial(w, candidate, func(ctx context.Context, subject string, groups []string) error {
+	location, err := verifier.BeginTrial(w, candidate, func(ctx context.Context, subject string, groups []string) error {
 		if candidateUser, allowed := s.Settings.Resolve(ctx, subject, groups); !allowed || !candidateUser.Admin {
 			return errors.New("candidate login is not an enrolled administrator")
 		}
@@ -477,7 +479,7 @@ func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request, actor con
 		if _, err := s.Settings.Save(ctx, revision, latest, actor.Subject, "Identity provider verified and activated"); err != nil {
 			return err
 		}
-		authentication.ReplaceProvider(candidate)
+		verifier.ReplaceProvider(candidate)
 		return nil
 	})
 	if err != nil {

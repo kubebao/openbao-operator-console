@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"slices"
 	"sync"
 	"time"
@@ -21,6 +20,7 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/evidence"
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
+	"github.com/kubebao/openbao-operator-console/internal/kube"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 	"github.com/kubebao/openbao-operator-console/internal/store"
 )
@@ -46,15 +46,7 @@ func clientConfig(connection config.Connection) (*rest.Config, error) {
 		if err := access.Credential.Validate(); err != nil {
 			return nil, err
 		}
-		return &rest.Config{
-			Host:        access.Credential.Server,
-			BearerToken: access.Credential.Token,
-			TLSClientConfig: rest.TLSClientConfig{
-				CAData:   []byte(access.Credential.CA),
-				CertData: []byte(access.Credential.Certificate),
-				KeyData:  []byte(access.Credential.Key),
-			},
-		}, nil
+		return kube.RESTConfig(*access.Credential), nil
 	case config.AccessKubeconfig:
 		loading := &clientcmd.ClientConfigLoadingRules{ExplicitPath: access.Kubeconfig}
 		overrides := &clientcmd.ConfigOverrides{CurrentContext: access.Context}
@@ -73,12 +65,10 @@ func New(connection config.Connection, policy fleet.Policy) (*Reader, error) {
 	}
 	restConfig.Timeout = 10 * time.Second
 	restConfig.UserAgent = "openbao-operator-console/0.1"
-	httpClient, err := rest.HTTPClientFor(restConfig)
+	httpClient, err := kube.HTTPClient(restConfig)
 	if err != nil {
 		return nil, err
 	}
-	// Reader credentials must never follow a redirect to another endpoint.
-	httpClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	client, err := dynamic.NewForConfigAndClient(restConfig, httpClient)
 	if err != nil {
 		return nil, err

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -39,21 +40,6 @@ func bootstrapAdministrators() []string {
 	return result
 }
 
-func enrollAdministrators(configuration *config.Config, subjects []string) {
-	for _, subject := range subjects {
-		found := false
-		for i := range configuration.Users {
-			if configuration.Users[i].Subject == subject {
-				configuration.Users[i].Admin = true
-				found = true
-			}
-		}
-		if !found {
-			configuration.Users = append(configuration.Users, config.User{Subject: subject, Name: subject, Admin: true})
-		}
-	}
-}
-
 func bootstrapIdentity() (*config.Identity, error) {
 	identity := &config.Identity{
 		Issuer:       os.Getenv("CONSOLE_OIDC_ISSUER"),
@@ -85,7 +71,9 @@ func bootstrapSeed(path string) (config.Config, error) {
 			return configuration, err
 		}
 	}
-	enrollAdministrators(&configuration, bootstrapAdministrators())
+	for _, subject := range bootstrapAdministrators() {
+		configuration.GrantAdministrator(subject)
+	}
 	if os.Getenv("CONSOLE_OIDC_ISSUER") != "" || os.Getenv("CONSOLE_OIDC_CLIENT_ID") != "" ||
 		os.Getenv("CONSOLE_OIDC_CLIENT_SECRET") != "" {
 		identity, err := bootstrapIdentity()
@@ -108,22 +96,13 @@ func recoverConfiguration(ctx context.Context, service *settings.Service) error 
 	if err != nil {
 		return err
 	}
-	providerContext, err := auth.ProviderContextPEM(ctx, []byte(identity.CA))
-	if err != nil {
-		return err
-	}
-	if _, err := auth.NewOIDC(
-		providerContext,
-		identity.Issuer,
-		identity.ClientID,
-		identity.ClientSecret,
-		os.Getenv("CONSOLE_OIDC_REDIRECT_URL"),
-		nil,
-	); err != nil {
-		return errors.New("recovery identity discovery failed")
+	if _, err := auth.Discover(ctx, *identity, os.Getenv("CONSOLE_OIDC_REDIRECT_URL"), nil); err != nil {
+		return fmt.Errorf("recovery identity discovery failed: %w", err)
 	}
 	configuration, revision := service.Current()
-	enrollAdministrators(&configuration, subjects)
+	for _, subject := range subjects {
+		configuration.GrantAdministrator(subject)
+	}
 	configuration.Identity = identity
 	_, err = service.Save(ctx, revision, configuration, "local-recovery", "Identity provider and administrators recovered")
 	return err
