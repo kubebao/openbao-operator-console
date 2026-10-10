@@ -43,10 +43,6 @@ linters:
       # Tests use fixed fixture credentials, cookies, and fake redirect targets.
       - path: _test\.go
         linters: [gosec]
-      # Known complexity debt. Remove each entry when its function is split.
-      - linters: [gocognit]
-        path: _test\.go
-        text: "func `(TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay|TestReaderRBACNamesAreStableAndConnectionScoped|testLiveSession|TestConnectionCheckProjectsPreviewWithoutPersistingOrExposingCredentials|TestIssuerOnlyCreatesNamedTokenThenValidatesScopedReads|TestPostgresConfigurationRestartAndConcurrentRevision)`"
 
 formatters:
   enable:

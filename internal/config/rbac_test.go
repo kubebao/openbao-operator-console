@@ -2,6 +2,7 @@ package config
 
 import (
 	"bytes"
+	"slices"
 	"strings"
 	"testing"
 
@@ -48,77 +49,70 @@ func TestOperatorEnrollmentAndNamedRBAC(t *testing.T) {
 	}
 }
 
-func TestReaderRBACNamesAreStableAndConnectionScoped(t *testing.T) {
-	first := Connection{
+func controllerConnection(id, deployment string) Connection {
+	return Connection{
 		Access:     Access{Mode: AccessInCluster},
-		ID:         "first",
-		Name:       "First",
+		ID:         id,
+		Name:       id,
 		Namespaces: []Namespace{{Name: "team", Environment: "other"}},
 		Operators: []Operator{
-			{ID: "operator", Namespace: "system", Deployment: "first-controller", Container: "manager", Namespaces: []string{"team"}},
+			{ID: "operator", Namespace: "system", Deployment: deployment, Container: "manager", Namespaces: []string{"team"}},
 		},
 	}
-	second := Connection{
-		Access:     Access{Mode: AccessInCluster},
-		ID:         "second",
-		Name:       "Second",
-		Namespaces: []Namespace{{Name: "team", Environment: "other"}},
-		Operators: []Operator{
-			{ID: "operator", Namespace: "system", Deployment: "second-controller", Container: "manager", Namespaces: []string{"team"}},
-		},
+}
+
+// readerRoleNames writes reader RBAC and returns the manifest and its role names. It fails
+// when a manifest changes the reader identity or references another connection's role.
+func readerRoleNames(t *testing.T, connection Connection, account string) (string, []string) {
+	t.Helper()
+	var output bytes.Buffer
+	if err := WriteRBAC(&output, connection, account, "console"); err != nil {
+		t.Fatal(err)
 	}
-	roleNames := func(connection Connection, account string) (string, []string) {
-		t.Helper()
-		var output bytes.Buffer
-		if err := WriteRBAC(&output, connection, account, "console"); err != nil {
+	names := []string{}
+	for _, document := range strings.Split(output.String(), "---\n") {
+		if document == "" {
+			continue
+		}
+		var manifest struct {
+			Kind     string `json:"kind"`
+			Metadata struct {
+				Name string `json:"name"`
+			} `json:"metadata"`
+			RoleRef struct {
+				Name string `json:"name"`
+			} `json:"roleRef"`
+		}
+		if err := yaml.Unmarshal([]byte(document), &manifest); err != nil {
 			t.Fatal(err)
 		}
-		names := []string{}
-		for _, document := range strings.Split(output.String(), "---\n") {
-			if document == "" {
-				continue
-			}
-			var manifest struct {
-				Kind     string `json:"kind"`
-				Metadata struct {
-					Name string `json:"name"`
-				} `json:"metadata"`
-				RoleRef struct {
-					Name string `json:"name"`
-				} `json:"roleRef"`
-			}
-			if err := yaml.Unmarshal([]byte(document), &manifest); err != nil {
-				t.Fatal(err)
-			}
-			if manifest.Kind == "ServiceAccount" {
-				if manifest.Metadata.Name != account {
-					t.Fatal("generated RBAC changed the reader identity")
-				}
-				continue
-			}
-			if len(validation.IsDNS1123Subdomain(manifest.Metadata.Name)) != 0 || manifest.Metadata.Name == account+"-reader" {
-				t.Fatal("role name was invalid or collided with the Helm reader role")
-			}
-			if manifest.Kind == "RoleBinding" && manifest.RoleRef.Name != manifest.Metadata.Name {
-				t.Fatal("role binding referenced a different connection's role")
-			}
-			names = append(names, manifest.Metadata.Name)
+		name := manifest.Metadata.Name
+		switch {
+		case manifest.Kind == "ServiceAccount" && name != account:
+			t.Fatal("generated RBAC changed the reader identity")
+		case manifest.Kind == "ServiceAccount":
+			continue
+		case len(validation.IsDNS1123Subdomain(name)) != 0 || name == account+"-reader":
+			t.Fatal("role name was invalid or collided with the Helm reader role")
+		case manifest.Kind == "RoleBinding" && manifest.RoleRef.Name != name:
+			t.Fatal("role binding referenced a different connection's role")
 		}
-		return output.String(), names
+		names = append(names, name)
 	}
-	manifest, names := roleNames(first, "console-reader")
-	if repeated, _ := roleNames(first, "console-reader"); repeated != manifest {
+	return output.String(), names
+}
+
+func TestReaderRBACNamesAreStableAndConnectionScoped(t *testing.T) {
+	first := controllerConnection("first", "first-controller")
+	manifest, names := readerRoleNames(t, first, "console-reader")
+	if repeated, _ := readerRoleNames(t, first, "console-reader"); repeated != manifest {
 		t.Fatal("same enrollment generated different role identities")
 	}
-	_, other := roleNames(second, "console-reader")
-	for _, name := range names {
-		for _, different := range other {
-			if name == different {
-				t.Fatal("two connections sharing namespaces overwrote the same reader role")
-			}
-		}
+	_, other := readerRoleNames(t, controllerConnection("second", "second-controller"), "console-reader")
+	if slices.ContainsFunc(names, func(name string) bool { return slices.Contains(other, name) }) {
+		t.Fatal("two connections sharing namespaces overwrote the same reader role")
 	}
-	roleNames(first, strings.Repeat("a", 253))
+	readerRoleNames(t, first, strings.Repeat("a", 253))
 }
 
 func TestReaderRBACRejectsInvalidScopeBeforeWriting(t *testing.T) {

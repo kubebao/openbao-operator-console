@@ -2,8 +2,6 @@ package store
 
 import (
 	"context"
-	"net/url"
-	"os"
 	"testing"
 	"time"
 
@@ -11,22 +9,8 @@ import (
 )
 
 func TestPostgresRetainsFirstSeenAcrossRestartAndFailedCollection(t *testing.T) {
-	dsn := os.Getenv("CONSOLE_TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("set CONSOLE_TEST_DATABASE_URL to an isolated console_test database")
-	}
-	parsed, err := url.Parse(dsn)
-	if err != nil || parsed.Path != "/console_test" {
-		t.Fatal("integration test requires an isolated database named console_test")
-	}
 	ctx := context.Background()
-	open := func() *Postgres {
-		p, err := Open(ctx, dsn, 7*24*time.Hour)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return p
-	}
+	open := isolatedDatabase(t)
 	p := open()
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	id := "test-" + now.Format("150405.000000")

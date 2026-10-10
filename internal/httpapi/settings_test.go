@@ -16,6 +16,7 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/collector"
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
@@ -112,14 +113,10 @@ func TestReaderAccessBeforeCredentialsIsScopedAndAdministratorOnly(t *testing.T)
 	}
 }
 
-func TestConnectionCheckProjectsPreviewWithoutPersistingOrExposingCredentials(t *testing.T) {
-	service := configurationService(t)
-	configured, baseRevision := service.Current()
-	configured.MaxBackupAgeHours, configured.StartupGraceMinutes = 12, 10
-	if _, err := service.Save(context.Background(), baseRevision, configured, "admin", "Configure preview policy"); err != nil {
-		t.Fatal(err)
-	}
-	now := time.Now().UTC()
+// previewCluster serves two OpenBaoClusters to the private reader token: one with a
+// 14-hour-old backup and one created five minutes ago. Optional APIs are forbidden.
+func previewCluster(t *testing.T, now time.Time) *httptest.Server {
+	t.Helper()
 	resources := fmt.Sprintf(
 		`{
 			"apiVersion": "openbao.org/v1alpha1",
@@ -164,26 +161,79 @@ func TestConnectionCheckProjectsPreviewWithoutPersistingOrExposingCredentials(t 
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
-	defer cluster.Close()
-	connection := contract.ManagedConnection{
-		Id:             "preview",
-		Name:           "Preview",
-		Authentication: "remote",
-		Namespaces:     []contract.ManagedNamespace{{Name: "team", Environment: "other"}},
+	t.Cleanup(cluster.Close)
+	return cluster
+}
+
+func TestConnectionCheckProjectsPreviewWithoutPersistingOrExposingCredentials(t *testing.T) {
+	service := configurationService(t)
+	configured, baseRevision := service.Current()
+	configured.MaxBackupAgeHours, configured.StartupGraceMinutes = 12, 10
+	if _, err := service.Save(context.Background(), baseRevision, configured, "admin", "Configure preview policy"); err != nil {
+		t.Fatal(err)
 	}
-	payload, err := json.Marshal(
-		contract.ConnectionCheck{
-			Connection: connection,
-			Credential: &contract.ClusterCredential{
-				Server: cluster.URL,
-				Ca:     string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cluster.Certificate().Raw})),
-				Token:  "private-reader-token",
-			},
+	now := time.Now().UTC()
+	cluster := previewCluster(t, now)
+	credential := config.Credential{
+		Server: cluster.URL,
+		CA:     string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cluster.Certificate().Raw})),
+		Token:  "private-reader-token",
+	}
+	payload, err := json.Marshal(contract.ConnectionCheck{
+		Connection: contract.ManagedConnection{
+			Id:             "preview",
+			Name:           "Preview",
+			Authentication: "remote",
+			Namespaces:     []contract.ManagedNamespace{{Name: "team", Environment: "other"}},
 		},
-	)
+		Credential: &contract.ClusterCredential{Server: credential.Server, Ca: credential.CA, Token: credential.Token},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	result, body := postConnectionCheck(t, service, payload)
+	t.Run("inventory and optional APIs", func(t *testing.T) {
+		if len(result.Deployments) != 2 || result.Deployments[0].Name != "bao" || result.Deployments[0].Recovery != nil ||
+			result.Diagnostics.State != "available" || result.Connection.Capabilities[1].State != "denied" {
+			t.Fatal("preview lost workload inventory or hid optional API limitations")
+		}
+	})
+	t.Run("saved policy", func(t *testing.T) {
+		if bao := result.Deployments[0]; bao.Health != "attention" || len(bao.Issues) != 1 || bao.Issues[0].Rule != "backup-overdue" {
+			t.Fatal("preview did not apply the configured 12-hour backup threshold to a 14-hour-old backup")
+		}
+		if starting := result.Deployments[1]; starting.Health != "unknown" || len(starting.Issues) != 0 {
+			t.Fatal("preview ignored the configured startup grace for a newly created deployment")
+		}
+	})
+	t.Run("matches collection", func(t *testing.T) {
+		connection := config.Connection{
+			ID:         "preview",
+			Name:       "Preview",
+			Namespaces: []config.Namespace{{Name: "team", Environment: "other"}},
+			Access:     config.Access{Mode: config.AccessRemote, Credential: &credential},
+		}
+		assertMatchesCollection(t, connection, configured.Policy(), now, result.Deployments)
+	})
+	t.Run("no private data", func(t *testing.T) {
+		for _, private := range []string{"private-reader-token", "private-resource-field", "private-server-message"} {
+			if strings.Contains(body, private) {
+				t.Fatal("check exposed private input or unapproved Kubernetes data")
+			}
+		}
+	})
+	t.Run("nothing persisted", func(t *testing.T) {
+		current, revision := service.Current()
+		if revision != 2 || len(current.Connections) != 1 || current.Connections[0].ID != "cluster" {
+			t.Fatal("checking a connection changed persisted enrollment")
+		}
+	})
+}
+
+// postConnectionCheck runs a connection check as an administrator and returns the decoded
+// result and the raw response body.
+func postConnectionCheck(t *testing.T, service *settings.Service, payload []byte) (contract.ConnectionCheckResult, string) {
+	t.Helper()
 	handler := (&Server{
 		Fleet:    &memoryFleet{},
 		Auth:     viewerAuth{user: config.User{Subject: "admin", Admin: true}, allowed: true},
@@ -195,65 +245,47 @@ func TestConnectionCheckProjectsPreviewWithoutPersistingOrExposingCredentials(t 
 	request.Header.Set("Origin", "https://console.example")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
-	if response.Code != 200 {
+	if response.Code != http.StatusOK {
 		t.Fatalf("check = %d: %s", response.Code, response.Body.String())
 	}
 	var result contract.ConnectionCheckResult
 	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Deployments) != 2 || result.Deployments[0].Name != "bao" || result.Deployments[0].Recovery != nil ||
-		result.Diagnostics.State != "available" ||
-		result.Connection.Capabilities[1].State != "denied" {
-		t.Fatal("preview lost workload inventory or hid optional API limitations")
-	}
-	if result.Deployments[0].Health != "attention" || len(result.Deployments[0].Issues) != 1 ||
-		result.Deployments[0].Issues[0].Rule != "backup-overdue" {
-		t.Fatal("preview did not apply the configured 12-hour backup threshold to a 14-hour-old backup")
-	}
-	if result.Deployments[1].Health != "unknown" || len(result.Deployments[1].Issues) != 0 {
-		t.Fatal("preview ignored the configured startup grace for a newly created deployment")
-	}
-	reader, err := collector.New(
-		config.Connection{
-			ID:         "preview",
-			Name:       "Preview",
-			Namespaces: []config.Namespace{{Name: "team", Environment: "other"}},
-			Access: config.Access{Mode: config.AccessRemote, Credential: &config.Credential{
-				Server: cluster.URL,
-				CA:     string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cluster.Certificate().Raw})),
-				Token:  "private-reader-token",
-			}},
-		},
-		configured.Policy(),
-	)
+	return result, response.Body.String()
+}
+
+// assertMatchesCollection requires a preview to report the same health and findings as
+// a collection under the same policy.
+func assertMatchesCollection(
+	t *testing.T,
+	connection config.Connection,
+	policy fleet.Policy,
+	now time.Time,
+	preview []contract.Deployment,
+) {
+	t.Helper()
+	reader, err := collector.New(connection, policy)
 	if err != nil {
 		t.Fatal(err)
 	}
-	managed := reader.Collect(context.Background(), now)
-	if len(managed.Deployments) != len(result.Deployments) {
+	collected := mapSlice(reader.Collect(context.Background(), now).Deployments, deploymentContract)
+	if len(collected) != len(preview) {
 		t.Fatal("preview and collection returned different workload inventories")
 	}
-	for i, collected := range managed.Deployments {
-		deployment, preview := deploymentContract(collected), result.Deployments[i]
-		if deployment.Health != preview.Health || len(deployment.Issues) != len(preview.Issues) {
-			t.Fatal("preview health differs from collection under the saved policy")
-		}
-		for j, issue := range deployment.Issues {
-			if issue.Rule != preview.Issues[j].Rule {
-				t.Fatal("preview finding differs from collection under the saved policy")
-			}
+	for i, deployment := range collected {
+		if issueRules(deployment) != issueRules(preview[i]) || deployment.Health != preview[i].Health {
+			t.Fatal("preview evidence differs from collection under the saved policy")
 		}
 	}
-	for _, private := range []string{"private-reader-token", "private-resource-field", "private-server-message"} {
-		if strings.Contains(response.Body.String(), private) {
-			t.Fatal("check exposed private input or unapproved Kubernetes data")
-		}
+}
+
+func issueRules(deployment contract.Deployment) string {
+	rules := []string{}
+	for _, issue := range deployment.Issues {
+		rules = append(rules, issue.Rule)
 	}
-	current, revision := service.Current()
-	if revision != 2 || len(current.Connections) != 1 || current.Connections[0].ID != "cluster" {
-		t.Fatal("checking a connection changed persisted enrollment")
-	}
+	return strings.Join(rules, ",")
 }
 
 func (r *configurationRepository) LoadSettings(context.Context) (settings.Record, error) {

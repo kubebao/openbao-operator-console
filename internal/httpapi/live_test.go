@@ -56,36 +56,8 @@ type keycloakSettings struct {
 	Password     string `json:"password"`
 }
 
-func testLiveSession(t *testing.T, keycloak bool) {
-	t.Helper()
-	var settings keycloakSettings
-	var ca []byte
-	if keycloak {
-		path := os.Getenv("CONSOLE_TEST_KEYCLOAK_CONFIG")
-		if path == "" {
-			t.Skip("requires isolated Keycloak development credentials")
-		}
-		data, err := os.ReadFile(path)
-		if err != nil || json.Unmarshal(data, &settings) != nil {
-			t.Fatal("cannot read Keycloak test settings")
-		}
-		ca, err = os.ReadFile(filepath.Join(filepath.Dir(path), "server.crt"))
-		if err != nil {
-			t.Fatal("cannot read Keycloak test CA")
-		}
-	}
-	dsn, kubeconfig := os.Getenv("CONSOLE_TEST_DATABASE_URL"), os.Getenv("CONSOLE_TEST_KUBECONFIG")
-	if dsn == "" || kubeconfig == "" {
-		t.Skip("requires isolated console_test PostgreSQL and console-dev reader credential")
-	}
-	parsed, err := url.Parse(dsn)
-	if err != nil || parsed.Path != "/console_test" {
-		t.Fatal("live qualification requires console_test")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	id := fmt.Sprintf("qualification-%d", time.Now().UnixNano())
-	connection := config.Connection{
+func qualificationConnection(id, kubeconfig string) config.Connection {
+	return config.Connection{
 		ID:         id,
 		Name:       "Qualification",
 		Namespaces: []config.Namespace{{Name: "console-sample", Environment: "development"}},
@@ -100,78 +72,156 @@ func testLiveSession(t *testing.T, keycloak bool) {
 		},
 		Access: config.Access{Mode: config.AccessKubeconfig, Kubeconfig: kubeconfig, Context: "kind-console-dev"},
 	}
-	reader, err := collector.New(connection, fleet.Policy{MaxBackupAge: 24 * time.Hour})
-	if err != nil {
-		t.Fatal(err)
-	}
-	batch := reader.Collect(ctx, time.Now().UTC())
-	if batch.Connection.Collection != "current" || len(batch.Deployments) == 0 || len(batch.Connection.Operators) != 1 ||
-		batch.Connection.Operators[0].Collection != "current" {
-		t.Fatal("live reader failed qualification")
-	}
-	repository, err := store.Open(ctx, dsn, 24*time.Hour)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer repository.Close()
-	if err := repository.Apply(ctx, batch); err != nil {
-		t.Fatal(err)
-	}
-	var providerContext context.Context
-	if keycloak {
-		providerContext, err = auth.ProviderContext(
-			ctx,
-			filepath.Join(filepath.Dir(os.Getenv("CONSOLE_TEST_KEYCLOAK_CONFIG")), "server.crt"),
-		)
-		if err != nil {
-			t.Fatal("cannot configure Keycloak certificate trust")
-		}
-	} else {
+}
+
+// liveIdentity returns the isolated Keycloak or a signed test authority, the provider
+// transport context, and an extra CA for the browser.
+func liveIdentity(t *testing.T, ctx context.Context, keycloak bool) (keycloakSettings, context.Context, []byte) {
+	t.Helper()
+	if !keycloak {
 		provider := signedTestProvider(t)
-		defer provider.Close()
-		providerContext = oidc.ClientContext(ctx, provider.Client())
-		settings = keycloakSettings{Issuer: provider.URL, ClientID: "console", ClientSecret: "test-secret", Subject: "engineer"}
+		t.Cleanup(provider.Close)
+		identity := keycloakSettings{Issuer: provider.URL, ClientID: "console", ClientSecret: "test-secret", Subject: "engineer"}
+		return identity, oidc.ClientContext(ctx, provider.Client()), nil
 	}
+	path := os.Getenv("CONSOLE_TEST_KEYCLOAK_CONFIG")
+	if path == "" {
+		t.Skip("requires isolated Keycloak development credentials")
+	}
+	var identity keycloakSettings
+	data, err := os.ReadFile(path)
+	if err != nil || json.Unmarshal(data, &identity) != nil {
+		t.Fatal("cannot read Keycloak test settings")
+	}
+	certificate := filepath.Join(filepath.Dir(path), "server.crt")
+	ca, err := os.ReadFile(certificate)
+	if err != nil {
+		t.Fatal("cannot read Keycloak test CA")
+	}
+	providerContext, err := auth.ProviderContext(ctx, certificate)
+	if err != nil {
+		t.Fatal("cannot configure Keycloak certificate trust")
+	}
+	return identity, providerContext, ca
+}
+
+// liveSession is a browser session against a console served over TLS.
+type liveSession struct {
+	t      *testing.T
+	client *http.Client
+	url    string
+}
+
+func (s liveSession) status(method, path string, payload any) int {
+	s.t.Helper()
+	response := s.send(method, path, payload)
+	_ = response.Body.Close()
+	return response.StatusCode
+}
+
+// send makes a same-origin request with an optional JSON body.
+func (s liveSession) send(method, path string, payload any) *http.Response {
+	s.t.Helper()
+	var body io.Reader
+	if payload != nil {
+		encoded, err := json.Marshal(payload)
+		if err != nil {
+			s.t.Fatal(err)
+		}
+		body = bytes.NewReader(encoded)
+	}
+	request, err := http.NewRequest(method, s.url+path, body)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	request.Header.Set("Origin", s.url)
+	if payload != nil {
+		request.Header.Set("Content-Type", "application/json")
+	}
+	response, err := s.client.Do(request)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	return response
+}
+
+func (s liveSession) snapshot() contract.Snapshot {
+	s.t.Helper()
+	response := s.send(http.MethodGet, "/api/v1/snapshot", nil)
+	defer func() { _ = response.Body.Close() }()
+	var snapshot contract.Snapshot
+	if response.StatusCode != http.StatusOK || json.NewDecoder(response.Body).Decode(&snapshot) != nil {
+		s.t.Fatal("authenticated live snapshot failed")
+	}
+	return snapshot
+}
+
+// signIn completes the authorization code flow through the provider's login form.
+func (s liveSession) signIn(keycloak bool, identity keycloakSettings) {
+	s.t.Helper()
+	s.client.Jar, _ = cookiejar.New(nil)
+	response := s.send(http.MethodGet, "/auth/login", nil)
+	if keycloak {
+		action := keycloakLoginAction(s.t, response.Body)
+		_ = response.Body.Close()
+		var err error
+		response, err = s.client.PostForm(action, url.Values{"username": {identity.Username}, "password": {identity.Password}})
+		if err != nil {
+			s.t.Fatal("Keycloak login request failed")
+		}
+	}
+	_ = response.Body.Close()
+}
+
+// startLiveConsole serves a console for one enrolled administrator. Keycloak requires
+// the registered callback port 8554.
+func startLiveConsole(
+	t *testing.T,
+	ctx context.Context,
+	keycloak bool,
+	identity keycloakSettings,
+	providerContext context.Context,
+	connection config.Connection,
+	repository *store.Postgres,
+) (*consolesettings.Service, *httptest.Server) {
+	t.Helper()
 	mux := http.NewServeMux()
 	application := httptest.NewUnstartedServer(mux)
 	if keycloak {
 		_ = application.Listener.Close()
-		application.Listener, err = net.Listen("tcp", "127.0.0.1:8554")
+		listener, err := net.Listen("tcp", "127.0.0.1:8554")
 		if err != nil {
 			t.Fatal("Keycloak test callback port 8554 is unavailable")
 		}
+		application.Listener = listener
 	}
 	application.Config.BaseContext = func(net.Listener) context.Context { return providerContext }
 	application.StartTLS()
-	defer application.Close()
+	t.Cleanup(application.Close)
 	user := config.User{
-		Subject: settings.Subject,
+		Subject: identity.Subject,
 		Name:    "Engineer",
 		Admin:   true,
-		Scopes:  []config.Scope{{ConnectionID: id, Namespaces: []string{"console-sample"}}},
+		Scopes:  []config.Scope{{ConnectionID: connection.ID, Namespaces: []string{"console-sample"}}},
 	}
+	provider := config.Identity{Issuer: identity.Issuer, ClientID: identity.ClientID, ClientSecret: identity.ClientSecret}
 	authentication, err := auth.NewOIDC(
 		providerContext,
-		settings.Issuer,
-		settings.ClientID,
-		settings.ClientSecret,
+		provider.Issuer,
+		provider.ClientID,
+		provider.ClientSecret,
 		application.URL+"/auth/callback",
 		[]config.User{user},
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	configuration, err := consolesettings.New(
-		ctx,
-		&configurationRepository{},
-		bytes.Repeat([]byte{4}, 32),
-		config.Config{
-			Connections:       []config.Connection{connection},
-			Users:             []config.User{user},
-			MaxBackupAgeHours: 24,
-			Identity:          &config.Identity{Issuer: settings.Issuer, ClientID: settings.ClientID, ClientSecret: settings.ClientSecret},
-		},
-	)
+	configuration, err := consolesettings.New(ctx, &configurationRepository{}, bytes.Repeat([]byte{4}, 32), config.Config{
+		Connections:       []config.Connection{connection},
+		Users:             []config.User{user},
+		MaxBackupAgeHours: 24,
+		Identity:          &provider,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,118 +233,114 @@ func testLiveSession(t *testing.T, keycloak bool) {
 		Origin:   application.URL,
 	}
 	mux.Handle("/", server.Handler())
+	return configuration, application
+}
 
-	client := application.Client()
-	if keycloak && !client.Transport.(*http.Transport).TLSClientConfig.RootCAs.AppendCertsFromPEM(ca) {
-		t.Fatal("cannot trust Keycloak test certificate")
-	}
-	response, err := client.Get(application.URL + "/api/v1/snapshot")
+// qualifyReader collects the enrolled namespace and controller with the real reader.
+func qualifyReader(t *testing.T, ctx context.Context, connection config.Connection) store.Batch {
+	t.Helper()
+	reader, err := collector.New(connection, fleet.Policy{MaxBackupAge: 24 * time.Hour})
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = response.Body.Close()
-	if response.StatusCode != http.StatusUnauthorized {
-		t.Fatal("live evidence was accessible without authentication")
+	batch := reader.Collect(ctx, time.Now().UTC())
+	if batch.Connection.Collection != fleet.ConnectionCollectionCurrent || len(batch.Deployments) == 0 ||
+		len(batch.Connection.Operators) != 1 || batch.Connection.Operators[0].Collection != fleet.OperatorCollectionCurrent {
+		t.Fatal("live reader failed qualification")
 	}
-	client.Jar, _ = cookiejar.New(nil)
-	response, err = client.Get(application.URL + "/auth/login")
+	return batch
+}
+
+func testLiveSession(t *testing.T, keycloak bool) {
+	t.Helper()
+	dsn, kubeconfig := os.Getenv("CONSOLE_TEST_DATABASE_URL"), os.Getenv("CONSOLE_TEST_KUBECONFIG")
+	if dsn == "" || kubeconfig == "" {
+		t.Skip("requires isolated console_test PostgreSQL and console-dev reader credential")
+	}
+	if parsed, err := url.Parse(dsn); err != nil || parsed.Path != "/console_test" {
+		t.Fatal("live qualification requires console_test")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	identity, providerContext, ca := liveIdentity(t, ctx, keycloak)
+	connection := qualificationConnection(fmt.Sprintf("qualification-%d", time.Now().UnixNano()), kubeconfig)
+	batch := qualifyReader(t, ctx, connection)
+	repository, err := store.Open(ctx, dsn, 24*time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if keycloak {
-		loginAction := keycloakLoginAction(t, response.Body)
-		_ = response.Body.Close()
-		response, err = client.PostForm(loginAction, url.Values{"username": {settings.Username}, "password": {settings.Password}})
-		if err != nil {
-			t.Fatal("Keycloak login request failed")
-		}
-	}
-	_ = response.Body.Close()
-	read := func() contract.Snapshot {
-		t.Helper()
-		response, err := client.Get(application.URL + "/api/v1/snapshot")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer func() { _ = response.Body.Close() }()
-		var snapshot contract.Snapshot
-		if response.StatusCode != http.StatusOK || json.NewDecoder(response.Body).Decode(&snapshot) != nil {
-			t.Fatal("authenticated live snapshot failed")
-		}
-		return snapshot
-	}
-	snapshot := read()
-	if snapshot.Mode != "live" || snapshot.Viewer.Subject != settings.Subject || len(snapshot.Connections) != 1 ||
-		len(snapshot.Deployments) != len(batch.Deployments) ||
-		snapshot.Deployments[0].OperatorId == nil {
-		t.Fatal("authenticated snapshot lost live identity or leaked other database enrollments")
-	}
-	version := snapshot.Connections[0].Operators[0].Version
-	batch.Connection.Operators[0].Collection = "denied"
-	batch.Connection.Operators[0].Version = nil
-	batch.Connection.Operators[0].LastSuccessAt = nil
+	defer repository.Close()
 	if err := repository.Apply(ctx, batch); err != nil {
 		t.Fatal(err)
 	}
-	snapshot = read()
-	operator := snapshot.Connections[0].Operators[0]
-	if operator.Collection != "denied" || operator.LastSuccessAt == nil ||
-		(version != nil && (operator.Version == nil || *operator.Version != *version)) ||
-		snapshot.Connections[0].Collection != "current" {
-		t.Fatal("operator read failure concealed last-known facts or stopped workload inventory")
+	configuration, application := startLiveConsole(t, ctx, keycloak, identity, providerContext, connection, repository)
+	session := liveSession{t: t, client: application.Client(), url: application.URL}
+	if keycloak && !session.client.Transport.(*http.Transport).TLSClientConfig.RootCAs.AppendCertsFromPEM(ca) {
+		t.Fatal("cannot trust Keycloak test certificate")
 	}
-	// The onboarding API tests the real enrolled reader without Kubernetes mutations.
-	current, revision := configuration.Current()
-	checkPayload, _ := json.Marshal(contract.ConnectionCheck{Connection: connectionView(current.Connections[0])})
-	post, _ := http.NewRequest(http.MethodPost, application.URL+"/api/v1/settings/connections/check", bytes.NewReader(checkPayload))
-	post.Header.Set("Content-Type", "application/json")
-	post.Header.Set("Origin", application.URL)
-	response, err = client.Do(post)
-	if err != nil {
-		t.Fatal(err)
+	if session.status(http.MethodGet, "/api/v1/snapshot", nil) != http.StatusUnauthorized {
+		t.Fatal("live evidence was accessible without authentication")
 	}
-	var checkResult contract.ConnectionCheckResult
-	if response.StatusCode != http.StatusOK || json.NewDecoder(response.Body).Decode(&checkResult) != nil ||
-		checkResult.Connection.Collection != "current" ||
-		len(checkResult.Connection.Operators) != 1 {
-		t.Fatal("real onboarding access check failed")
+	session.signIn(keycloak, identity)
+	snapshot := session.snapshot()
+	if snapshot.Mode != "live" || snapshot.Viewer.Subject != identity.Subject || len(snapshot.Connections) != 1 ||
+		len(snapshot.Deployments) != len(batch.Deployments) || snapshot.Deployments[0].OperatorId == nil {
+		t.Fatal("authenticated snapshot lost live identity or leaked other database enrollments")
 	}
-	_ = response.Body.Close()
-	current.Connections[0].Disabled = true
-	updatePayload, _ := json.Marshal(
-		contract.SettingsUpdate{Revision: revision, Configuration: configurationView(current), Credentials: []contract.CredentialUpdate{}},
-	)
-	put, _ := http.NewRequest(http.MethodPut, application.URL+"/api/v1/settings", bytes.NewReader(updatePayload))
-	put.Header.Set("Content-Type", "application/json")
-	put.Header.Set("Origin", application.URL)
-	response, err = client.Do(put)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		t.Fatal("real session could not save configuration")
-	}
-	snapshot = read()
-	if snapshot.Connections[0].Collection != "stale" || len(snapshot.Deployments) != len(batch.Deployments) {
-		t.Fatal("pause concealed inventory or claimed current collection")
-	}
-	logout, _ := http.NewRequest(http.MethodPost, application.URL+"/auth/logout", nil)
-	logout.Header.Set("Origin", application.URL)
-	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	response, err = client.Do(logout)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = response.Body.Close()
-	response, err = client.Get(application.URL + "/api/v1/snapshot")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = response.Body.Close()
-	if response.StatusCode != http.StatusUnauthorized {
-		t.Fatal("logout retained live access")
-	}
+	t.Run("operator read failure keeps last-known facts", func(t *testing.T) {
+		version := snapshot.Connections[0].Operators[0].Version
+		failed := batch
+		failed.Connection.Operators = []fleet.Operator{batch.Connection.Operators[0]}
+		failed.Connection.Operators[0].Collection = fleet.OperatorCollectionDenied
+		failed.Connection.Operators[0].Version, failed.Connection.Operators[0].LastSuccessAt = nil, nil
+		if err := repository.Apply(ctx, failed); err != nil {
+			t.Fatal(err)
+		}
+		current := session.snapshot()
+		operator := current.Connections[0].Operators[0]
+		if operator.Collection != "denied" || operator.LastSuccessAt == nil ||
+			(version != nil && (operator.Version == nil || *operator.Version != *version)) ||
+			current.Connections[0].Collection != "current" {
+			t.Fatal("operator read failure concealed last-known facts or stopped workload inventory")
+		}
+	})
+	t.Run("onboarding check reads the enrolled cluster", func(t *testing.T) {
+		current, _ := configuration.Current()
+		response := session.send(
+			http.MethodPost,
+			"/api/v1/settings/connections/check",
+			contract.ConnectionCheck{Connection: connectionView(current.Connections[0])},
+		)
+		defer func() { _ = response.Body.Close() }()
+		var result contract.ConnectionCheckResult
+		if response.StatusCode != http.StatusOK || json.NewDecoder(response.Body).Decode(&result) != nil ||
+			result.Connection.Collection != "current" || len(result.Connection.Operators) != 1 {
+			t.Fatal("real onboarding access check failed")
+		}
+	})
+	t.Run("pause keeps inventory and marks it stale", func(t *testing.T) {
+		current, revision := configuration.Current()
+		current.Connections[0].Disabled = true
+		update := contract.SettingsUpdate{
+			Revision:      revision,
+			Configuration: configurationView(current),
+			Credentials:   []contract.CredentialUpdate{},
+		}
+		if session.status(http.MethodPut, "/api/v1/settings", update) != http.StatusOK {
+			t.Fatal("real session could not save configuration")
+		}
+		paused := session.snapshot()
+		if paused.Connections[0].Collection != "stale" || len(paused.Deployments) != len(batch.Deployments) {
+			t.Fatal("pause concealed inventory or claimed current collection")
+		}
+	})
+	t.Run("logout ends access", func(t *testing.T) {
+		session.client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+		session.status(http.MethodPost, "/auth/logout", nil)
+		if session.status(http.MethodGet, "/api/v1/snapshot", nil) != http.StatusUnauthorized {
+			t.Fatal("logout retained live access")
+		}
+	})
 }
 
 func keycloakLoginAction(t *testing.T, body io.Reader) string {
