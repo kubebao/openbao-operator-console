@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -27,188 +28,263 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/view"
 )
 
-func run() error {
-	mode := flag.String("mode", "demo", "demo or live")
-	address := flag.String("listen", "127.0.0.1:8090", "HTTP listen address")
-	path := flag.String("config", "", "optional first-start enrollment YAML file")
-	recoverIdentity := flag.Bool(
+// options holds the command-line flags.
+type options struct {
+	mode, address, configPath   string
+	readerName, readerNamespace string
+	tlsCertificate, tlsKey      string
+	printRBAC                   string
+	check, recoverIdentity      bool
+}
+
+func parseOptions() (options, error) {
+	var o options
+	flag.StringVar(&o.mode, "mode", "demo", "demo or live")
+	flag.StringVar(&o.address, "listen", "127.0.0.1:8090", "HTTP listen address")
+	flag.StringVar(&o.configPath, "config", "", "optional first-start enrollment YAML file")
+	flag.BoolVar(
+		&o.recoverIdentity,
 		"recover-identity",
 		false,
 		"replace stored identity and enroll administrators from bootstrap environment; exit without serving",
 	)
-	check := flag.Bool("check", false, "check enrolled Kubernetes reads and print approved projections; no database or OIDC required")
-	printRBAC := flag.String("print-rbac", "", "print reader RBAC for this connection ID; does not apply manifests")
-	readerName := flag.String("reader-name", "console-reader", "local reader ServiceAccount name for RBAC manifests")
-	readerNamespace := flag.String("reader-namespace", "console-system", "local reader ServiceAccount namespace for RBAC manifests")
-	tlsCertificate := flag.String("tls-cert", "", "optional HTTPS server certificate PEM file")
-	tlsKey := flag.String("tls-key", "", "optional HTTPS server private key PEM file")
+	flag.BoolVar(&o.check, "check", false, "check enrolled Kubernetes reads and print approved projections; no database or OIDC required")
+	flag.StringVar(&o.printRBAC, "print-rbac", "", "print reader RBAC for this connection ID; does not apply manifests")
+	flag.StringVar(&o.readerName, "reader-name", "console-reader", "local reader ServiceAccount name for RBAC manifests")
+	flag.StringVar(&o.readerNamespace, "reader-namespace", "console-system", "local reader ServiceAccount namespace for RBAC manifests")
+	flag.StringVar(&o.tlsCertificate, "tls-cert", "", "optional HTTPS server certificate PEM file")
+	flag.StringVar(&o.tlsKey, "tls-key", "", "optional HTTPS server private key PEM file")
 	flag.Parse()
-	if (*tlsCertificate == "") != (*tlsKey == "") {
-		return errors.New("tls-cert and tls-key must be supplied together")
+	if (o.tlsCertificate == "") != (o.tlsKey == "") {
+		return o, errors.New("tls-cert and tls-key must be supplied together")
+	}
+	return o, nil
+}
+
+func run() error {
+	o, err := parseOptions()
+	if err != nil {
+		return err
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
-	if *check || *printRBAC != "" {
-		enrollment, err := config.Load(*path)
+	switch {
+	case o.check || o.printRBAC != "":
+		return runCheck(ctx, o)
+	case o.mode == "demo":
+		server, err := demoServer(o)
 		if err != nil {
 			return err
 		}
-		if *printRBAC != "" {
-			for _, connection := range enrollment.Connections {
-				if connection.ID == *printRBAC {
-					return config.WriteRBAC(os.Stdout, connection, *readerName, *readerNamespace)
-				}
-			}
-			return errors.New("connection is not enrolled")
-		}
-		return checkConnections(ctx, enrollment)
-	}
-	var observed httpapi.Fleet
-	var authentication *auth.Authenticator
-	var enrollment config.Config
-	var configuration *settings.Service
-	var browserSetup *httpapi.Setup
-	origin := ""
-	var collectorStopped chan struct{}
-	var renewalStopped chan struct{}
-	var shutdownDone chan struct{}
-	switch *mode {
-	case "demo":
-		if *recoverIdentity {
-			return errors.New("recover-identity requires live mode")
-		}
-		host, _, err := net.SplitHostPort(*address)
-		if err != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
-			return errors.New("demo mode must listen on a loopback IP")
-		}
-		fixtures := demo.New(time.Now().UTC())
-		observed = fixtures
-		authentication = auth.NewDemo(fixtures.Viewer())
-	case "live":
-		dsn := os.Getenv("CONSOLE_DATABASE_URL")
-		if dsn == "" {
-			return errors.New("CONSOLE_DATABASE_URL is required in live mode")
-		}
-		startup, cancel := context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
-		pg, err := store.Open(startup, dsn, 7*24*time.Hour)
-		if err != nil {
-			return errors.New("database startup failed")
-		}
-		defer pg.Close()
-		key, err := os.ReadFile(os.Getenv("CONSOLE_CONFIG_KEY_FILE"))
-		if err != nil {
-			return errors.New("CONSOLE_CONFIG_KEY_FILE must reference a readable 32-byte key")
-		}
-		if _, loadErr := pg.LoadSettings(startup); errors.Is(loadErr, settings.ErrMissing) {
-			if *recoverIdentity {
-				return errors.New("identity recovery requires stored configuration")
-			}
-			enrollment, err = bootstrapSeed(*path)
-			if err != nil {
-				return err
-			}
-		} else if loadErr != nil {
-			return errors.New("read stored configuration")
-		}
-		var seed *config.Config
-		if enrollment.Identity != nil {
-			seed = &enrollment
-		}
-		configuration, err = settings.Open(startup, pg, key, seed)
-		if err != nil {
-			return fmt.Errorf("initialize console settings: %w", err)
-		}
-		if *recoverIdentity {
-			return recoverConfiguration(startup, configuration)
-		}
-		callback := os.Getenv("CONSOLE_OIDC_REDIRECT_URL")
-		parsed, err := url.Parse(callback)
-		if err != nil {
-			return err
-		}
-		origin = parsed.Scheme + "://" + parsed.Host
-		if configuration.Initialized() {
-			enrollment, _ = configuration.Current()
-			if enrollment.Identity == nil {
-				return errors.New("identity provider is not configured")
-			}
-			authentication, err = auth.Discover(startup, *enrollment.Identity, callback, enrollment.Users)
-			if err != nil {
-				return fmt.Errorf("authentication startup failed: %w", err)
-			}
-		} else {
-			token, err := readSetupToken(os.Getenv("CONSOLE_SETUP_TOKEN_FILE"))
-			if err != nil {
-				return err
-			}
-			authentication = auth.NewPending()
-			browserSetup, err = httpapi.NewSetup(configuration, authentication, token, callback, enrollment)
-			clear(token)
-			if err != nil {
-				return fmt.Errorf("initialize browser setup: %w", err)
-			}
-		}
-		authentication.SetResolver(configuration.Resolve)
-		observed = view.Live{Observations: pg, Enrollment: configuration}
-		collectorStopped = make(chan struct{})
-		go func() { defer close(collectorStopped); collector.RunManaged(ctx, configuration, pg, logger) }()
-		renewalStopped = make(chan struct{})
-		go func() {
-			defer close(renewalStopped)
-			(renewal.Manager{Repository: configuration, Issuer: renewal.KubernetesIssuer{}, Logger: logger}).Run(ctx)
-		}()
+		return serve(ctx, o, server.Handler(), logger)
+	case o.mode == "live":
+		return runLive(ctx, o, logger)
 	default:
 		return errors.New("mode must be demo or live")
 	}
+}
+
+// runCheck reads the enrollment file without a database or identity provider.
+func runCheck(ctx context.Context, o options) error {
+	enrollment, err := config.Load(o.configPath)
+	if err != nil {
+		return err
+	}
+	if o.printRBAC == "" {
+		return checkConnections(ctx, enrollment)
+	}
+	for _, connection := range enrollment.Connections {
+		if connection.ID == o.printRBAC {
+			return config.WriteRBAC(os.Stdout, connection, o.readerName, o.readerNamespace)
+		}
+	}
+	return errors.New("connection is not enrolled")
+}
+
+// demoServer serves fictional fixtures on a loopback address only.
+func demoServer(o options) (*httpapi.Server, error) {
+	if o.recoverIdentity {
+		return nil, errors.New("recover-identity requires live mode")
+	}
+	host, _, err := net.SplitHostPort(o.address)
+	if err != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
+		return nil, errors.New("demo mode must listen on a loopback IP")
+	}
+	fixtures := demo.New(time.Now().UTC())
+	return &httpapi.Server{
+		Fleet:           fixtures,
+		Auth:            auth.NewDemo(fixtures.Viewer()),
+		Demo:            true,
+		ReaderName:      o.readerName,
+		ReaderNamespace: o.readerNamespace,
+	}, nil
+}
+
+// runLive serves live mode. Collection and renewal stop before the database closes.
+func runLive(ctx context.Context, o options, logger *slog.Logger) error {
+	dsn := os.Getenv("CONSOLE_DATABASE_URL")
+	if dsn == "" {
+		return errors.New("CONSOLE_DATABASE_URL is required in live mode")
+	}
+	startup, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	pg, err := store.Open(startup, dsn, 7*24*time.Hour)
+	if err != nil {
+		return fmt.Errorf("database startup failed: %w", err)
+	}
+	defer pg.Close()
+	configuration, enrollment, err := openSettings(startup, pg, o)
+	if err != nil {
+		return err
+	}
+	if o.recoverIdentity {
+		return recoverConfiguration(startup, configuration)
+	}
+	server, err := liveServer(startup, o, pg, configuration, enrollment)
+	if err != nil {
+		return err
+	}
+	workers, stopWorkers := context.WithCancel(ctx)
+	var running sync.WaitGroup
 	defer func() {
-		stop()
-		if shutdownDone != nil {
-			<-shutdownDone
-		}
-		if collectorStopped != nil {
-			<-collectorStopped
-		}
-		if renewalStopped != nil {
-			<-renewalStopped
-		}
+		stopWorkers()
+		running.Wait()
 	}()
-	application := &httpapi.Server{
-		Fleet:           observed,
+	running.Go(func() { collector.RunManaged(workers, configuration, pg, logger) })
+	running.Go(func() {
+		(renewal.Manager{Repository: configuration, Issuer: renewal.KubernetesIssuer{}, Logger: logger}).Run(workers)
+	})
+	return serve(ctx, o, server.Handler(), logger)
+}
+
+// openSettings opens stored configuration. An empty database is seeded from the
+// enrollment file and bootstrap environment; without an identity it waits for browser setup.
+func openSettings(ctx context.Context, pg *store.Postgres, o options) (*settings.Service, config.Config, error) {
+	key, err := os.ReadFile(os.Getenv("CONSOLE_CONFIG_KEY_FILE"))
+	if err != nil {
+		return nil, config.Config{}, errors.New("CONSOLE_CONFIG_KEY_FILE must reference a readable 32-byte key")
+	}
+	var enrollment config.Config
+	_, loadErr := pg.LoadSettings(ctx)
+	switch {
+	case errors.Is(loadErr, settings.ErrMissing):
+		if o.recoverIdentity {
+			return nil, enrollment, errors.New("identity recovery requires stored configuration")
+		}
+		if enrollment, err = bootstrapSeed(o.configPath); err != nil {
+			return nil, enrollment, err
+		}
+	case loadErr != nil:
+		return nil, enrollment, errors.New("read stored configuration")
+	}
+	var seed *config.Config
+	if enrollment.Identity != nil {
+		seed = &enrollment
+	}
+	configuration, err := settings.Open(ctx, pg, key, seed)
+	if err != nil {
+		return nil, enrollment, fmt.Errorf("initialize console settings: %w", err)
+	}
+	return configuration, enrollment, nil
+}
+
+func liveServer(
+	ctx context.Context,
+	o options,
+	pg *store.Postgres,
+	configuration *settings.Service,
+	enrollment config.Config,
+) (*httpapi.Server, error) {
+	callback := os.Getenv("CONSOLE_OIDC_REDIRECT_URL")
+	parsed, err := url.Parse(callback)
+	if err != nil {
+		return nil, err
+	}
+	authentication, setup, err := liveAuthentication(ctx, configuration, callback, enrollment)
+	if err != nil {
+		return nil, err
+	}
+	authentication.SetResolver(configuration.Resolve)
+	return &httpapi.Server{
+		Fleet:           view.Live{Observations: pg, Enrollment: configuration},
 		Auth:            authentication,
 		Settings:        configuration,
-		Setup:           browserSetup,
-		Demo:            *mode == "demo",
-		Origin:          origin,
-		ReaderName:      *readerName,
-		ReaderNamespace: *readerNamespace,
+		Setup:           setup,
+		Origin:          parsed.Scheme + "://" + parsed.Host,
+		ReaderName:      o.readerName,
+		ReaderNamespace: o.readerNamespace,
+	}, nil
+}
+
+// liveAuthentication uses the stored identity provider, or opens browser setup until a
+// verified administrator configures one.
+func liveAuthentication(
+	ctx context.Context,
+	configuration *settings.Service,
+	callback string,
+	enrollment config.Config,
+) (*auth.Authenticator, *httpapi.Setup, error) {
+	if configuration.Initialized() {
+		current, _ := configuration.Current()
+		if current.Identity == nil {
+			return nil, nil, errors.New("identity provider is not configured")
+		}
+		authentication, err := auth.Discover(ctx, *current.Identity, callback, current.Users)
+		if err != nil {
+			return nil, nil, fmt.Errorf("authentication startup failed: %w", err)
+		}
+		return authentication, nil, nil
 	}
+	token, err := readSetupToken(os.Getenv("CONSOLE_SETUP_TOKEN_FILE"))
+	if err != nil {
+		return nil, nil, err
+	}
+	authentication := auth.NewPending()
+	setup, err := httpapi.NewSetup(configuration, authentication, token, callback, enrollment)
+	clear(token)
+	if err != nil {
+		return nil, nil, fmt.Errorf("initialize browser setup: %w", err)
+	}
+	return authentication, setup, nil
+}
+
+// serve listens until ctx ends, then shuts down within ten seconds.
+func serve(ctx context.Context, o options, handler http.Handler, logger *slog.Logger) error {
 	server := &http.Server{
-		Addr: *address, Handler: application.Handler(),
-		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,
-		WriteTimeout: 45 * time.Second, IdleTimeout: 60 * time.Second,
-		MaxHeaderBytes: 16 << 10, TLSConfig: &tls.Config{MinVersion: tls.VersionTLS12},
+		Addr:              o.address,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      45 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    16 << 10,
+		TLSConfig:         &tls.Config{MinVersion: tls.VersionTLS12},
 	}
-	shutdownDone = make(chan struct{})
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	stopped := make(chan struct{})
 	go func() {
-		defer close(shutdownDone)
+		defer close(stopped)
 		<-ctx.Done()
-		shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		// The serving context has ended; shutdown needs its own deadline.
+		shutdown, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		defer cancel()
 		_ = server.Shutdown(shutdown)
 	}()
-	logger.Info("Console started", "mode", *mode, "listen", *address)
+	logger.Info("Console started", "mode", o.mode, "listen", o.address)
 	var err error
-	if *tlsCertificate != "" {
-		err = server.ListenAndServeTLS(*tlsCertificate, *tlsKey)
+	if o.tlsCertificate != "" {
+		err = server.ListenAndServeTLS(o.tlsCertificate, o.tlsKey)
 	} else {
 		err = server.ListenAndServe()
 	}
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
+	cancel()
+	<-stopped
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
 	}
-	return nil
+	return err
 }
 
 func main() {

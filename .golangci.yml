@@ -45,27 +45,6 @@ linters:
         linters: [gosec]
       # Known complexity debt. Remove each entry when its function is split.
       - linters: [gocognit]
-        path: cmd/console/main.go
-        text: "func `run`"
-      - linters: [gocognit]
-        path: internal/auth/auth.go
-        text: "func `Scope`"
-      - linters: [gocognit]
-        path: internal/config/config.go
-        text: "func `\\(Config\\).Validate`"
-      - linters: [gocognit]
-        path: internal/demo/demo.go
-        text: "func `New`"
-      - linters: [gocognit]
-        path: internal/evidence/rules.go
-        text: "func `Evaluate`"
-      - linters: [gocognit]
-        path: internal/httpapi/server.go
-        text: "func `\\(\\*Server\\).Handler`"
-      - linters: [gocognit]
-        path: internal/settings/settings.go
-        text: "func `Open`"
-      - linters: [gocognit]
         path: _test\.go
         text: "func `(TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay|TestReaderRBACNamesAreStableAndConnectionScoped|testLiveSession|TestConnectionCheckProjectsPreviewWithoutPersistingOrExposingCredentials|TestIssuerOnlyCreatesNamedTokenThenValidatesScopedReads|TestPostgresConfigurationRestartAndConcurrentRevision)`"
 

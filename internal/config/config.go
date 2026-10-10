@@ -2,15 +2,11 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"regexp"
 	"slices"
-	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/validation"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
@@ -194,108 +190,4 @@ func Load(path string) (Config, error) {
 		return Config{}, err
 	}
 	return result, nil
-}
-
-func (c Config) Validate() error {
-	if c.MaxBackupAgeHours <= 0 || c.MaxBackupAgeHours > 87600 || c.StartupGraceMinutes < 0 || c.StartupGraceMinutes > 1440 {
-		return errors.New("backup age must be 1–87600 hours and startup grace must be 0–1440 minutes")
-	}
-	if len(c.Connections) > 1000 || len(c.Users) > 10000 || len(c.Groups) > 1000 || len(c.Relationships) > 10000 {
-		return errors.New("configuration exceeds the supported enrollment limits")
-	}
-	identifier := regexp.MustCompile(`^[a-zA-Z0-9_-]{1,100}$`)
-	connections := make(map[string]map[string]bool, len(c.Connections))
-	for _, connection := range c.Connections {
-		if err := connection.ValidateRenewal(); err != nil {
-			return err
-		}
-		if !identifier.MatchString(connection.ID) || connection.Name == "" || len(connection.Namespaces) == 0 ||
-			len(connection.Namespaces) > 1000 {
-			return errors.New("connection requires id, name, and at least one namespace")
-		}
-		if _, exists := connections[connection.ID]; exists {
-			return fmt.Errorf("duplicate connection id %q", connection.ID)
-		}
-		namespaces := make(map[string]bool)
-		for _, namespace := range connection.Namespaces {
-			if len(validation.IsDNS1123Label(namespace.Name)) != 0 || namespaces[namespace.Name] {
-				return fmt.Errorf("invalid or duplicate namespace in connection %q", connection.ID)
-			}
-			if !namespace.Environment.Valid() {
-				return fmt.Errorf("invalid environment in connection %q", connection.ID)
-			}
-			namespaces[namespace.Name] = true
-		}
-		connections[connection.ID] = namespaces
-		if err := connection.Access.Validate(); err != nil {
-			return fmt.Errorf("connection %q: %w", connection.ID, err)
-		}
-		operators := make(map[string]bool)
-		assigned := make(map[string]bool)
-		for _, operator := range connection.Operators {
-			if operator.ID == "" || operators[operator.ID] || operator.Namespace == "" || operator.Deployment == "" ||
-				operator.Container == "" ||
-				len(operator.Namespaces) == 0 {
-				return errors.New("operator requires a unique id, namespace, deployment, container, and managed namespaces")
-			}
-			operators[operator.ID] = true
-			if len(validation.IsDNS1123Label(operator.Namespace)) != 0 || len(validation.IsDNS1123Subdomain(operator.Deployment)) != 0 ||
-				len(validation.IsDNS1123Label(operator.Container)) != 0 {
-				return errors.New("operator enrollment requires valid Kubernetes names")
-			}
-			for _, namespace := range operator.Namespaces {
-				if !namespaces[namespace] || assigned[namespace] {
-					return fmt.Errorf("operator namespace must be enrolled and assigned once in connection %q", connection.ID)
-				}
-				assigned[namespace] = true
-			}
-		}
-	}
-	users := make(map[string]bool)
-	for _, user := range c.Users {
-		if user.Subject == "" || len(user.Subject) > 1024 || users[user.Subject] {
-			return errors.New("invalid or duplicate subject")
-		}
-		users[user.Subject] = true
-		for _, scope := range user.Scopes {
-			for _, namespace := range scope.Namespaces {
-				if !connections[scope.ConnectionID][namespace] {
-					return errors.New("user scope references an unenrolled namespace")
-				}
-			}
-		}
-	}
-	groups := make(map[string]bool)
-	for _, group := range c.Groups {
-		if group.Name == "" || len(group.Name) > 1024 || groups[group.Name] {
-			return errors.New("group requires a unique name")
-		}
-		groups[group.Name] = true
-		for _, scope := range group.Scopes {
-			for _, namespace := range scope.Namespaces {
-				if !connections[scope.ConnectionID][namespace] {
-					return errors.New("group scope references an unenrolled namespace")
-				}
-			}
-		}
-	}
-	routes := make(map[string]bool)
-	for _, route := range c.Relationships {
-		if !identifier.MatchString(route.ID) || routes[route.ID] || route.Source == route.Target {
-			return errors.New("invalid or duplicate relationship id")
-		}
-		routes[route.ID] = true
-		if !route.Kind.Valid() {
-			return errors.New("invalid relationship kind")
-		}
-		for _, resource := range []ResourceRef{route.Source, route.Target} {
-			if resource.Name == "" || resource.UID == "" || !connections[resource.ConnectionID][resource.Namespace] {
-				return errors.New("relationship requires enrolled resource identities and UIDs")
-			}
-		}
-		if strings.Contains(route.Repository, "@") || strings.Contains(route.Repository, "?") {
-			return errors.New("repository display value must not contain userinfo or query parameters")
-		}
-	}
-	return nil
 }

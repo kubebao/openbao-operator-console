@@ -24,58 +24,74 @@ var policy = fleet.Policy{MaxBackupAge: 24 * time.Hour, StartupGrace: 10 * time.
 
 func New(now time.Time) *Repository {
 	snapshot := fleet.Snapshot{
-		CollectedAt: now, Policy: policy,
-		Deployments: []fleet.Deployment{}, Relationships: []fleet.Relationship{}, Activity: []fleet.Activity{},
-		Connections: []fleet.Connection{
-			{
-				ID:            "prod-eu-1",
-				Name:          "prod-eu-1",
-				Region:        "eu-west-1",
-				Collection:    fleet.ConnectionCollectionCurrent,
-				LastAttemptAt: now,
-				LastSuccessAt: &now,
-				Namespaces:    []string{"payments", "identity", "platform"},
-			},
-			{
-				ID:            "prod-eu-2",
-				Name:          "prod-eu-2",
-				Region:        "eu-central-1",
-				Collection:    fleet.ConnectionCollectionCurrent,
-				LastAttemptAt: now,
-				LastSuccessAt: &now,
-				Namespaces:    []string{"payments", "customer-x", "finance"},
-			},
-			{
-				ID:            "dr-eu-1",
-				Name:          "dr-eu-1",
-				Region:        "eu-central-1",
-				Collection:    fleet.ConnectionCollectionCurrent,
-				LastAttemptAt: now,
-				LastSuccessAt: &now,
-				Namespaces:    []string{"recovery"},
-			},
-			{
-				ID:            "nonprod",
-				Name:          "nonprod",
-				Region:        "eu-west-1",
-				Collection:    fleet.ConnectionCollectionCurrent,
-				LastAttemptAt: now,
-				LastSuccessAt: &now,
-				Namespaces:    []string{"staging", "development"},
-			},
-			{
-				ID:            "edge",
-				Name:          "edge-dc-1",
-				Region:        "on-premises",
-				Collection:    fleet.ConnectionCollectionUnreachable,
-				LastAttemptAt: now,
-				LastSuccessAt: ptr(now.Add(-24 * time.Hour)),
-				Namespaces:    []string{"edge"},
-			},
+		CollectedAt:   now,
+		Policy:        policy,
+		Connections:   connections(now),
+		Deployments:   []fleet.Deployment{},
+		Relationships: relationships(now),
+		Activity:      activity(now),
+	}
+	for _, row := range fixtures {
+		snapshot.Deployments = append(snapshot.Deployments, deployment(row, now))
+	}
+	repository := &Repository{snapshot: snapshot, history: map[string][]fleet.Observation{}}
+	for _, deployment := range snapshot.Deployments {
+		repository.history[deployment.ID] = history(deployment, now)
+	}
+	return repository
+}
+
+// connections are the fixture clusters. The edge cluster is unreachable.
+func connections(now time.Time) []fleet.Connection {
+	result := []fleet.Connection{
+		{
+			ID:            "prod-eu-1",
+			Name:          "prod-eu-1",
+			Region:        "eu-west-1",
+			Collection:    fleet.ConnectionCollectionCurrent,
+			LastAttemptAt: now,
+			LastSuccessAt: &now,
+			Namespaces:    []string{"payments", "identity", "platform"},
+		},
+		{
+			ID:            "prod-eu-2",
+			Name:          "prod-eu-2",
+			Region:        "eu-central-1",
+			Collection:    fleet.ConnectionCollectionCurrent,
+			LastAttemptAt: now,
+			LastSuccessAt: &now,
+			Namespaces:    []string{"payments", "customer-x", "finance"},
+		},
+		{
+			ID:            "dr-eu-1",
+			Name:          "dr-eu-1",
+			Region:        "eu-central-1",
+			Collection:    fleet.ConnectionCollectionCurrent,
+			LastAttemptAt: now,
+			LastSuccessAt: &now,
+			Namespaces:    []string{"recovery"},
+		},
+		{
+			ID:            "nonprod",
+			Name:          "nonprod",
+			Region:        "eu-west-1",
+			Collection:    fleet.ConnectionCollectionCurrent,
+			LastAttemptAt: now,
+			LastSuccessAt: &now,
+			Namespaces:    []string{"staging", "development"},
+		},
+		{
+			ID:            "edge",
+			Name:          "edge-dc-1",
+			Region:        "on-premises",
+			Collection:    fleet.ConnectionCollectionUnreachable,
+			LastAttemptAt: now,
+			LastSuccessAt: ptr(now.Add(-24 * time.Hour)),
+			Namespaces:    []string{"edge"},
 		},
 	}
-	for i := range snapshot.Connections {
-		connection := &snapshot.Connections[i]
+	for i := range result {
+		connection := &result[i]
 		collection := fleet.OperatorCollectionCurrent
 		if connection.Collection != fleet.ConnectionCollectionCurrent {
 			collection = fleet.OperatorCollectionUnreachable
@@ -122,152 +138,163 @@ func New(now time.Time) *Repository {
 			}
 		}
 	}
-	rows := []struct {
-		id, name, namespace, connection, team, location string
-		environment                                     fleet.Environment
-		role                                            fleet.Role
-	}{
-		{"payments", "payments-bao", "payments", "prod-eu-1", "Payments", "Amsterdam", "production", "primary"},
-		{"payments-read", "payments-read", "payments", "prod-eu-2", "Payments", "Frankfurt", "production", "replica"},
-		{"payments-dr", "payments-dr", "recovery", "dr-eu-1", "Payments", "Frankfurt", "production", "recoveryTarget"},
-		{"identity", "identity-bao", "identity", "prod-eu-1", "Identity", "Amsterdam", "production", "primary"},
-		{"platform", "platform-bao", "platform", "prod-eu-1", "Platform", "Amsterdam", "production", "primary"},
-		{"customer-x", "customer-x-bao", "customer-x", "prod-eu-2", "Customer X", "Frankfurt", "production", "primary"},
-		{"finance", "finance-bao", "finance", "prod-eu-2", "Finance", "Frankfurt", "production", "primary"},
-		{"staging", "staging-bao", "staging", "nonprod", "Platform", "Amsterdam", "staging", "primary"},
-		{"dev", "dev-bao", "development", "nonprod", "Platform", "Amsterdam", "development", "primary"},
-		{"sandbox", "sandbox-bao", "development", "nonprod", "Platform", "Amsterdam", "development", "primary"},
-		{"internal", "internal-bao", "platform", "prod-eu-1", "Security", "Amsterdam", "production", "primary"},
-		{"edge", "edge-bao", "edge", "edge", "Edge", "Rotterdam", "other", "primary"},
+	return result
+}
+
+// fixture describes one fictional deployment.
+type fixture struct {
+	id, name, namespace, connection, team, location string
+	environment                                     fleet.Environment
+	role                                            fleet.Role
+}
+
+var fixtures = []fixture{
+	{"payments", "payments-bao", "payments", "prod-eu-1", "Payments", "Amsterdam", "production", "primary"},
+	{"payments-read", "payments-read", "payments", "prod-eu-2", "Payments", "Frankfurt", "production", "replica"},
+	{"payments-dr", "payments-dr", "recovery", "dr-eu-1", "Payments", "Frankfurt", "production", "recoveryTarget"},
+	{"identity", "identity-bao", "identity", "prod-eu-1", "Identity", "Amsterdam", "production", "primary"},
+	{"platform", "platform-bao", "platform", "prod-eu-1", "Platform", "Amsterdam", "production", "primary"},
+	{"customer-x", "customer-x-bao", "customer-x", "prod-eu-2", "Customer X", "Frankfurt", "production", "primary"},
+	{"finance", "finance-bao", "finance", "prod-eu-2", "Finance", "Frankfurt", "production", "primary"},
+	{"staging", "staging-bao", "staging", "nonprod", "Platform", "Amsterdam", "staging", "primary"},
+	{"dev", "dev-bao", "development", "nonprod", "Platform", "Amsterdam", "development", "primary"},
+	{"sandbox", "sandbox-bao", "development", "nonprod", "Platform", "Amsterdam", "development", "primary"},
+	{"internal", "internal-bao", "platform", "prod-eu-1", "Security", "Amsterdam", "production", "primary"},
+	{"edge", "edge-bao", "edge", "edge", "Edge", "Rotterdam", "other", "primary"},
+}
+
+// deployment builds a fixture's current state. Findings use the same rules as live
+// collection; their first-seen times are fixed for a stable demonstration.
+func deployment(row fixture, now time.Time) fleet.Deployment {
+	d := fleet.Deployment{
+		ID:              row.id,
+		UID:             "demo-" + row.id,
+		Name:            row.name,
+		Namespace:       row.namespace,
+		ConnectionID:    row.connection,
+		Location:        row.location,
+		Team:            row.team,
+		Environment:     row.environment,
+		Version:         "2.7.0",
+		DesiredVersion:  "2.7.0",
+		OperatorVersion: ptr("development"),
+		Role:            row.role,
+		Generation:      3,
+		ResourceVersion: "demo-42",
+		ReadyReplicas:   ptr(int32(3)),
+		DesiredReplicas: ptr(int32(3)),
+		Evidence: fleet.Evidence{
+			CollectedAt:       now,
+			LastAttemptAt:     now,
+			Collection:        fleet.EvidenceCollectionCurrent,
+			ProducerFreshness: fleet.FreshnessUnknown,
+		},
+		Conditions: []fleet.Condition{
+			{
+				Type:               "Available",
+				Status:             fleet.ConditionStatusTrue,
+				Reason:             "AllReplicasReady",
+				Message:            "All configured replicas are ready.",
+				ObservedGeneration: 3,
+				LastTransitionAt:   ptr(now.Add(-48 * time.Hour)),
+			},
+		},
+		Backup: &fleet.Backup{
+			LastSuccessAt: ptr(
+				now.Add(-14 * time.Minute),
+			),
+			NextAt:    ptr(now.Add(24 * time.Hour)),
+			Key:       ptr(row.namespace + "/" + now.Format("2006-01-02") + ".snapshot"),
+			Digest:    ptr("sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+			SizeBytes: ptr(int64(1288490188)),
+			RestoreTest: &fleet.RestoreTest{
+				Outcome:       fleet.RestoreOutcomePassed,
+				FinishedAt:    ptr(now.Add(-72 * time.Hour)),
+				LastSuccessAt: ptr(now.Add(-72 * time.Hour)),
+				Key:           ptr(row.namespace + "/restore-test.snapshot"),
+				Reason:        "SnapshotApplied",
+			},
+		},
 	}
-	for _, row := range rows {
-		d := fleet.Deployment{
-			ID:              row.id,
-			UID:             "demo-" + row.id,
-			Name:            row.name,
-			Namespace:       row.namespace,
-			ConnectionID:    row.connection,
-			Location:        row.location,
-			Team:            row.team,
-			Environment:     row.environment,
-			Version:         "2.7.0",
-			DesiredVersion:  "2.7.0",
-			OperatorVersion: ptr("development"),
-			Role:            row.role,
-			Generation:      3,
-			ResourceVersion: "demo-42",
-			ReadyReplicas:   ptr(int32(3)),
-			DesiredReplicas: ptr(int32(3)),
-			Evidence: fleet.Evidence{
-				CollectedAt:       now,
-				LastAttemptAt:     now,
-				Collection:        fleet.EvidenceCollectionCurrent,
-				ProducerFreshness: fleet.FreshnessUnknown,
-			},
-			Conditions: []fleet.Condition{
-				{
-					Type:               "Available",
-					Status:             fleet.ConditionStatusTrue,
-					Reason:             "AllReplicasReady",
-					Message:            "All configured replicas are ready.",
-					ObservedGeneration: 3,
-					LastTransitionAt:   ptr(now.Add(-48 * time.Hour)),
-				},
-			},
-			Backup: &fleet.Backup{
-				LastSuccessAt: ptr(
-					now.Add(-14 * time.Minute),
-				),
-				NextAt:    ptr(now.Add(24 * time.Hour)),
-				Key:       ptr(row.namespace + "/" + now.Format("2006-01-02") + ".snapshot"),
-				Digest:    ptr("sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
-				SizeBytes: ptr(int64(1288490188)),
-				RestoreTest: &fleet.RestoreTest{
-					Outcome:       fleet.RestoreOutcomePassed,
-					FinishedAt:    ptr(now.Add(-72 * time.Hour)),
-					LastSuccessAt: ptr(now.Add(-72 * time.Hour)),
-					Key:           ptr(row.namespace + "/restore-test.snapshot"),
-					Reason:        "SnapshotApplied",
-				},
+	if row.role == fleet.RoleReplica {
+		d.Backup = nil
+		d.Replica = &fleet.Replica{
+			ObservedAt:  ptr(now.Add(-12 * time.Second)),
+			LocalIndex:  ptr("9007199254741007"),
+			SourceIndex: ptr("9007199254741014"),
+		}
+	}
+	d.OperatorID = ptr("operator-" + row.connection)
+	if row.role == fleet.RoleRecoveryTarget {
+		d.Backup = nil
+		d.ReadyReplicas = ptr(int32(1))
+		d.DesiredReplicas = ptr(int32(1))
+		d.Recovery = &fleet.Recovery{
+			RequestName:            "payments-recovery-drill",
+			Mechanism:              fleet.RecoveryMechanismSnapshot,
+			Phase:                  fleet.RecoveryPhaseCompleted,
+			Stage:                  "FollowThroughComplete",
+			StartedAt:              ptr(now.Add(-73 * time.Hour)),
+			CompletedAt:            ptr(now.Add(-72 * time.Hour)),
+			ApplicationConfirmedAt: ptr(now.Add(-72 * time.Hour)),
+			Cleanup:                fleet.RecoveryCleanupNotApplicable,
+		}
+	}
+	if row.id == "identity" {
+		d.ReadyReplicas = ptr(int32(0))
+		d.Conditions = []fleet.Condition{
+			{
+				Type:               "OpenBaoSealed",
+				Status:             fleet.ConditionStatusTrue,
+				Reason:             "Sealed",
+				Message:            "The operator reports sealed state.",
+				ObservedGeneration: 3,
+				LastTransitionAt:   ptr(now.Add(-3 * time.Hour)),
 			},
 		}
-		if row.role == fleet.RoleReplica {
-			d.Backup = nil
-			d.Replica = &fleet.Replica{
-				ObservedAt:  ptr(now.Add(-12 * time.Second)),
-				LocalIndex:  ptr("9007199254741007"),
-				SourceIndex: ptr("9007199254741014"),
-			}
-		}
-		d.OperatorID = ptr("operator-" + row.connection)
-		if row.role == fleet.RoleRecoveryTarget {
-			d.Backup = nil
-			d.ReadyReplicas = ptr(int32(1))
-			d.DesiredReplicas = ptr(int32(1))
-			d.Recovery = &fleet.Recovery{
-				RequestName:            "payments-recovery-drill",
-				Mechanism:              fleet.RecoveryMechanismSnapshot,
-				Phase:                  fleet.RecoveryPhaseCompleted,
-				Stage:                  "FollowThroughComplete",
-				StartedAt:              ptr(now.Add(-73 * time.Hour)),
-				CompletedAt:            ptr(now.Add(-72 * time.Hour)),
-				ApplicationConfirmedAt: ptr(now.Add(-72 * time.Hour)),
-				Cleanup:                fleet.RecoveryCleanupNotApplicable,
-			}
-		}
-		if row.id == "identity" {
-			d.ReadyReplicas = ptr(int32(0))
-			d.Conditions = []fleet.Condition{
-				{
-					Type:               "OpenBaoSealed",
-					Status:             fleet.ConditionStatusTrue,
-					Reason:             "Sealed",
-					Message:            "The operator reports sealed state.",
-					ObservedGeneration: 3,
-					LastTransitionAt:   ptr(now.Add(-3 * time.Hour)),
-				},
-			}
-		}
-		if row.id == "customer-x" {
-			d.Backup.ConsecutiveFailures = 2
-			d.Backup.LastSuccessAt = ptr(now.Add(-19 * time.Hour))
-		}
-		if row.id == "staging" {
-			d.Version = "2.6.1"
-			d.UpgradeFailure = &fleet.OperationFailure{Reason: "PodNotReady", At: ptr(now.Add(-7 * time.Hour))}
-			d.Conditions = append(
-				d.Conditions,
-				fleet.Condition{
-					Type:               "Upgrading",
-					Status:             fleet.ConditionStatusFalse,
-					Reason:             "UpgradeFailed",
-					Message:            "Post-upgrade checks failed: PodNotReady.",
-					ObservedGeneration: 3,
-					LastTransitionAt:   ptr(now.Add(-7 * time.Hour)),
-				},
-			)
-		}
-		if row.id == "edge" {
-			d.Backup = nil
-			d.ReadyReplicas = nil
-			d.Evidence.CollectedAt = now.Add(-24 * time.Hour)
-		}
-		evidence.Evaluate(
-			&d,
-			now.Add(-7*24*time.Hour),
-			false,
-			policy,
-			now,
+	}
+	if row.id == "customer-x" {
+		d.Backup.ConsecutiveFailures = 2
+		d.Backup.LastSuccessAt = ptr(now.Add(-19 * time.Hour))
+	}
+	if row.id == "staging" {
+		d.Version = "2.6.1"
+		d.UpgradeFailure = &fleet.OperationFailure{Reason: "PodNotReady", At: ptr(now.Add(-7 * time.Hour))}
+		d.Conditions = append(
+			d.Conditions,
+			fleet.Condition{
+				Type:               "Upgrading",
+				Status:             fleet.ConditionStatusFalse,
+				Reason:             "UpgradeFailed",
+				Message:            "Post-upgrade checks failed: PodNotReady.",
+				ObservedGeneration: 3,
+				LastTransitionAt:   ptr(now.Add(-7 * time.Hour)),
+			},
 		)
-		if row.id == "edge" {
-			evidence.CollectionFailure(&d, fleet.EvidenceCollectionUnreachable, now)
-		}
-		for i := range d.Issues {
-			d.Issues[i].FirstSeenAt = now.Add(-3 * time.Hour)
-		}
-		snapshot.Deployments = append(snapshot.Deployments, d)
 	}
-	snapshot.Relationships = []fleet.Relationship{
+	if row.id == "edge" {
+		d.Backup = nil
+		d.ReadyReplicas = nil
+		d.Evidence.CollectedAt = now.Add(-24 * time.Hour)
+	}
+	evidence.Evaluate(
+		&d,
+		now.Add(-7*24*time.Hour),
+		false,
+		policy,
+		now,
+	)
+	if row.id == "edge" {
+		evidence.CollectionFailure(&d, fleet.EvidenceCollectionUnreachable, now)
+	}
+	for i := range d.Issues {
+		d.Issues[i].FirstSeenAt = now.Add(-3 * time.Hour)
+	}
+	return d
+}
+
+func relationships(now time.Time) []fleet.Relationship {
+	return []fleet.Relationship{
 		{
 			ID:         "payments-replication",
 			SourceID:   "payments",
@@ -285,7 +312,10 @@ func New(now time.Time) *Repository {
 			Repository: ptr("s3://platform-recovery/payments"),
 		},
 	}
-	snapshot.Activity = []fleet.Activity{
+}
+
+func activity(now time.Time) []fleet.Activity {
+	return []fleet.Activity{
 		{
 			ID:           "event-1",
 			DeploymentID: "payments",
@@ -327,11 +357,6 @@ func New(now time.Time) *Repository {
 			Outcome:      fleet.ActivityOutcomeSuccess,
 		},
 	}
-	repository := &Repository{snapshot: snapshot, history: map[string][]fleet.Observation{}}
-	for _, deployment := range snapshot.Deployments {
-		repository.history[deployment.ID] = history(deployment, now)
-	}
-	return repository
 }
 
 // copyDeployment returns an independent deep copy, so history entries never share pointers.
