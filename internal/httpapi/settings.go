@@ -3,10 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
-	"io"
-	"mime"
 	"net/http"
 	"time"
 
@@ -80,7 +77,7 @@ func connectionView(c config.Connection) contract.ManagedConnection {
 	return result
 }
 
-func connectionInput(c contract.ManagedConnection, old *config.Connection) (config.Connection, error) {
+func connectionInput(c contract.ManagedConnection) (config.Connection, error) {
 	result := config.Connection{
 		ID:         c.Id,
 		Name:       c.Name,
@@ -94,9 +91,6 @@ func connectionInput(c contract.ManagedConnection, old *config.Connection) (conf
 		result.Access = config.Access{Mode: config.AccessInCluster}
 	case contract.ManagedConnectionAuthenticationRemote:
 		result.Access = config.Access{Mode: config.AccessRemote}
-		if old != nil {
-			result.Access.Credential = old.Access.Credential
-		}
 	default:
 		return result, errors.New("choose local or remote authentication")
 	}
@@ -168,11 +162,12 @@ func configurationView(c config.Config) contract.Configuration {
 	return result
 }
 
+// credentialInput accepts either structured credentials or a kubeconfig, never both.
 func credentialInput(credential *contract.ClusterCredential, kubeconfig, contextName *string) (*config.Credential, error) {
-	if credential != nil && kubeconfig != nil {
+	switch {
+	case credential != nil && kubeconfig != nil:
 		return nil, errors.New("supply structured credentials or a kubeconfig")
-	}
-	if credential != nil {
+	case credential != nil:
 		result := &config.Credential{
 			Server:      credential.Server,
 			CA:          credential.Ca,
@@ -181,81 +176,72 @@ func credentialInput(credential *contract.ClusterCredential, kubeconfig, context
 			Key:         credential.Key,
 		}
 		return result, result.Validate()
-	}
-	if kubeconfig != nil {
+	case kubeconfig != nil:
 		selected := ""
 		if contextName != nil {
 			selected = *contextName
 		}
 		result, err := config.ImportKubeconfig([]byte(*kubeconfig), selected)
 		return &result, err
+	default:
+		return nil, nil
 	}
-	return nil, nil
 }
 
-func configurationInput(input contract.SettingsUpdate, previous config.Config) (config.Config, error) {
-	result := config.Config{
-		Connections:         []config.Connection{},
-		Users:               []config.User{},
-		Groups:              []config.Group{},
-		Relationships:       []config.Relationship{},
-		MaxBackupAgeHours:   input.Configuration.MaxBackupAgeHours,
-		StartupGraceMinutes: input.Configuration.StartupGraceMinutes,
-		Identity:            previous.Identity,
+// editInput maps a settings update onto a settings edit. The settings service applies the
+// credential rules.
+func editInput(input contract.SettingsUpdate) (settings.Edit, error) {
+	edit := settings.Edit{
+		Revision: input.Revision,
+		Configuration: config.Config{
+			Connections:         []config.Connection{},
+			Users:               []config.User{},
+			Groups:              []config.Group{},
+			Relationships:       []config.Relationship{},
+			MaxBackupAgeHours:   input.Configuration.MaxBackupAgeHours,
+			StartupGraceMinutes: input.Configuration.StartupGraceMinutes,
+		},
+		Servers:     map[string]string{},
+		Credentials: map[string]config.Credential{},
 	}
-	old := map[string]config.Connection{}
-	for _, connection := range previous.Connections {
-		old[connection.ID] = connection
-	}
-	credentials := map[string]contract.CredentialUpdate{}
-	for _, update := range input.Credentials {
-		if _, found := credentials[update.ConnectionId]; found {
-			return result, errors.New("duplicate credential update")
-		}
-		credentials[update.ConnectionId] = update
-	}
-	for _, connection := range input.Configuration.Connections {
-		if existing, ok := old[connection.Id]; ok && connection.Authentication == "remote" && existing.Access.Credential != nil &&
-			connection.Server != existing.Access.Credential.Server {
-			if _, updated := credentials[connection.Id]; !updated {
-				return result, errors.New("supply complete credentials when changing the API server")
-			}
-		}
-		existing := old[connection.Id]
-		next, err := connectionInput(connection, &existing)
+	for _, managed := range input.Configuration.Connections {
+		connection, err := connectionInput(managed)
 		if err != nil {
-			return result, err
+			return edit, err
 		}
-		if update, found := credentials[connection.Id]; found {
-			if connection.Authentication != "remote" {
-				return result, errors.New("remote credentials require remote authentication")
-			}
-			next.Access.Credential, err = credentialInput(update.Credential, update.Kubeconfig, update.Context)
-			if err != nil {
-				return result, err
-			}
-			delete(credentials, connection.Id)
+		edit.Configuration.Connections = append(edit.Configuration.Connections, connection)
+		if managed.Authentication == contract.ManagedConnectionAuthenticationRemote {
+			edit.Servers[managed.Id] = managed.Server
 		}
-		if connection.Authentication == "remote" && next.Access.Credential == nil {
-			return result, errors.New("remote connection requires reader credentials")
-		}
-		result.Connections = append(result.Connections, next)
 	}
-	if len(credentials) > 0 {
-		return result, errors.New("credential references an unknown connection")
+	for _, update := range input.Credentials {
+		if _, found := edit.Credentials[update.ConnectionId]; found {
+			return edit, errors.New("duplicate credential update")
+		}
+		credential, err := credentialInput(update.Credential, update.Kubeconfig, update.Context)
+		if err != nil {
+			return edit, err
+		}
+		if credential == nil {
+			return edit, errors.New("credential update requires structured credentials or a kubeconfig")
+		}
+		edit.Credentials[update.ConnectionId] = *credential
 	}
 	for _, user := range input.Configuration.Users {
-		result.Users = append(
-			result.Users,
+		edit.Configuration.Users = append(
+			edit.Configuration.Users,
 			config.User{Subject: user.Subject, Name: user.Name, Admin: user.Admin, Scopes: scopesInput(user.Scopes)},
 		)
 	}
 	for _, group := range input.Configuration.Groups {
-		result.Groups = append(result.Groups, config.Group{Name: group.Name, Admin: group.Admin, Scopes: scopesInput(group.Scopes)})
+		edit.Configuration.Groups = append(
+			edit.Configuration.Groups,
+			config.Group{Name: group.Name, Admin: group.Admin, Scopes: scopesInput(group.Scopes)},
+		)
 	}
 	for _, route := range input.Configuration.Relationships {
-		result.Relationships = append(
-			result.Relationships,
+		edit.Configuration.Relationships = append(
+			edit.Configuration.Relationships,
 			config.Relationship{
 				ID:         route.Id,
 				Source:     resourceInput(route.Source),
@@ -265,7 +251,7 @@ func configurationInput(input contract.SettingsUpdate, previous config.Config) (
 			},
 		)
 	}
-	return result, result.Validate()
+	return edit, nil
 }
 
 func (s *Server) settingsView(ctx context.Context) (contract.Settings, error) {
@@ -289,44 +275,6 @@ func (s *Server) settingsView(ctx context.Context) (contract.Settings, error) {
 			result.Changes,
 			contract.SettingsChange{Revision: change.Revision, Actor: change.Actor, Summary: change.Summary, At: change.At},
 		)
-	}
-	return result, nil
-}
-
-func (s *Server) administrator(w http.ResponseWriter, r *http.Request) (config.User, bool) {
-	user, allowed := s.Auth.Viewer(r)
-	if !allowed {
-		problem(w, http.StatusUnauthorized, "unauthenticated", "Sign in to manage settings.")
-		return user, false
-	}
-	if !user.Admin {
-		problem(w, http.StatusForbidden, "forbidden", "Console administrator access is required.")
-		return user, false
-	}
-	if s.Settings == nil {
-		problem(w, http.StatusServiceUnavailable, "unavailable", "Settings are unavailable.")
-		return user, false
-	}
-	if r.Method != http.MethodGet && r.Header.Get("Origin") != s.Origin {
-		problem(w, http.StatusForbidden, "forbidden", "Invalid request origin.")
-		return user, false
-	}
-	return user, true
-}
-
-func decodeBody[T any](w http.ResponseWriter, r *http.Request) (T, error) {
-	var result T
-	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	if err != nil || mediaType != "application/json" {
-		return result, errors.New("use application/json")
-	}
-	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&result); err != nil {
-		return result, errors.New("request body is invalid or exceeds 1 MiB")
-	}
-	if decoder.Decode(&struct{}{}) != io.EOF {
-		return result, errors.New("request must contain one JSON object")
 	}
 	return result, nil
 }
@@ -362,184 +310,125 @@ func credentialExpiryView(credential *config.Credential) contract.CredentialExpi
 }
 
 func (s *Server) settingsRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /api/v1/settings/connections/credentials", s.credentialStatuses)
-	mux.HandleFunc("GET /api/v1/settings", func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := s.administrator(w, r); !ok {
-			return
-		}
-		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-		defer cancel()
-		result, err := s.settingsView(ctx)
-		if err != nil {
-			problem(w, http.StatusServiceUnavailable, "unavailable", "Settings could not be read.")
-			return
-		}
-		jsonResponse(w, 200, result)
-	})
-	mux.HandleFunc("PUT /api/v1/settings", func(w http.ResponseWriter, r *http.Request) {
-		user, ok := s.administrator(w, r)
-		if !ok {
-			return
-		}
-		input, err := decodeBody[contract.SettingsUpdate](w, r)
-		if err != nil {
-			problem(w, http.StatusBadRequest, "invalid", err.Error())
-			return
-		}
-		previous, revision := s.Settings.Current()
-		if input.Revision != revision {
-			problem(w, http.StatusConflict, "conflict", "Settings changed. Reload before saving.")
-			return
-		}
-		next, err := configurationInput(input, previous)
-		if err != nil {
-			problem(w, http.StatusBadRequest, "invalid", err.Error())
-			return
-		}
-		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-		defer cancel()
-		replacements := []string{}
-		for _, update := range input.Credentials {
-			replacements = append(replacements, update.ConnectionId)
-		}
-		if _, err := s.Settings.SaveReplacing(
-			ctx,
-			input.Revision,
-			next,
-			user.Subject,
-			settings.Summary(previous, next),
-			replacements,
-		); err != nil {
-			switch {
-			case errors.Is(err, settings.ErrConflict):
-				problem(w, http.StatusConflict, "conflict", "Settings changed. Reload before saving.")
-			case errors.Is(err, settings.ErrInvalid):
-				problem(w, http.StatusBadRequest, "invalid", err.Error())
-			default:
-				problem(
-					w,
-					http.StatusServiceUnavailable,
-					"unavailable",
-					"Settings could not be saved. Retry after the database is available.",
-				)
-			}
-			return
-		}
-		result, err := s.settingsView(ctx)
-		if err != nil {
-			problem(w, http.StatusServiceUnavailable, "unavailable", "Settings saved; reload to read the result.")
-			return
-		}
-		jsonResponse(w, 200, result)
-	})
-	mux.HandleFunc("POST /api/v1/settings/connections/rbac", func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := s.administrator(w, r); !ok {
-			return
-		}
-		input, err := decodeBody[contract.ReaderAccessInput](w, r)
-		if err != nil {
-			problem(w, http.StatusBadRequest, "invalid", err.Error())
-			return
-		}
-		connection, err := connectionInput(input.Connection, nil)
-		if err != nil {
-			problem(w, http.StatusBadRequest, "invalid", err.Error())
-			return
-		}
-		access, err := s.readerAccess(connection, input.Connection.Authentication)
-		if err != nil {
-			problem(w, http.StatusBadRequest, "invalid", err.Error())
-			return
-		}
-		jsonResponse(w, 200, access)
-	})
-	mux.HandleFunc("POST /api/v1/settings/connections/check", func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := s.administrator(w, r); !ok {
-			return
-		}
-		input, err := decodeBody[contract.ConnectionCheck](w, r)
-		if err != nil {
-			problem(w, http.StatusBadRequest, "invalid", err.Error())
-			return
-		}
-		current, _ := s.Settings.Current()
-		var old *config.Connection
-		for _, connection := range current.Connections {
-			if connection.ID == input.Connection.Id {
-				copy := connection
-				old = &copy
-				break
-			}
-		}
-		connection, err := connectionInput(input.Connection, old)
-		if err == nil && input.Connection.Authentication == "remote" && connection.Access.Credential != nil && input.Credential == nil &&
-			input.Kubeconfig == nil &&
-			input.Connection.Server != connection.Access.Credential.Server {
-			err = errors.New("supply complete credentials when changing the API server")
-		}
-		if err == nil && input.Connection.Authentication == "local" && (input.Credential != nil || input.Kubeconfig != nil) {
-			err = errors.New("remote credentials require remote authentication")
-		}
-		if err == nil && (input.Credential != nil || input.Kubeconfig != nil) {
-			connection.Access.Credential, err = credentialInput(input.Credential, input.Kubeconfig, input.Context)
-		}
-		if err == nil && input.Connection.Authentication == "remote" && connection.Access.Credential == nil {
-			err = errors.New("supply a remote reader credential")
-		}
-		checkConfig := config.Config{
-			Connections:         []config.Connection{connection},
-			MaxBackupAgeHours:   current.MaxBackupAgeHours,
-			StartupGraceMinutes: current.StartupGraceMinutes,
-		}
-		if err == nil {
-			err = checkConfig.Validate()
-		}
-		if err != nil {
-			problem(w, http.StatusBadRequest, "invalid", err.Error())
-			return
-		}
-		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-		defer cancel()
-		reader := collector.Unconfigured(connection, current.Policy())
-		batch, diagnostic := reader.Check(ctx, time.Now().UTC())
-		access, err := s.readerAccess(connection, input.Connection.Authentication)
-		if err != nil {
-			problem(w, http.StatusBadRequest, "invalid", "Reader RBAC could not be generated.")
-			return
-		}
-		jsonResponse(w, http.StatusOK, contract.ConnectionCheckResult{
-			Connection:  connectionContract(batch.Connection),
-			Rbac:        access.Rbac,
-			Deployments: mapSlice(batch.Deployments, deploymentContract),
-			Diagnostics: contract.ConnectionDiagnostic{
-				State:   contract.ConnectionDiagnosticState(diagnostic.State),
-				Message: diagnostic.Message,
-			},
-			CredentialExpiry: credentialExpiryView(connection.Access.Credential),
-		})
-	})
-	mux.HandleFunc("POST /api/v1/settings/identity/trial", s.identityTrial)
+	mux.HandleFunc("GET /api/v1/settings", s.admin(s.readSettings))
+	mux.HandleFunc("PUT /api/v1/settings", s.admin(s.saveSettings))
+	mux.HandleFunc("GET /api/v1/settings/connections/credentials", s.admin(s.credentialStatuses))
+	mux.HandleFunc("POST /api/v1/settings/connections/rbac", s.admin(s.readerRBAC))
+	mux.HandleFunc("POST /api/v1/settings/connections/check", s.admin(s.checkConnection))
+	mux.HandleFunc("POST /api/v1/settings/identity/trial", s.admin(s.identityTrial))
 }
 
-func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request) {
-	actor, ok := s.administrator(w, r)
-	if !ok {
-		return
+func (s *Server) readSettings(w http.ResponseWriter, r *http.Request, _ config.User) error {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	result, err := s.settingsView(ctx)
+	if err != nil {
+		return unavailable(err, "Settings could not be read.")
 	}
+	jsonResponse(w, http.StatusOK, result)
+	return nil
+}
+
+func (s *Server) saveSettings(w http.ResponseWriter, r *http.Request, actor config.User) error {
+	input, err := decodeBody[contract.SettingsUpdate](w, r)
+	if err != nil {
+		return err
+	}
+	edit, err := editInput(input)
+	if err != nil {
+		return invalidRequest(err)
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	if _, err := s.Settings.ApplyEdit(ctx, edit, actor.Subject); err != nil {
+		return unavailable(err, "Settings could not be saved. Retry after the database is available.")
+	}
+	result, err := s.settingsView(ctx)
+	if err != nil {
+		return unavailable(err, "Settings saved; reload to read the result.")
+	}
+	jsonResponse(w, http.StatusOK, result)
+	return nil
+}
+
+func (s *Server) readerRBAC(w http.ResponseWriter, r *http.Request, _ config.User) error {
+	input, err := decodeBody[contract.ReaderAccessInput](w, r)
+	if err != nil {
+		return err
+	}
+	connection, err := connectionInput(input.Connection)
+	if err != nil {
+		return invalidRequest(err)
+	}
+	access, err := s.readerAccess(connection, input.Connection.Authentication)
+	if err != nil {
+		return invalidRequest(err)
+	}
+	jsonResponse(w, http.StatusOK, access)
+	return nil
+}
+
+// checkConnection previews a connection under the saved policy without persisting it.
+func (s *Server) checkConnection(w http.ResponseWriter, r *http.Request, _ config.User) error {
+	input, err := decodeBody[contract.ConnectionCheck](w, r)
+	if err != nil {
+		return err
+	}
+	connection, err := connectionInput(input.Connection)
+	if err != nil {
+		return invalidRequest(err)
+	}
+	replacement, err := credentialInput(input.Credential, input.Kubeconfig, input.Context)
+	if err != nil {
+		return invalidRequest(err)
+	}
+	connection, err = s.Settings.ResolveConnection(connection, input.Connection.Server, replacement)
+	if err != nil {
+		return err
+	}
+	current, _ := s.Settings.Current()
+	preview := config.Config{
+		Connections:         []config.Connection{connection},
+		MaxBackupAgeHours:   current.MaxBackupAgeHours,
+		StartupGraceMinutes: current.StartupGraceMinutes,
+	}
+	if err := preview.Validate(); err != nil {
+		return invalidRequest(err)
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	batch, diagnostic := collector.Unconfigured(connection, current.Policy()).Check(ctx, time.Now().UTC())
+	access, err := s.readerAccess(connection, input.Connection.Authentication)
+	if err != nil {
+		return badRequest("Reader RBAC could not be generated.")
+	}
+	jsonResponse(w, http.StatusOK, contract.ConnectionCheckResult{
+		Connection:  connectionContract(batch.Connection),
+		Rbac:        access.Rbac,
+		Deployments: mapSlice(batch.Deployments, deploymentContract),
+		Diagnostics: contract.ConnectionDiagnostic{
+			State:   contract.ConnectionDiagnosticState(diagnostic.State),
+			Message: diagnostic.Message,
+		},
+		CredentialExpiry: credentialExpiryView(connection.Access.Credential),
+	})
+	return nil
+}
+
+// identityTrial activates a candidate identity provider only after an enrolled
+// administrator signs in through it.
+func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request, actor config.User) error {
 	authentication, ok := s.Auth.(*auth.Authenticator)
 	if !ok {
-		problem(w, http.StatusServiceUnavailable, "unavailable", "Identity setup is unavailable.")
-		return
+		return retryLater("Identity setup is unavailable.")
 	}
 	input, err := decodeBody[contract.IdentityTrial](w, r)
 	if err != nil {
-		problem(w, http.StatusBadRequest, "invalid", err.Error())
-		return
+		return err
 	}
 	current, revision := s.Settings.Current()
 	if input.Revision != revision {
-		problem(w, http.StatusConflict, "conflict", "Settings changed. Reload before testing.")
-		return
+		return &problemError{status: http.StatusConflict, code: "conflict", message: "Settings changed. Reload before testing."}
 	}
 	secret := ""
 	if current.Identity != nil && current.Identity.Issuer == input.Identity.Issuer && current.Identity.ClientID == input.Identity.ClientId {
@@ -559,8 +448,7 @@ func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	providerContext, err := auth.ProviderContextPEM(ctx, []byte(candidateIdentity.CA))
 	if err != nil {
-		problem(w, http.StatusBadRequest, "invalid", "Check the identity provider CA certificate.")
-		return
+		return badRequest("Check the identity provider CA certificate.")
 	}
 	candidate, err := auth.NewOIDC(
 		providerContext,
@@ -571,8 +459,7 @@ func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request) {
 		nil,
 	)
 	if err != nil {
-		problem(w, http.StatusBadRequest, "invalid", "Identity discovery failed. Check the issuer, HTTPS trust, and client settings.")
-		return
+		return badRequest("Identity discovery failed. Check the issuer, HTTPS trust, and client settings.")
 	}
 	candidate.SetGroupsClaim(candidateIdentity.GroupsClaim)
 	location, err := authentication.BeginTrial(w, candidate, func(ctx context.Context, subject string, groups []string) error {
@@ -594,8 +481,8 @@ func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request) {
 		return nil
 	})
 	if err != nil {
-		problem(w, http.StatusServiceUnavailable, "unavailable", "Cannot begin identity verification.")
-		return
+		return retryLater("Cannot begin identity verification.")
 	}
-	jsonResponse(w, 200, contract.LoginRedirect{Url: location})
+	jsonResponse(w, http.StatusOK, contract.LoginRedirect{Url: location})
+	return nil
 }

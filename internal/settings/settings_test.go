@@ -179,9 +179,11 @@ func TestEncryptionRestartConflictAndRevocation(t *testing.T) {
 		t.Fatal("stale revision overwrote settings")
 	}
 	writes := 0
-	if err := service.Apply(
+	_, _, generation := service.ReaderConfiguration()
+	if err := service.ApplyCollection(
 		ctx,
 		revision,
+		generation,
 		func(context.Context) error { writes++; return nil },
 	); !errors.Is(err, ErrConflict) ||
 		writes != 0 {

@@ -4,14 +4,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/contract"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
-func (s *Server) credentialStatuses(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.administrator(w, r); !ok {
-		return
-	}
+// credentialStatuses reports reader credential expiry and renewal without credential values.
+func (s *Server) credentialStatuses(w http.ResponseWriter, _ *http.Request, _ config.User) error {
 	now := time.Now().UTC()
 	result := contract.CredentialStatuses{Credentials: []contract.CredentialStatus{}}
 	for _, target := range s.Settings.CredentialTargets() {
@@ -43,5 +42,6 @@ func (s *Server) credentialStatuses(w http.ResponseWriter, r *http.Request) {
 		}
 		result.Credentials = append(result.Credentials, status)
 	}
-	jsonResponse(w, 200, result)
+	jsonResponse(w, http.StatusOK, result)
+	return nil
 }

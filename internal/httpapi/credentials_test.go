@@ -30,14 +30,14 @@ func TestCredentialStatusesAuthorizeAndProjectOnlyLifecycleEvidence(t *testing.T
 	configuration.Connections[0].Access.Credential.Token = "e30." + base64.RawURLEncoding.EncodeToString(
 		[]byte(`{"sub":"system:serviceaccount:reader-system:reader","marker":"private-reader-token"}`),
 	) + ".signature"
-	if _, err := service.SaveReplacing(
-		context.Background(),
-		revision,
-		configuration,
-		"admin",
-		"Renewal enabled",
-		[]string{"cluster"},
-	); err != nil {
+	credential := *configuration.Connections[0].Access.Credential
+	edit := settings.Edit{
+		Revision:      revision,
+		Configuration: configuration,
+		Servers:       map[string]string{"cluster": credential.Server},
+		Credentials:   map[string]config.Credential{"cluster": credential},
+	}
+	if _, err := service.ApplyEdit(context.Background(), edit, "admin"); err != nil {
 		t.Fatal(err)
 	}
 	target := service.CredentialTargets()[0]

@@ -256,21 +256,22 @@ func (s *Service) History(ctx context.Context) ([]Change, error) {
 	return s.repository.SettingsHistory(ctx)
 }
 
+// Save replaces the configuration. Remote connections keep their stored reader credentials.
 func (s *Service) Save(ctx context.Context, revision int64, configuration config.Config, actor, summary string) (int64, error) {
-	return s.SaveReplacing(ctx, revision, configuration, actor, summary, nil)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.save(ctx, revision, configuration, actor, summary, nil)
 }
 
-// SaveReplacing replaces only the credentials named by the caller. Omitted
-// credentials are resolved under the lock, so a stale edit cannot undo renewal.
-func (s *Service) SaveReplacing(
+// save replaces only the credentials named by the caller. Omitted credentials are
+// resolved under the lock, so a stale edit cannot undo renewal. The caller holds s.mu.
+func (s *Service) save(
 	ctx context.Context,
 	revision int64,
 	configuration config.Config,
 	actor, summary string,
 	replacements []string,
 ) (int64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if revision != s.revision {
 		return 0, ErrConflict
 	}
@@ -286,11 +287,11 @@ func (s *Service) SaveReplacing(
 		connection := &configuration.Connections[i]
 		switch {
 		case connection.Access.Mode == config.AccessKubeconfig:
-			return 0, fmt.Errorf("%w: import kubeconfig access before saving", ErrInvalid)
+			return 0, invalid("import kubeconfig access before saving")
 		case connection.Access.Mode != config.AccessRemote:
 			continue
 		case connection.Access.Credential == nil:
-			return 0, fmt.Errorf("%w: remote connection requires a reader credential", ErrInvalid)
+			return 0, invalid("remote connection requires a reader credential")
 		}
 		previous, exists := s.credentials[connection.ID]
 		if exists && !replace[connection.ID] {
@@ -317,13 +318,13 @@ func (s *Service) SaveReplacing(
 		delete(replace, connection.ID)
 	}
 	if len(replace) != 0 {
-		return 0, fmt.Errorf("%w: credential replacement references an unknown remote connection", ErrInvalid)
+		return 0, invalid("credential replacement references an unknown remote connection")
 	}
 	if err := configuration.Validate(); err != nil {
-		return 0, fmt.Errorf("%w: %w", ErrInvalid, err)
+		return 0, invalid("%s", err)
 	}
 	if !hasAdmin(configuration) {
-		return 0, fmt.Errorf("%w: keep at least one console administrator", ErrInvalid)
+		return 0, invalid("keep at least one console administrator")
 	}
 	// Reader credentials are excluded from the configuration payload and stored separately.
 	payload, err := s.encrypt(configuration)
@@ -346,17 +347,6 @@ func (s *Service) notify() {
 	case s.changed <- struct{}{}:
 	default:
 	}
-}
-
-// Apply serializes configuration commits and collection writes. A superseded
-// reader cannot publish a batch after its connection or policy is replaced.
-func (s *Service) Apply(ctx context.Context, revision int64, write func(context.Context) error) error {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if revision != s.revision {
-		return ErrConflict
-	}
-	return write(ctx)
 }
 
 func (s *Service) encrypt(configuration config.Config) ([]byte, error) {

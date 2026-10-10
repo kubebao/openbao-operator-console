@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"reflect"
 	"time"
 
@@ -133,16 +132,16 @@ func (s *Service) UpdateCredential(ctx context.Context, target RenewalTarget, st
 		return ErrConflict
 	}
 	if err := state.validate(); err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalid, err)
+		return invalid("%s", err)
 	}
 	old := previous.State.Credential
 	if state.Credential.Server != old.Server || state.Credential.CA != old.CA || state.Credential.Certificate != old.Certificate ||
 		state.Credential.Key != old.Key {
-		return fmt.Errorf("%w: renewal cannot change server or TLS identity", ErrInvalid)
+		return invalid("renewal cannot change server or TLS identity")
 	}
 	connection.Access.Credential = &state.Credential
 	if err := connection.ValidateRenewal(); err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalid, err)
+		return invalid("%s", err)
 	}
 	stored := StoredCredential{Revision: previous.Revision + 1, State: cloneCredential(state)}
 	row, err := s.encryptCredential(connection.ID, stored)

@@ -118,11 +118,13 @@ func TestDelayedRenewalCannotUndoReplacementPauseRemovalOrPolicyChange(t *testin
 			}
 			target := service.CredentialTargets()[0]
 			configuration, revision := service.Current()
-			var replacements []string
+			servers := map[string]string{"cluster": configuration.Connections[0].Access.Credential.Server}
+			var credentials map[string]config.Credential
 			switch change {
 			case "replace":
-				configuration.Connections[0].Access.Credential.Token = renewalToken("manual-replacement")
-				replacements = []string{"cluster"}
+				replacement := *configuration.Connections[0].Access.Credential
+				replacement.Token = renewalToken("manual-replacement")
+				credentials = map[string]config.Credential{"cluster": replacement}
 			case "pause":
 				configuration.Connections[0].Disabled = true
 			case "remove":
@@ -131,7 +133,8 @@ func TestDelayedRenewalCannotUndoReplacementPauseRemovalOrPolicyChange(t *testin
 			case "disable renewal":
 				configuration.Connections[0].Renewal = nil
 			}
-			if _, err := service.SaveReplacing(ctx, revision, configuration, "admin", "Connections updated", replacements); err != nil {
+			edit := Edit{Revision: revision, Configuration: configuration, Servers: servers, Credentials: credentials}
+			if _, err := service.ApplyEdit(ctx, edit, "admin"); err != nil {
 				t.Fatal(err)
 			}
 			if err := service.UpdateCredential(ctx, target, renewedState(target)); !errors.Is(err, ErrConflict) {
