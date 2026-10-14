@@ -6,6 +6,7 @@ import (
 	"embed"
 	"encoding/json"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
@@ -22,7 +23,11 @@ import (
 var assets embed.FS
 
 type Server struct {
-	Fleet           Fleet
+	Fleet Fleet
+	// Database reports readiness in live mode. Demo mode has none and is always ready.
+	Database Database
+	// Logger records failed requests with a classified cause. Nil discards them.
+	Logger          *slog.Logger
 	Auth            Authentication
 	Settings        *settings.Service
 	Demo            bool
@@ -38,6 +43,11 @@ type Fleet interface {
 	Snapshot(context.Context) (fleet.Snapshot, error)
 	History(context.Context, string) ([]fleet.Observation, error)
 	Activity(context.Context, []config.Scope) ([]fleet.Activity, error)
+}
+
+// Database is the readiness view of the console database.
+type Database interface {
+	Ping(context.Context) error
 }
 
 type Authentication interface {
@@ -79,12 +89,18 @@ func (s *Server) Handler() http.Handler {
 }
 
 // secure sets response headers for every route and holds the API until setup completes.
+// An HTTPS public origin also enables HSTS for the console host only; subdomains and
+// preload lists are left to the operator of the domain.
 func (s *Server) secure(next http.Handler) http.Handler {
+	strictTransport := strings.HasPrefix(canonicalOrigin(s.Origin), "https://")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Content-Security-Policy", contentSecurityPolicy)
+		if strictTransport {
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000")
+		}
 		if s.Setup != nil && !s.Settings.Initialized() && strings.HasPrefix(r.URL.Path, "/api/v1/") &&
 			!strings.HasPrefix(r.URL.Path, "/api/v1/setup") {
 			problem(w, http.StatusServiceUnavailable, "setup_required", "Complete console setup before using this API.")
@@ -106,15 +122,25 @@ func (s *Server) viewer(handler viewerHandler) http.HandlerFunc {
 			return
 		}
 		if err := handler(w, r, user); err != nil {
-			writeProblem(w, err)
+			s.fail(w, r, err)
 		}
 	}
 }
 
+// ready is a public probe, so it stays cheap: live mode needs loaded settings and a
+// database that accepts connections. It reads no fleet evidence.
 func (s *Server) ready(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	if s.Demo {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if s.Settings == nil || s.Database == nil {
+		http.Error(w, "Not ready", http.StatusServiceUnavailable)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
-	if _, err := s.Fleet.Snapshot(ctx); err != nil {
+	if err := s.Database.Ping(ctx); err != nil {
 		http.Error(w, "Database unavailable", http.StatusServiceUnavailable)
 		return
 	}
@@ -122,7 +148,7 @@ func (s *Server) ready(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
-	if !s.Demo && r.Header.Get("Origin") != s.Origin {
+	if !s.Demo && !s.sameOrigin(r) {
 		http.Error(w, "Invalid origin", http.StatusForbidden)
 		return
 	}
@@ -134,7 +160,7 @@ func (s *Server) readSnapshot(w http.ResponseWriter, r *http.Request, user confi
 	defer cancel()
 	result, err := s.Fleet.Snapshot(ctx)
 	if err != nil {
-		return retryLater("Fleet evidence is temporarily unavailable.")
+		return unavailable(err, "Fleet evidence is temporarily unavailable.")
 	}
 	if result.Activity, err = s.Fleet.Activity(ctx, user.Scopes); err != nil {
 		return retryLater("Fleet evidence is temporarily unavailable.")
@@ -150,7 +176,7 @@ func (s *Server) readHistory(w http.ResponseWriter, r *http.Request, user config
 	defer cancel()
 	result, err := s.Fleet.Snapshot(ctx)
 	if err != nil {
-		return retryLater("Fleet evidence is temporarily unavailable.")
+		return unavailable(err, "Fleet evidence is temporarily unavailable.")
 	}
 	id := r.PathValue("id")
 	visible := slices.ContainsFunc(result.Deployments, func(d fleet.Deployment) bool {
@@ -161,7 +187,7 @@ func (s *Server) readHistory(w http.ResponseWriter, r *http.Request, user config
 	}
 	observations, err := s.Fleet.History(ctx, id)
 	if err != nil {
-		return retryLater("Observation history is temporarily unavailable.")
+		return unavailable(err, "Observation history is temporarily unavailable.")
 	}
 	jsonResponse(w, http.StatusOK, contract.History{Observations: mapSlice(observations, observationContract)})
 	return nil

@@ -11,23 +11,36 @@ import (
 )
 
 func TestPendingLoginAndExpiredSetupCallbackReturnToSetup(t *testing.T) {
-	a := NewPending(func(context.Context, string, []string) (config.User, bool) { return config.User{}, false })
+	a := NewPending(func(context.Context, config.Principal) (config.User, bool) { return config.User{}, false })
 	login := httptest.NewRecorder()
 	a.Login(login, httptest.NewRequest(http.MethodGet, "https://console.example/auth/login", nil))
 	if login.Code != http.StatusSeeOther || login.Header().Get("Location") != "/setup" {
 		t.Fatal("pending console attempted normal authentication")
 	}
 	activated := false
-	a.logins.transactions["expired-state"] = transaction{
-		setup:   true,
-		expires: time.Now().Add(-time.Minute),
-		activate: func(context.Context, string, []string) error {
+	trialID, err := a.logins.beginTrial(trial{
+		provider: &Provider{},
+		setup:    true,
+		activate: func(context.Context, config.Principal) error {
 			activated = true
 			return nil
 		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sealed, err := a.sealer.seal(pendingLogin{
+		State:    "expired-state",
+		Verifier: "verifier",
+		Nonce:    "nonce",
+		Trial:    trialID,
+		Expires:  time.Now().Add(-time.Minute).Unix(),
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 	request := httptest.NewRequest(http.MethodGet, "https://console.example/auth/callback?state=expired-state", nil)
-	request.AddCookie(&http.Cookie{Name: "__Host-console-state", Value: "expired-state"})
+	request.AddCookie(&http.Cookie{Name: "__Host-console-state", Value: sealed})
 	for range 2 {
 		callback := httptest.NewRecorder()
 		a.Callback(callback, request)

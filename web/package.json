@@ -2,8 +2,12 @@
   "name": "openbao-operator-console-web",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "type": "module",
   "packageManager": "pnpm@11.21.0",
+  "engines": {
+    "node": ">=26"
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",

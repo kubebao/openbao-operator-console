@@ -98,8 +98,14 @@ func ImportKubeconfig(data []byte, context string) (Credential, error) {
 	return result, result.Validate()
 }
 
-func (c Config) Resolve(subject string, memberships []string) (User, bool) {
+// Resolve maps a verified principal to its current access. User and group bindings
+// belong to AccessIssuer, so a principal from any other issuer matches none of them.
+func (c Config) Resolve(principal Principal) (User, bool) {
+	subject, memberships := principal.Subject, principal.Groups
 	result := User{Subject: subject, Name: subject, Scopes: []Scope{}}
+	if principal.Issuer == "" || principal.Issuer != c.AccessIssuer {
+		return result, false
+	}
 	enrolled := false
 	for _, user := range c.Users {
 		if user.Subject == subject {

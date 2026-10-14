@@ -1,15 +1,18 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -178,8 +181,9 @@ func TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay(t *testing.T) {
 				t.Fatal(err)
 			}
 			enrolled := config.User{Subject: "operator", Name: "Engineer"}
-			a := New(identityProvider, func(_ context.Context, subject string, _ []string) (config.User, bool) {
-				return enrolled, subject == enrolled.Subject
+			// The session carries the verified token issuer, so bindings can be issuer-scoped.
+			a := New(identityProvider, func(_ context.Context, principal config.Principal) (config.User, bool) {
+				return enrolled, principal.Issuer == provider.server.URL && principal.Subject == enrolled.Subject
 			})
 			request := provider.beginLogin(t, ctx, a)
 			callback := httptest.NewRecorder()
@@ -196,5 +200,120 @@ func TestOIDCLoginValidatesPKCENonceEnrollmentAndReplay(t *testing.T) {
 				t.Fatal("consumed state allowed replay")
 			}
 		})
+	}
+}
+
+func newTestLogin(t *testing.T) (*oidcProvider, context.Context, *Authenticator) {
+	t.Helper()
+	provider := newOIDCProvider(t, "operator", false)
+	ctx := oidc.ClientContext(context.Background(), provider.server.Client())
+	identityProvider, err := NewProvider(ctx, provider.server.URL, "console", "secret", "https://console.example/auth/callback")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := New(identityProvider, func(_ context.Context, principal config.Principal) (config.User, bool) {
+		return config.User{Subject: principal.Subject}, principal.Subject == "operator"
+	})
+	return provider, ctx, a
+}
+
+func TestLoginFloodDoesNotBlockSignIn(t *testing.T) {
+	provider, ctx, a := newTestLogin(t)
+	for range 5 * maxConsumed / 4 {
+		flood := httptest.NewRecorder()
+		a.Login(flood, httptest.NewRequest(http.MethodGet, "https://console.example/auth/login", nil))
+		if flood.Code != http.StatusFound {
+			t.Fatal("unauthenticated login request was refused")
+		}
+	}
+	if len(a.logins.consumed) != 0 || len(a.logins.trials) != 0 {
+		t.Fatal("unauthenticated login requests retained server state")
+	}
+	callback := httptest.NewRecorder()
+	a.Callback(callback, provider.beginLogin(t, ctx, a))
+	if callback.Header().Get("Location") != "/" || issuedSession(callback) == nil {
+		t.Fatal("login flood blocked a real sign-in")
+	}
+}
+
+func TestTamperedForeignExpiredAndReplayedLoginsFail(t *testing.T) {
+	provider, ctx, a := newTestLogin(t)
+	var events bytes.Buffer
+	a.Logger = slog.New(slog.NewJSONHandler(&events, nil))
+	request := provider.beginLogin(t, ctx, a)
+	original, err := request.Cookie(stateCookie)
+	if err != nil {
+		t.Fatal(err)
+	}
+	callback := func(value string) string {
+		t.Helper()
+		attempt := httptest.NewRequest(http.MethodGet, request.URL.String(), nil).WithContext(ctx)
+		attempt.AddCookie(&http.Cookie{Name: stateCookie, Value: value})
+		response := httptest.NewRecorder()
+		a.Callback(response, attempt)
+		return response.Header().Get("Location")
+	}
+	tampered := []byte(original.Value)
+	tampered[len(tampered)/2] ^= 1
+	if callback(string(tampered)) != "/?signin=failed" {
+		t.Fatal("tampered login cookie was accepted")
+	}
+	foreign, err := newSealer().seal(pendingLogin{State: request.URL.Query().Get("state"), Verifier: "v", Nonce: "n"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if callback(foreign) != "/?signin=failed" {
+		t.Fatal("login cookie sealed by another process was accepted")
+	}
+	a.now = func() time.Time { return time.Now().Add(loginLifetime + time.Second) }
+	if callback(original.Value) != "/?signin=expired" {
+		t.Fatal("expired login cookie was accepted")
+	}
+	a.now = time.Now
+	if callback(original.Value) != "/" {
+		t.Fatal("rejected attempts consumed a valid login")
+	}
+	if callback(original.Value) != "/?signin=expired" {
+		t.Fatal("used login state was replayed")
+	}
+	logged := events.String()
+	for _, reason := range []string{"state_invalid", "expired", "replayed_or_superseded"} {
+		if !strings.Contains(logged, `"reason":"`+reason+`"`) {
+			t.Fatalf("security log omitted %s", reason)
+		}
+	}
+	if strings.Contains(logged, original.Value) || strings.Contains(logged, request.URL.Query().Get("state")) ||
+		strings.Contains(logged, "provider-token-never-in-browser") {
+		t.Fatal("security log contained login secrets")
+	}
+}
+
+func TestReplaySetEvictsOldestInsteadOfRefusing(t *testing.T) {
+	logins := newStore()
+	now := time.Now()
+	expires := now.Add(loginLifetime).Unix()
+	for i := range maxConsumed + 10 {
+		login := pendingLogin{State: base64.RawURLEncoding.EncodeToString([]byte{byte(i), byte(i >> 8), byte(i >> 16)}), Expires: expires}
+		if _, ok := logins.consume(login, now); !ok {
+			t.Fatal("a full replay set refused a new login")
+		}
+	}
+	if len(logins.consumed) != maxConsumed || len(logins.order) != maxConsumed {
+		t.Fatal("replay set exceeded its bound")
+	}
+	first, err := logins.beginTrial(trial{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range maxTrials {
+		if _, err := logins.beginTrial(trial{}); err != nil {
+			t.Fatal("a full trial set refused a new trial")
+		}
+	}
+	if len(logins.trials) != maxTrials {
+		t.Fatal("trial set exceeded its bound")
+	}
+	if _, ok := logins.consume(pendingLogin{State: "trial", Trial: first, Expires: expires}, now); ok {
+		t.Fatal("evicted trial remained usable")
 	}
 }

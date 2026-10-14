@@ -113,6 +113,10 @@ type Config struct {
 	StartupGraceMinutes int            `json:"startupGraceMinutes"`
 	Groups              []Group        `json:"groups,omitempty"`
 	Identity            *Identity      `json:"identity,omitempty"`
+	// AccessIssuer is the OIDC issuer that Users and Groups belong to. It equals the
+	// active identity provider's issuer; an issuer change requires a decision about
+	// existing bindings.
+	AccessIssuer string `json:"accessIssuer,omitempty"`
 }
 
 // Policy returns the attention thresholds that evidence rules apply.
@@ -155,7 +159,9 @@ func (f enrollmentFile) config() Config {
 		Relationships:       f.Relationships,
 		MaxBackupAgeHours:   f.MaxBackupAgeHours,
 		StartupGraceMinutes: f.StartupGraceMinutes,
-		Identity:            f.Identity,
+	}
+	if f.Identity != nil {
+		result.SeedIdentity(*f.Identity)
 	}
 	for _, c := range f.Connections {
 		access := Access{Mode: AccessInCluster}

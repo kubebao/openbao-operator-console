@@ -1,51 +1,58 @@
 package auth
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"sync"
 	"time"
+
+	"github.com/kubebao/openbao-operator-console/internal/config"
 )
 
 const (
-	maxTransactions = 1000
-	maxSessions     = 10000
-	loginLifetime   = 5 * time.Minute
+	maxSessions = 10000
+	// maxConsumed bounds the replay set. When it is full the oldest entry is evicted; a
+	// new login is never refused. The provider still rejects a reused authorization code.
+	maxConsumed = 32768
+	// maxTrials bounds pending identity provider trials. Only administrators and unlocked
+	// setup sessions start them; the oldest is evicted when the set is full.
+	maxTrials     = 32
+	loginLifetime = 5 * time.Minute
 )
 
 var errCapacity = errors.New("login capacity reached")
 
 type session struct {
-	subject string
-	groups  []string
-	expires time.Time
+	principal config.Principal
+	expires   time.Time
 }
 
-// transaction is one pending login. It keeps the provider it started with, so a
-// provider trial completes against the candidate rather than the active provider.
-type transaction struct {
-	verifier, nonce string
-	expires         time.Time
-	provider        *Provider
-	generation      int64
-	returnTo        string
-	activate        func(context.Context, string, []string) error
-	setup           bool
+// trial is a pending sign-in through a candidate identity provider. It stays on the
+// server because it holds the candidate provider and the activation step.
+type trial struct {
+	provider *Provider
+	activate Activation
+	setup    bool
+	expires  time.Time
 }
 
-// store keeps login transactions and sessions in memory. Replacing the identity provider
-// starts a new generation, which ends every session and pending login.
+// store keeps sessions, consumed login states, and pending identity provider trials in
+// memory. Ordinary pending logins live in sealed browser cookies, so unauthenticated
+// traffic adds nothing here. Replacing the identity provider starts a new generation,
+// which ends every session and pending login.
 type store struct {
-	mu           sync.Mutex
-	generation   int64
-	sessions     map[string]session
-	transactions map[string]transaction
+	mu         sync.Mutex
+	generation int64
+	sessions   map[string]session
+	consumed   map[string]time.Time
+	order      []string // consumed states, oldest first
+	trials     map[string]trial
+	trialOrder []string // trial IDs, oldest first
 }
 
 func newStore() *store {
-	return &store{sessions: map[string]session{}, transactions: map[string]transaction{}}
+	return &store{sessions: map[string]session{}, consumed: map[string]time.Time{}, trials: map[string]trial{}}
 }
 
 func randomToken() (string, error) {
@@ -56,44 +63,59 @@ func randomToken() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(data), nil
 }
 
-// begin records a login in the current generation and returns its state. It removes
-// expired entries first and refuses new logins at capacity.
-func (s *store) begin(tx transaction) (string, error) {
-	state, err := randomToken()
+// beginTrial records a candidate provider trial and returns its ID. It removes expired
+// trials and evicts the oldest when the set is full.
+func (s *store) beginTrial(pending trial) (string, error) {
+	id, err := randomToken()
 	if err != nil {
 		return "", err
 	}
 	now := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for id, pending := range s.transactions {
-		if !now.Before(pending.expires) {
-			delete(s.transactions, id)
+	for len(s.trialOrder) > 0 {
+		oldest := s.trialOrder[0]
+		entry, found := s.trials[oldest]
+		if found && now.Before(entry.expires) && len(s.trials) < maxTrials {
+			break
 		}
+		delete(s.trials, oldest)
+		s.trialOrder = s.trialOrder[1:]
 	}
-	for id, active := range s.sessions {
-		if !now.Before(active.expires) {
-			delete(s.sessions, id)
-		}
-	}
-	if len(s.transactions) >= maxTransactions || len(s.sessions) >= maxSessions {
-		return "", errCapacity
-	}
-	tx.expires = now.Add(loginLifetime)
-	tx.generation = s.generation
-	s.transactions[state] = tx
-	return state, nil
+	pending.expires = now.Add(loginLifetime)
+	s.trials[id] = pending
+	s.trialOrder = append(s.trialOrder, id)
+	return id, nil
 }
 
-// take removes a login so that its state cannot be replayed. It reports false when the
-// login is unknown, expired, or from an earlier generation; the transaction is still
-// returned so that the caller can choose the failure destination.
-func (s *store) take(state string) (transaction, bool) {
+// consume marks a login state as used and returns its trial, if it names one. It
+// reports false for a login from an earlier generation, a replayed state, or a trial
+// that expired or was evicted.
+func (s *store) consume(login pendingLogin, now time.Time) (trial, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	tx, exists := s.transactions[state]
-	delete(s.transactions, state)
-	return tx, exists && time.Now().Before(tx.expires) && tx.generation == s.generation
+	if login.Generation != s.generation {
+		return trial{}, false
+	}
+	for len(s.order) > 0 {
+		oldest := s.order[0]
+		if now.Before(s.consumed[oldest]) && len(s.consumed) < maxConsumed {
+			break
+		}
+		delete(s.consumed, oldest)
+		s.order = s.order[1:]
+	}
+	if _, used := s.consumed[login.State]; used {
+		return trial{}, false
+	}
+	s.consumed[login.State] = time.Unix(login.Expires, 0)
+	s.order = append(s.order, login.State)
+	if login.Trial == "" {
+		return trial{}, true
+	}
+	pending, found := s.trials[login.Trial]
+	delete(s.trials, login.Trial)
+	return pending, found && now.Before(pending.expires)
 }
 
 // open creates a session if the generation is still current.
@@ -102,9 +124,20 @@ func (s *store) open(generation int64, active session) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	now := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if generation != s.generation || len(s.sessions) >= maxSessions {
+	if generation != s.generation {
+		return "", errCapacity
+	}
+	if len(s.sessions) >= maxSessions {
+		for key, existing := range s.sessions {
+			if !now.Before(existing.expires) {
+				delete(s.sessions, key)
+			}
+		}
+	}
+	if len(s.sessions) >= maxSessions {
 		return "", errCapacity
 	}
 	s.sessions[id] = active
@@ -139,5 +172,6 @@ func (s *store) reset() {
 	defer s.mu.Unlock()
 	s.generation++
 	s.sessions = map[string]session{}
-	s.transactions = map[string]transaction{}
+	s.trials = map[string]trial{}
+	s.trialOrder = nil
 }

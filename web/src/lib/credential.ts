@@ -1,5 +1,14 @@
 import type { ConnectionCheck, CredentialUpdate, ManagedConnection } from '../api/schema'
 
+// Credentials, keys, and certificates are never spell-checked, corrected, capitalized, or
+// offered for autofill. Password inputs override autoComplete with "new-password".
+export const secretFieldProps = {
+  spellCheck: false,
+  autoCapitalize: 'off',
+  autoCorrect: 'off',
+  autoComplete: 'off',
+} as const
+
 export type CredentialMethod = 'kubeconfig' | 'token' | 'certificate'
 
 export function isCredentialMethod(value: string): value is CredentialMethod {

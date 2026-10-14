@@ -50,10 +50,13 @@ func TestScopeRemovesHiddenGraphCountsHistoryAndNamespaces(t *testing.T) {
 
 func TestExistingSessionUsesCurrentAccessRules(t *testing.T) {
 	enabled := true
-	a := NewPending(func(context.Context, string, []string) (config.User, bool) {
+	a := NewPending(func(context.Context, config.Principal) (config.User, bool) {
 		return config.User{Subject: "reader", Admin: enabled}, enabled
 	})
-	a.logins.sessions["session"] = session{subject: "reader", expires: time.Now().Add(time.Hour)}
+	a.logins.sessions["session"] = session{
+		principal: config.Principal{Issuer: "https://identity.example", Subject: "reader"},
+		expires:   time.Now().Add(time.Hour),
+	}
 	request := httptest.NewRequest(http.MethodGet, "https://console.example/api/v1/settings", nil)
 	request.AddCookie(&http.Cookie{Name: "__Host-console-session", Value: "session"})
 	if user, ok := a.Viewer(request); !ok || !user.Admin {
@@ -66,15 +69,18 @@ func TestExistingSessionUsesCurrentAccessRules(t *testing.T) {
 }
 
 func TestProviderReplacementEndsSessionsAndPendingLogins(t *testing.T) {
-	a := NewPending(func(_ context.Context, subject string, _ []string) (config.User, bool) {
-		return config.User{Subject: subject}, true
+	a := NewPending(func(_ context.Context, principal config.Principal) (config.User, bool) {
+		return config.User{Subject: principal.Subject}, true
 	})
-	state, err := a.logins.begin(transaction{returnTo: "/"})
+	trialID, err := a.logins.beginTrial(trial{provider: &Provider{}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	before := a.logins.current()
-	id, err := a.logins.open(before, session{subject: "reader", expires: time.Now().Add(time.Hour)})
+	login := pendingLogin{State: "state", Generation: before, Expires: time.Now().Add(time.Minute).Unix()}
+	trialLogin := pendingLogin{State: "trial-state", Generation: before, Trial: trialID, Expires: login.Expires}
+	reader := config.Principal{Issuer: "https://identity.example", Subject: "reader"}
+	id, err := a.logins.open(before, session{principal: reader, expires: time.Now().Add(time.Hour)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,10 +88,14 @@ func TestProviderReplacementEndsSessionsAndPendingLogins(t *testing.T) {
 	if _, ok := a.logins.lookup(id); ok {
 		t.Fatal("session survived provider replacement")
 	}
-	if _, ok := a.logins.take(state); ok {
+	if _, ok := a.logins.consume(login, time.Now()); ok {
 		t.Fatal("login started before replacement remained valid")
 	}
-	if _, err := a.logins.open(before, session{subject: "reader", expires: time.Now().Add(time.Hour)}); err == nil {
+	trialLogin.Generation = a.logins.current()
+	if _, ok := a.logins.consume(trialLogin, time.Now()); ok {
+		t.Fatal("provider trial started before replacement remained valid")
+	}
+	if _, err := a.logins.open(before, session{principal: reader, expires: time.Now().Add(time.Hour)}); err == nil {
 		t.Fatal("login from the previous generation opened a session")
 	}
 	if a.activeProvider() == nil {

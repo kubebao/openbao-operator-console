@@ -41,14 +41,15 @@ users:
 
 func TestGroupBindingsNeverGrantUnenrolledNamespaces(t *testing.T) {
 	c := Config{
-		Connections: []Connection{{ID: "cluster", Namespaces: []Namespace{{Name: "team"}}}},
-		Groups:      []Group{{Name: "platform", Scopes: []Scope{{ConnectionID: "cluster", Namespaces: []string{"team", "hidden"}}}}},
+		Connections:  []Connection{{ID: "cluster", Namespaces: []Namespace{{Name: "team"}}}},
+		Groups:       []Group{{Name: "platform", Scopes: []Scope{{ConnectionID: "cluster", Namespaces: []string{"team", "hidden"}}}}},
+		AccessIssuer: "https://identity.example",
 	}
-	user, allowed := c.Resolve("subject", []string{"platform"})
+	user, allowed := c.Resolve(Principal{Issuer: "https://identity.example", Subject: "subject", Groups: []string{"platform"}})
 	if !allowed || len(user.Scopes) != 1 || len(user.Scopes[0].Namespaces) != 1 || user.Scopes[0].Namespaces[0] != "team" {
 		t.Fatal("group access escaped enrollment")
 	}
-	if _, allowed := c.Resolve("subject", []string{"unmapped"}); allowed {
+	if _, allowed := c.Resolve(Principal{Issuer: "https://identity.example", Subject: "subject", Groups: []string{"unmapped"}}); allowed {
 		t.Fatal("unmapped identity enrolled")
 	}
 }

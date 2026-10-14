@@ -48,11 +48,11 @@ func TestSlowConnectionDoesNotDelayAnotherConnection(t *testing.T) {
 			Access:     config.Access{Mode: config.AccessRemote, Credential: credential},
 		}
 	}
-	service, err := settings.New(
+	service, err := settings.Open(
 		context.Background(),
 		&managedConfiguration{},
 		bytes.Repeat([]byte{1}, 32),
-		config.Config{
+		&config.Config{
 			MaxBackupAgeHours: 24,
 			Users:             []config.User{{Subject: "admin", Admin: true}},
 			Connections:       []config.Connection{connection("slow"), connection("fast")},
@@ -115,11 +115,11 @@ func TestConcurrentCollectionsAreBounded(t *testing.T) {
 			Access:     config.Access{Mode: config.AccessRemote, Credential: credential},
 		})
 	}
-	service, err := settings.New(
+	service, err := settings.Open(
 		context.Background(),
 		&managedConfiguration{},
 		bytes.Repeat([]byte{1}, 32),
-		config.Config{MaxBackupAgeHours: 24, Users: []config.User{{Subject: "admin", Admin: true}}, Connections: connections},
+		&config.Config{MaxBackupAgeHours: 24, Users: []config.User{{Subject: "admin", Admin: true}}, Connections: connections},
 	)
 	if err != nil {
 		t.Fatal(err)

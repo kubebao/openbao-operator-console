@@ -120,11 +120,11 @@ func TestManagedCollectionAddsPausesAndReconfiguresReaders(t *testing.T) {
 		Namespaces: []config.Namespace{{Name: "before", Environment: "development"}},
 		Access:     config.Access{Mode: config.AccessRemote, Credential: credential},
 	}
-	service, err := settings.New(
+	service, err := settings.Open(
 		context.Background(),
 		&managedConfiguration{},
 		bytes.Repeat([]byte{1}, 32),
-		config.Config{MaxBackupAgeHours: 24, Users: []config.User{{Subject: "admin", Admin: true}}, Connections: []config.Connection{one}},
+		&config.Config{MaxBackupAgeHours: 24, Users: []config.User{{Subject: "admin", Admin: true}}, Connections: []config.Connection{one}},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -190,11 +190,11 @@ func TestManagedCollectionForgetsOnlyRemovedConnections(t *testing.T) {
 	}
 	two := one
 	two.ID, two.Name = "two", "Two"
-	service, err := settings.New(
+	service, err := settings.Open(
 		context.Background(),
 		&managedConfiguration{},
 		bytes.Repeat([]byte{1}, 32),
-		config.Config{
+		&config.Config{
 			MaxBackupAgeHours: 24,
 			Users:             []config.User{{Subject: "admin", Admin: true}},
 			Connections:       []config.Connection{one, two},

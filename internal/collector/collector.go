@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/kubebao/openbao-operator-console/internal/buildinfo"
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/evidence"
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
@@ -61,7 +62,7 @@ func New(connection config.Connection, policy fleet.Policy) (*Reader, error) {
 		return nil, fmt.Errorf("configure connector %q: %w", connection.ID, err)
 	}
 	restConfig.Timeout = 10 * time.Second
-	restConfig.UserAgent = "openbao-operator-console/0.1"
+	restConfig.UserAgent = buildinfo.UserAgent()
 	httpClient, err := kube.HTTPClient(restConfig)
 	if err != nil {
 		return nil, err

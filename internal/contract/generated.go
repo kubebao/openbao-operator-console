@@ -379,6 +379,24 @@ func (e EvidenceProducerFreshness) Valid() bool {
 	}
 }
 
+// Defines values for IdentityTrialAccessRules.
+const (
+	CarryOver IdentityTrialAccessRules = "carryOver"
+	Remove    IdentityTrialAccessRules = "remove"
+)
+
+// Valid indicates whether the value is a known member of the IdentityTrialAccessRules enum.
+func (e IdentityTrialAccessRules) Valid() bool {
+	switch e {
+	case CarryOver:
+		return true
+	case Remove:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IssueCategory.
 const (
 	IssueCategoryAvailability IssueCategory = "availability"
@@ -967,9 +985,14 @@ type IdentitySummary struct {
 
 // IdentityTrial defines model for IdentityTrial.
 type IdentityTrial struct {
-	Identity IdentityInput `json:"identity"`
-	Revision int64         `json:"revision"`
+	// AccessRules Required when the candidate issuer differs from the active issuer, and rejected otherwise. carryOver binds every user and group to the new issuer; remove deletes them. In both cases the account that completes the trial becomes an administrator under the new issuer.
+	AccessRules *IdentityTrialAccessRules `json:"accessRules,omitempty"`
+	Identity    IdentityInput             `json:"identity"`
+	Revision    int64                     `json:"revision"`
 }
+
+// IdentityTrialAccessRules Required when the candidate issuer differs from the active issuer, and rejected otherwise. carryOver binds every user and group to the new issuer; remove deletes them. In both cases the account that completes the trial becomes an administrator under the new issuer.
+type IdentityTrialAccessRules string
 
 // Issue defines model for Issue.
 type Issue struct {

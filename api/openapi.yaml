@@ -2093,6 +2093,12 @@
                 {
                   "revision": { "type": "integer", "format": "int64" },
                   "identity": { "$ref": "#/components/schemas/IdentityInput" },
+                  "accessRules":
+                    {
+                      "description": "Required when the candidate issuer differs from the active issuer, and rejected otherwise. carryOver binds every user and group to the new issuer; remove deletes them. In both cases the account that completes the trial becomes an administrator under the new issuer.",
+                      "type": "string",
+                      "enum": ["carryOver", "remove"],
+                    },
                 },
             },
           "LoginRedirect":

@@ -125,8 +125,14 @@ func (r *memoryRepository) SettingsHistory(context.Context) ([]Change, error) {
 	return append([]Change{}, r.changes...), nil
 }
 
+const testIssuer = "https://identity.example"
+
+func reader() config.Principal {
+	return config.Principal{Issuer: testIssuer, Subject: "reader"}
+}
+
 func seed() config.Config {
-	return config.Config{
+	result := config.Config{
 		MaxBackupAgeHours: 24,
 		Users: []config.User{
 			{Subject: "admin", Admin: true},
@@ -144,27 +150,29 @@ func seed() config.Config {
 			},
 		},
 	}
+	result.SeedIdentity(config.Identity{Issuer: testIssuer, ClientID: "console", ClientSecret: "client-secret"})
+	return result
 }
 
 func TestEncryptionRestartConflictAndRevocation(t *testing.T) {
 	ctx := context.Background()
 	repository := &memoryRepository{}
 	key := bytes.Repeat([]byte{7}, 32)
-	service, err := New(ctx, repository, key, seed())
+	service, err := Open(ctx, repository, key, new(seed()))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if bytes.Contains(repository.record.Payload, []byte("credential-never-plaintext")) {
 		t.Fatal("credential persisted in plaintext")
 	}
-	restarted, err := New(ctx, repository, key, config.Config{})
+	restarted, err := Open(ctx, repository, key, &config.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if user, ok := restarted.Resolve(ctx, "reader", nil); !ok || len(user.Scopes) != 1 {
+	if user, ok := restarted.Resolve(ctx, reader()); !ok || len(user.Scopes) != 1 {
 		t.Fatal("configuration lost on restart")
 	}
-	if _, err := New(ctx, repository, bytes.Repeat([]byte{8}, 32), seed()); err == nil {
+	if _, err := Open(ctx, repository, bytes.Repeat([]byte{8}, 32), new(seed())); err == nil {
 		t.Fatal("wrong encryption key accepted")
 	}
 	current, revision := service.Current()
@@ -172,7 +180,7 @@ func TestEncryptionRestartConflictAndRevocation(t *testing.T) {
 	if _, err := service.Save(ctx, revision, current, "admin", "Access updated"); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := service.Resolve(ctx, "reader", nil); ok {
+	if _, ok := service.Resolve(ctx, reader()); ok {
 		t.Fatal("removed user still enrolled")
 	}
 	if _, err := service.Save(ctx, revision, current, "admin", "stale"); !errors.Is(err, ErrConflict) {
@@ -197,7 +205,7 @@ func TestEncryptionRestartConflictAndRevocation(t *testing.T) {
 }
 
 func TestCurrentReturnsAnIndependentConfiguration(t *testing.T) {
-	service, err := New(context.Background(), &memoryRepository{}, bytes.Repeat([]byte{1}, 32), seed())
+	service, err := Open(context.Background(), &memoryRepository{}, bytes.Repeat([]byte{1}, 32), new(seed()))
 	if err != nil {
 		t.Fatal(err)
 	}

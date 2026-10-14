@@ -4,14 +4,25 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"strconv"
 )
 
-// Associated data binds each ciphertext to its purpose and record, so a payload cannot be
-// substituted for another.
+// Associated data binds each ciphertext to its purpose, record, and revision, so a payload
+// cannot be substituted for another record or replayed as a later revision.
 const (
-	configurationPurpose = "console-configuration-v1"
-	credentialPurpose    = "console-reader-credential-v1:"
+	configurationPurpose = "console-configuration-v2:"
+	credentialPurpose    = "console-reader-credential-v2:"
 )
+
+func configurationData(revision int64) string {
+	return configurationPurpose + strconv.FormatInt(revision, 10)
+}
+
+// credentialData places the revision before the connection ID. The revision contains no
+// colon, so every connection ID and revision pair has distinct associated data.
+func credentialData(connectionID string, revision int64) string {
+	return credentialPurpose + strconv.FormatInt(revision, 10) + ":" + connectionID
+}
 
 // seal encrypts a JSON value with AES-GCM under a random nonce.
 func (s *Service) seal(value any, associated string) ([]byte, error) {

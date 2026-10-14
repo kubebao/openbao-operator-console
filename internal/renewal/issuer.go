@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/kubebao/openbao-operator-console/internal/buildinfo"
 	"github.com/kubebao/openbao-operator-console/internal/collector"
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
@@ -69,7 +70,7 @@ func (KubernetesIssuer) Issue(ctx context.Context, connection config.Connection,
 		return fail(settings.RenewalRetrying)
 	}
 	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("User-Agent", "openbao-operator-console/credential-renewal")
+	request.Header.Set("User-Agent", buildinfo.UserAgent()+" (credential-renewal)")
 	response, err := client.Do(request)
 	if err != nil {
 		return fail(settings.RenewalRetrying)

@@ -7,14 +7,14 @@
   overflow-x: auto;
 }
 
-.settings-tabs button {
+.settings-tabs a {
   padding: 0.8rem 0;
   color: var(--muted-foreground);
   white-space: nowrap;
   border-bottom: 2px solid transparent;
 }
 
-.settings-tabs button.selected {
+.settings-tabs a.selected {
   color: var(--accent);
   border-bottom-color: var(--accent);
 }
@@ -352,4 +352,105 @@
   padding-bottom: 1.2rem;
   background: var(--surface);
   z-index: 1;
+}
+
+.pruned-references h3 {
+  margin: 1.2rem 0 0.4rem;
+  font-size: var(--text-lg);
+}
+
+.pruned-references ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.dialog-description {
+  color: var(--muted-foreground);
+  font-size: var(--text-md);
+  line-height: 1.5;
+  margin: -1rem 0 1.4rem;
+  overflow-wrap: anywhere;
+}
+
+.access-rules-heading {
+  font-size: var(--text-lg);
+  margin-bottom: 0.6rem;
+}
+
+/* The affected bindings stay scrollable so the decision remains in view. */
+.affected-access {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.4rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
+
+.affected-access li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-md);
+  overflow-wrap: anywhere;
+}
+
+.affected-access small {
+  color: var(--muted-foreground);
+  font-size: var(--text-base);
+  text-align: right;
+}
+
+.access-rules-choice {
+  border: 0;
+  padding: 0;
+  margin: 0 0 1rem;
+}
+
+.access-rules-choice legend {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  margin-bottom: 0.6rem;
+}
+
+.access-rules-choice label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.8rem;
+  margin-bottom: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.access-rules-choice label:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.access-rules-choice input {
+  accent-color: var(--accent);
+  margin-top: 0.2rem;
+}
+
+.access-rules-choice strong {
+  display: block;
+  font-size: var(--text-md);
+  margin-bottom: 0.25rem;
+}
+
+.access-rules-choice small {
+  color: var(--muted-foreground);
+  font-size: var(--text-base);
+  line-height: 1.5;
+}
+
+.access-issuer {
+  margin: -0.6rem 0 1.2rem;
+  overflow-wrap: anywhere;
 }

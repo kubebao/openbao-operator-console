@@ -417,7 +417,7 @@ func (s *Server) checkConnection(w http.ResponseWriter, r *http.Request, _ confi
 
 // identityVerifier runs identity provider trials. Only OIDC authentication supports them.
 type identityVerifier interface {
-	BeginTrial(http.ResponseWriter, *auth.Provider, func(context.Context, string, []string) error) (string, error)
+	BeginTrial(http.ResponseWriter, *auth.Provider, auth.Activation) (string, error)
 	ReplaceProvider(*auth.Provider)
 }
 
@@ -429,8 +429,54 @@ func discoveryProblem(err error) error {
 	return badRequest("Identity discovery failed. Check the issuer, HTTPS trust, and client settings.")
 }
 
-// identityTrial activates a candidate identity provider only after an enrolled
-// administrator signs in through it.
+// accessRulesProblem explains a missing or unexpected decision about existing bindings.
+func accessRulesProblem(err error) error {
+	switch {
+	case errors.Is(err, config.ErrAccessRulesRequired):
+		return badRequest("The candidate issuer differs from the active issuer. " +
+			"Choose whether existing user and group access carries over or is removed.")
+	case errors.Is(err, config.ErrAccessRulesUnexpected):
+		return badRequest("The issuer is unchanged, so existing access stays. Omit the access rules decision.")
+	default:
+		return badRequest("Choose carryOver or remove for existing access rules.")
+	}
+}
+
+// activateIdentity applies a verified trial login to latest. With the same issuer, the
+// login must already resolve to an administrator. A new issuer applies the
+// administrator's access rules decision, and the verified account becomes an
+// administrator under that issuer.
+func activateIdentity(
+	latest config.Config,
+	candidate config.Identity,
+	rules config.AccessRules,
+	principal config.Principal,
+) (config.Config, string, error) {
+	if principal.Issuer != candidate.Issuer {
+		return latest, "", errors.New("candidate login used a different issuer")
+	}
+	if latest.AccessIssuer == candidate.Issuer {
+		if user, allowed := latest.Resolve(principal); !allowed || !user.Admin {
+			return latest, "", errors.New("candidate login is not an enrolled administrator")
+		}
+	}
+	if err := latest.ReplaceIdentity(candidate, rules); err != nil {
+		return latest, "", err
+	}
+	switch rules {
+	case config.AccessRulesCarryOver:
+		latest.GrantAdministrator(principal.Subject)
+		return latest, "Identity provider activated with a new issuer; user and group access carried over", nil
+	case config.AccessRulesRemove:
+		latest.GrantAdministrator(principal.Subject)
+		return latest, "Identity provider activated with a new issuer; user and group access removed", nil
+	default:
+		return latest, "Identity provider verified and activated", nil
+	}
+}
+
+// identityTrial activates a candidate identity provider only after an administrator
+// signs in through it. An issuer change requires an explicit access rules decision.
 func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request, actor config.User) error {
 	verifier, ok := s.Auth.(identityVerifier)
 	if !ok {
@@ -458,16 +504,21 @@ func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request, actor con
 		CA:           input.Identity.Ca,
 		GroupsClaim:  input.Identity.GroupsClaim,
 	}
+	rules := config.AccessRules("")
+	if input.AccessRules != nil {
+		rules = config.AccessRules(*input.AccessRules)
+	}
+	// Reject a missing or unexpected decision before the administrator signs in.
+	if err := current.ReplaceIdentity(candidateIdentity, rules); err != nil {
+		return accessRulesProblem(err)
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
 	candidate, err := auth.Discover(ctx, candidateIdentity, s.Origin+"/auth/callback")
 	if err != nil {
 		return discoveryProblem(err)
 	}
-	location, err := verifier.BeginTrial(w, candidate, func(ctx context.Context, subject string, groups []string) error {
-		if candidateUser, allowed := s.Settings.Resolve(ctx, subject, groups); !allowed || !candidateUser.Admin {
-			return errors.New("candidate login is not an enrolled administrator")
-		}
+	location, err := verifier.BeginTrial(w, candidate, func(ctx context.Context, principal config.Principal) error {
 		latest, version := s.Settings.Current()
 		if version != revision {
 			return settings.ErrConflict
@@ -475,15 +526,18 @@ func (s *Server) identityTrial(w http.ResponseWriter, r *http.Request, actor con
 		if original, allowed := s.Auth.Viewer(r); !allowed || !original.Admin {
 			return errors.New("initiating administrator is no longer authorized")
 		}
-		latest.Identity = &candidateIdentity
-		if _, err := s.Settings.Save(ctx, revision, latest, actor.Subject, "Identity provider verified and activated"); err != nil {
+		next, summary, err := activateIdentity(latest, candidateIdentity, rules, principal)
+		if err != nil {
+			return err
+		}
+		if _, err := s.Settings.Save(ctx, revision, next, actor.Subject, summary); err != nil {
 			return err
 		}
 		verifier.ReplaceProvider(candidate)
 		return nil
 	})
 	if err != nil {
-		return retryLater("Cannot begin identity verification.")
+		return unavailable(err, "Cannot begin identity verification.")
 	}
 	jsonResponse(w, http.StatusOK, contract.LoginRedirect{Url: location})
 	return nil

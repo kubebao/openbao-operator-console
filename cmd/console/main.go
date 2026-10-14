@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/kubebao/openbao-operator-console/internal/auth"
+	"github.com/kubebao/openbao-operator-console/internal/buildinfo"
 	"github.com/kubebao/openbao-operator-console/internal/collector"
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/demo"
@@ -36,6 +37,8 @@ type options struct {
 	printRBAC                   string
 	check, recoverIdentity      bool
 	historyRetention            time.Duration
+	version                     bool
+	recoverAccessRules          string
 }
 
 func parseOptions() (options, error) {
@@ -53,6 +56,12 @@ func parseOptions() (options, error) {
 		false,
 		"replace stored identity and enroll administrators from bootstrap environment; exit without serving",
 	)
+	flag.StringVar(
+		&o.recoverAccessRules,
+		"recover-access-rules",
+		"",
+		"carryOver or remove existing user and group access when the recovery issuer differs from the stored issuer",
+	)
 	flag.BoolVar(&o.check, "check", false, "check enrolled Kubernetes reads and print approved projections; no database or OIDC required")
 	flag.StringVar(&o.printRBAC, "print-rbac", "", "print reader RBAC for this connection ID; does not apply manifests")
 	flag.StringVar(&o.readerName, "reader-name", "console-reader", "local reader ServiceAccount name for RBAC manifests")
@@ -65,9 +74,16 @@ func parseOptions() (options, error) {
 		retention,
 		"how long observation history and activity are kept, from 1h to 8760h; default from CONSOLE_HISTORY_RETENTION or 168h",
 	)
+	flag.BoolVar(&o.version, "version", false, "print the version and commit, then exit")
 	flag.Parse()
 	if (o.tlsCertificate == "") != (o.tlsKey == "") {
 		return o, errors.New("tls-cert and tls-key must be supplied together")
+	}
+	if o.recoverAccessRules != "" && !o.recoverIdentity {
+		return o, errors.New("recover-access-rules requires recover-identity")
+	}
+	if rules := config.AccessRules(o.recoverAccessRules); !rules.Valid() {
+		return o, errors.New("recover-access-rules must be carryOver or remove")
 	}
 	return o, validHistoryRetention(o.historyRetention)
 }
@@ -75,6 +91,14 @@ func parseOptions() (options, error) {
 func run() error {
 	o, err := parseOptions()
 	if err != nil {
+		return err
+	}
+	if o.version {
+		version, commit := buildinfo.Current()
+		if commit == "" {
+			commit = "unknown"
+		}
+		_, err := fmt.Fprintf(os.Stdout, "openbao-operator-console %s (commit %s)\n", version, commit)
 		return err
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -150,9 +174,9 @@ func runLive(ctx context.Context, o options, logger *slog.Logger) error {
 		return err
 	}
 	if o.recoverIdentity {
-		return recoverConfiguration(startup, configuration)
+		return recoverConfiguration(startup, configuration, config.AccessRules(o.recoverAccessRules))
 	}
-	server, err := liveServer(startup, o, pg, configuration, enrollment)
+	server, err := liveServer(startup, o, pg, configuration, enrollment, logger)
 	if err != nil {
 		return err
 	}
@@ -207,6 +231,7 @@ func liveServer(
 	pg *store.Postgres,
 	configuration *settings.Service,
 	enrollment config.Config,
+	logger *slog.Logger,
 ) (*httpapi.Server, error) {
 	callback := os.Getenv("CONSOLE_OIDC_REDIRECT_URL")
 	parsed, err := url.Parse(callback)
@@ -217,8 +242,14 @@ func liveServer(
 	if err != nil {
 		return nil, err
 	}
+	authentication.Logger = logger
+	if setup != nil {
+		setup.Logger = logger
+	}
 	return &httpapi.Server{
 		Fleet:           view.Live{Observations: pg, Enrollment: configuration},
+		Database:        pg,
+		Logger:          logger,
 		Auth:            authentication,
 		Settings:        configuration,
 		Setup:           setup,
@@ -283,7 +314,8 @@ func serve(ctx context.Context, o options, handler http.Handler, logger *slog.Lo
 		defer cancel()
 		_ = server.Shutdown(shutdown)
 	}()
-	logger.Info("Console started", "mode", o.mode, "listen", o.address)
+	version, commit := buildinfo.Current()
+	logger.Info("Console started", "mode", o.mode, "listen", o.address, "version", version, "commit", commit)
 	var err error
 	if o.tlsCertificate != "" {
 		err = server.ListenAndServeTLS(o.tlsCertificate, o.tlsKey)

@@ -27,6 +27,13 @@ func (c Config) Validate() error {
 	if len(c.Connections) > 1000 || len(c.Users) > 10000 || len(c.Groups) > 1000 || len(c.Relationships) > 10000 {
 		return errors.New("configuration exceeds the supported enrollment limits")
 	}
+	issuer := ""
+	if c.Identity != nil {
+		issuer = c.Identity.Issuer
+	}
+	if c.AccessIssuer != issuer {
+		return errors.New("user and group access must belong to the active identity provider's issuer")
+	}
 	enrolled := enrolledNamespaces{}
 	for _, connection := range c.Connections {
 		namespaces, err := connection.validate()

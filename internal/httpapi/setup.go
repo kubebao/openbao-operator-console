@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -29,15 +30,33 @@ const (
 type setupSession struct {
 	expires time.Time
 	trial   uint64
+	// trials limits identity provider trials per unlocked session, so failed unlock
+	// attempts from a shared proxy address cannot block them.
+	trials setupRate
 }
 type setupRate struct {
 	start time.Time
 	count int
 }
 
+// allow counts one attempt in a one-minute window and reports whether it is within limit.
+func (r *setupRate) allow(now time.Time, limit int) bool {
+	if now.Sub(r.start) >= time.Minute {
+		*r = setupRate{start: now}
+	}
+	if r.count >= limit {
+		return false
+	}
+	r.count++
+	return true
+}
+
 // Setup protects the one-time claim of an uninitialized console. Only a token
 // digest and short-lived browser tickets are retained in process memory.
 type Setup struct {
+	// Logger records rejected setup tokens as security events. Nil discards them.
+	Logger *slog.Logger
+
 	mu             sync.Mutex
 	settings       *settings.Service
 	authentication *auth.Authenticator
@@ -130,29 +149,31 @@ func (s *Setup) status(request *http.Request) contract.SetupStatus {
 	return result
 }
 
+// rateAllowed counts a rejected setup token for its peer and reports whether the peer and
+// the console are still within their limits.
 func (s *Setup) rateAllowed(peer string, now time.Time) bool {
 	for id, rate := range s.peers {
 		if now.Sub(rate.start) >= time.Minute {
 			delete(s.peers, id)
 		}
 	}
-	if now.Sub(s.global.start) >= time.Minute {
-		s.global = setupRate{start: now}
-	}
 	rate, found := s.peers[peer]
-	if !found {
-		if len(s.peers) >= 128 {
-			return false
-		}
-		rate.start = now
-	}
-	if rate.count >= 5 || s.global.count >= 64 {
+	if !found && len(s.peers) >= 128 {
 		return false
 	}
-	rate.count++
-	s.global.count++
+	if rate.count >= 5 || !s.global.allow(now, 64) {
+		return false
+	}
+	rate.allow(now, 5)
 	s.peers[peer] = rate
 	return true
+}
+
+// logFailure records a rejected setup attempt without the submitted token.
+func (s *Setup) logFailure(request *http.Request, reason string) {
+	if s.Logger != nil {
+		s.Logger.Warn("Setup unlock rejected", "reason", reason, "remote", request.RemoteAddr)
+	}
 }
 
 func setupPeer(request *http.Request) string {
@@ -194,13 +215,18 @@ func (s *Setup) unlock(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 	now := s.now()
-	if !s.rateAllowed(setupPeer(request), now) {
-		w.Header().Set("Retry-After", "60")
-		problem(w, http.StatusTooManyRequests, "rate_limited", "Too many setup attempts. Retry in one minute.")
-		return
-	}
+	// The token carries 256 random bits, so guessing is infeasible. Only rejected tokens
+	// count toward the limit: behind a proxy every client shares one address, and failed
+	// guesses must not lock out the operator who holds the token.
 	digest := sha256.Sum256([]byte(strings.TrimSpace(input.Token)))
 	if subtle.ConstantTimeCompare(digest[:], s.tokenDigest[:]) != 1 {
+		if !s.rateAllowed(setupPeer(request), now) {
+			s.logFailure(request, "rate_limited")
+			w.Header().Set("Retry-After", "60")
+			problem(w, http.StatusTooManyRequests, "rate_limited", "Too many setup attempts. Retry in one minute.")
+			return
+		}
+		s.logFailure(request, "invalid_token")
 		problem(w, http.StatusUnauthorized, "invalid_token", "The setup token was not accepted.")
 		return
 	}
@@ -273,7 +299,7 @@ func (s *Setup) identity(w http.ResponseWriter, request *http.Request) {
 		problem(w, http.StatusUnauthorized, "setup_locked", "The setup session expired. Enter the setup token again.")
 		return
 	}
-	if !s.rateAllowed(setupPeer(request), now) {
+	if !session.trials.allow(now, 5) {
 		s.mu.Unlock()
 		w.Header().Set("Retry-After", "60")
 		problem(w, http.StatusTooManyRequests, "rate_limited", "Too many setup attempts. Retry in one minute.")
@@ -303,7 +329,7 @@ func (s *Setup) identity(w http.ResponseWriter, request *http.Request) {
 		writeProblem(w, discoveryProblem(err))
 		return
 	}
-	location, err := s.authentication.BeginSetup(w, candidate, func(ctx context.Context, subject string, _ []string) error {
+	location, err := s.authentication.BeginSetup(w, candidate, func(ctx context.Context, principal config.Principal) error {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		active, found := s.sessions[cookie.Value]
@@ -311,10 +337,14 @@ func (s *Setup) identity(w http.ResponseWriter, request *http.Request) {
 			s.settings.Initialized() {
 			return errors.New("setup claim is no longer available")
 		}
+		if principal.Issuer != identity.Issuer {
+			return errors.New("setup login used a different issuer")
+		}
+		// Seed users and groups, and the first administrator, bind to the verified issuer.
 		configuration := s.seed
-		configuration.Identity = &identity
-		configuration.GrantAdministrator(subject)
-		if err := s.settings.Initialize(ctx, configuration, subject); err != nil {
+		configuration.SeedIdentity(identity)
+		configuration.GrantAdministrator(principal.Subject)
+		if err := s.settings.Initialize(ctx, configuration, principal.Subject); err != nil {
 			return err
 		}
 		s.tokenDigest = [32]byte{}
@@ -344,7 +374,7 @@ func (s *Server) setupRoutes(mux *http.ServeMux) {
 				problem(w, http.StatusConflict, "setup_complete", "Console setup is already complete.")
 				return
 			}
-			if request.Header.Get("Origin") != s.Origin {
+			if !s.sameOrigin(request) {
 				problem(w, http.StatusForbidden, "forbidden", "Invalid request origin.")
 				return
 			}

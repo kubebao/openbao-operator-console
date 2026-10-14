@@ -17,8 +17,9 @@ func invalid(format string, args ...any) error {
 	return &invalidError{message: fmt.Sprintf(format, args...)}
 }
 
-// Edit is an administrator's complete configuration change. The identity provider is
-// not part of an edit; it changes only through a verified sign-in.
+// Edit is an administrator's complete configuration change. The identity provider and
+// the issuer of access rules are not part of an edit; they change only through a
+// verified sign-in or local recovery.
 type Edit struct {
 	Revision      int64
 	Configuration config.Config
@@ -32,13 +33,15 @@ type Edit struct {
 // ApplyEdit saves an administrator's change. Remote connections keep their stored reader
 // credential unless the edit replaces it.
 func (s *Service) ApplyEdit(ctx context.Context, edit Edit, actor string) (int64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.commit.Lock()
+	defer s.commit.Unlock()
 	if edit.Revision != s.revision {
 		return 0, ErrConflict
 	}
 	next := clone(edit.Configuration)
+	// Edited users and groups belong to the active issuer.
 	next.Identity = s.configuration.Identity
+	next.AccessIssuer = s.configuration.AccessIssuer
 	replacements := []string{}
 	for i := range next.Connections {
 		connection := &next.Connections[i]

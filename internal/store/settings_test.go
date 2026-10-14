@@ -43,7 +43,7 @@ func TestPostgresConfigurationSurvivesRestartAndRejectsStaleRevisions(t *testing
 	ctx := context.Background()
 	open := isolatedDatabase(t)
 	repository := open()
-	if _, err := settings.New(ctx, repository, testKey, renewableSeed()); err != nil {
+	if _, err := settings.Open(ctx, repository, testKey, new(renewableSeed())); err != nil {
 		t.Fatal(err)
 	}
 	record, err := repository.LoadSettings(ctx)
@@ -53,11 +53,11 @@ func TestPostgresConfigurationSurvivesRestartAndRejectsStaleRevisions(t *testing
 	repository.Close()
 	repository = open()
 	defer repository.Close()
-	service, err := settings.New(ctx, repository, testKey, config.Config{})
+	service, err := settings.Open(ctx, repository, testKey, &config.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := settings.New(ctx, repository, testKey, config.Config{})
+	second, err := settings.Open(ctx, repository, testKey, &config.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestPostgresConfigurationSurvivesRestartAndRejectsStaleRevisions(t *testing
 	if _, err := second.Save(ctx, revision, configuration, "other", "Stale save"); !errors.Is(err, settings.ErrConflict) {
 		t.Fatalf("concurrent revision = %v", err)
 	}
-	restarted, err := settings.New(ctx, repository, testKey, renewableSeed())
+	restarted, err := settings.Open(ctx, repository, testKey, new(renewableSeed()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestPostgresConfigurationSurvivesRestartAndRejectsStaleRevisions(t *testing
 	if err != nil || len(history) != 2 || history[0].Actor != "admin" || history[0].Revision != 2 {
 		t.Fatal("configuration audit not committed with settings")
 	}
-	if _, err := settings.New(ctx, repository, bytes.Repeat([]byte{9}, 32), renewableSeed()); err == nil {
+	if _, err := settings.Open(ctx, repository, bytes.Repeat([]byte{9}, 32), new(renewableSeed())); err == nil {
 		t.Fatal("wrong key decrypted configuration")
 	}
 }
@@ -91,7 +91,7 @@ func TestPostgresCredentialRevisionsCommitWithSettings(t *testing.T) {
 	ctx := context.Background()
 	repository := isolatedDatabase(t)()
 	defer repository.Close()
-	service, err := settings.New(ctx, repository, testKey, renewableSeed())
+	service, err := settings.Open(ctx, repository, testKey, new(renewableSeed()))
 	if err != nil {
 		t.Fatal(err)
 	}

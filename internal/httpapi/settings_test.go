@@ -344,31 +344,29 @@ func (r *configurationRepository) SettingsHistory(context.Context) ([]settings.C
 
 func configurationService(t *testing.T) *settings.Service {
 	t.Helper()
-	service, err := settings.New(
-		context.Background(),
-		&configurationRepository{},
-		bytes.Repeat([]byte{5}, 32),
-		config.Config{
-			MaxBackupAgeHours: 24,
-			Users:             []config.User{{Subject: "admin", Admin: true}, {Subject: "reader"}},
-			Identity: &config.Identity{
-				Issuer:       "https://identity.example",
-				ClientID:     "console",
-				ClientSecret: "private-client-secret",
-			},
-			Connections: []config.Connection{
-				{
-					ID:         "cluster",
-					Name:       "Cluster",
-					Namespaces: []config.Namespace{{Name: "team", Environment: "production"}},
-					Access: config.Access{
-						Mode:       config.AccessRemote,
-						Credential: &config.Credential{Server: "https://api.example", Token: "private-reader-token"},
-					},
+	return configurationServiceFor(t, "https://identity.example")
+}
+
+// configurationServiceFor binds the test access rules to issuer.
+func configurationServiceFor(t *testing.T, issuer string) *settings.Service {
+	t.Helper()
+	seed := config.Config{
+		MaxBackupAgeHours: 24,
+		Users:             []config.User{{Subject: "admin", Admin: true}, {Subject: "reader"}},
+		Connections: []config.Connection{
+			{
+				ID:         "cluster",
+				Name:       "Cluster",
+				Namespaces: []config.Namespace{{Name: "team", Environment: "production"}},
+				Access: config.Access{
+					Mode:       config.AccessRemote,
+					Credential: &config.Credential{Server: "https://api.example", Token: "private-reader-token"},
 				},
 			},
 		},
-	)
+	}
+	seed.SeedIdentity(config.Identity{Issuer: issuer, ClientID: "console", ClientSecret: "private-client-secret"})
+	service, err := settings.Open(context.Background(), &configurationRepository{}, bytes.Repeat([]byte{5}, 32), &seed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -415,6 +413,9 @@ func TestSettingsAuthorizationRedactionConflictAndCredentialPreservation(t *test
 	if current.Connections[0].Access.Credential.Token != "private-reader-token" || revision != 2 {
 		t.Fatal("saving public metadata changed the credential")
 	}
+	if current.AccessIssuer != "https://identity.example" {
+		t.Fatal("saving access rules changed their issuer")
+	}
 	if got := request("PUT", "/api/v1/settings", string(payload), "https://console.example"); got.Code != 409 {
 		t.Fatal("stale save accepted")
 	}
@@ -439,70 +440,6 @@ func TestSettingsAuthorizationRedactionConflictAndCredentialPreservation(t *test
 		if response.Code != 401 && response.Code != 403 {
 			t.Fatal("settings visible without administrator access")
 		}
-	}
-}
-
-func TestIdentityTrialCommitsOnlyAfterVerifiedAdministratorLogin(t *testing.T) {
-	provider := signedTestProvider(t)
-	defer provider.Close()
-	ctx := context.Background()
-	service := configurationService(t)
-	current, revision := service.Current()
-	current.Users = []config.User{{Subject: "engineer", Admin: true}}
-	if _, err := service.Save(ctx, revision, current, "bootstrap", "Enroll test administrator"); err != nil {
-		t.Fatal(err)
-	}
-	authentication := testAuthenticator(t, provider, service)
-	handler := (&Server{
-		Fleet:    &memoryFleet{},
-		Auth:     authentication,
-		Settings: service,
-		Origin:   "https://console.example",
-	}).Handler()
-	login := httptest.NewRecorder()
-	authentication.Login(login, httptest.NewRequest(http.MethodGet, "https://console.example/auth/login", nil))
-	// Complete the signed test provider login through its HTTPS endpoints.
-	sessionCookie := completeTestLogin(t, provider, authentication, login.Header().Get("Location"), login.Result().Cookies())
-	current, revision = service.Current()
-	ca := testProviderCA(provider)
-	payload, _ := json.Marshal(
-		contract.IdentityTrial{
-			Revision: revision,
-			Identity: contract.IdentityInput{
-				Issuer:       provider.URL,
-				ClientId:     "console",
-				Ca:           ca,
-				GroupsClaim:  "groups",
-				ClientSecret: new("candidate-secret"),
-			},
-		},
-	)
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/settings/identity/trial", bytes.NewReader(payload))
-	request.AddCookie(sessionCookie)
-	request.Header.Set("Origin", "https://console.example")
-	request.Header.Set("Content-Type", "application/json")
-	trial := httptest.NewRecorder()
-	handler.ServeHTTP(trial, request)
-	if trial.Code != 200 {
-		t.Fatalf("trial failed: %d %s", trial.Code, trial.Body.String())
-	}
-	before, _ := service.Current()
-	if before.Identity.Issuer != current.Identity.Issuer {
-		t.Fatal("identity activated before login")
-	}
-	var redirect contract.LoginRedirect
-	if err := json.Unmarshal(trial.Body.Bytes(), &redirect); err != nil {
-		t.Fatal(err)
-	}
-	completeTestLogin(t, provider, authentication, redirect.Url, trial.Result().Cookies())
-	after, afterRevision := service.Current()
-	if after.Identity.Issuer != provider.URL || afterRevision != revision+1 {
-		t.Fatal("verified trial did not activate")
-	}
-	previousRequest := httptest.NewRequest(http.MethodGet, "/", nil)
-	previousRequest.AddCookie(sessionCookie)
-	if _, allowed := authentication.Viewer(previousRequest); allowed {
-		t.Fatal("provider activation retained old sessions")
 	}
 }
 

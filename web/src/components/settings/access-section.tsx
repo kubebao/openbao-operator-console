@@ -34,11 +34,13 @@ function reach(grant: AccessGrant): string {
 
 export function AccessSection({
   configuration,
+  issuer,
   onAdd,
   onEdit,
   onRemove,
 }: {
   configuration: Configuration
+  issuer: string
   onAdd: (kind: GrantKind) => void
   onEdit: (kind: GrantKind, grant: AccessGrant) => void
   onRemove: (kind: GrantKind, grant: AccessGrant, label: string) => void
@@ -61,6 +63,10 @@ export function AccessSection({
           ))}
         </div>
       </div>
+      <p className="muted access-issuer">
+        Users and groups match sign-ins from {issuer} only. Changing the issuer asks whether they
+        carry over.
+      </p>
       <div className="settings-list">
         {rows(configuration).map((row) => (
           <article key={`${row.kind}:${row.grant.key}`} className="settings-row">

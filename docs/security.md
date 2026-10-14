@@ -33,8 +33,8 @@ Uploading a credential with broader privileges does not reduce them. Upload only
 
 | Data | Storage |
 | --- | --- |
-| Configuration (connections, access rules, relationships, policies, identity provider) | PostgreSQL, encrypted with AES-256-GCM |
-| Kubernetes reader credentials | PostgreSQL, encrypted per connection with AES-256-GCM and bound to the connection ID |
+| Configuration (connections, access rules, relationships, policies, identity provider) | PostgreSQL, encrypted with AES-256-GCM and bound to its revision |
+| Kubernetes reader credentials | PostgreSQL, encrypted per connection with AES-256-GCM and bound to the connection ID and credential revision |
 | Observations, findings, and activity | PostgreSQL, approved fields only; history kept for the configured retention (default seven days) |
 | Configuration changes | PostgreSQL: actor, time, revision, and changed area, without credential values |
 | Encryption key | Outside PostgreSQL, mounted from a Kubernetes Secret or file |
@@ -49,14 +49,30 @@ data, and provider error messages are not stored or returned by the API. Credent
 - The browser receives an opaque `Secure`, `HttpOnly` session cookie. Provider tokens stay on the server and are not
   persisted.
 - Sessions expire after eight hours or at ID token expiry, whichever comes first. Sessions live in process memory.
+- A login in progress lives in a `Secure`, `HttpOnly` cookie sealed with AES-256-GCM under a random per-process key. It
+  expires after five minutes, and its state is accepted once. Unauthenticated login requests keep no server state, so
+  they cannot block other sign-ins. A restart cancels logins that are in progress.
 - Logout ends the console session. It does not end the identity provider's single sign-on session.
 - A failed login returns to the sign-in page with a fixed reason: expired, no access, failed, or unavailable. Provider
   error details are not shown.
-- Requests that change state require the exact public origin.
+- The console logs each failed sign-in as a security event with a reason class and the client address. It adds the
+  subject only after the provider verified it, and never logs tokens, authorization codes, state values, or provider
+  messages. Failed API requests log the method, route pattern, and a cause class, without driver messages.
+- Requests that change state require the public origin. The console compares origins case-insensitively and ignores
+  an explicit default port.
+- API requests authenticate with the `__Host-console-session` cookie. Only the setup endpoints work without it: setup
+  status, unlock, and lock are public, and identity setup requires the `__Host-console-setup` cookie that a valid setup
+  token opens. `api/openapi.yaml` declares both cookies as security schemes.
 
 ## Authorization
 
 - Users match by OIDC `sub`. Groups match by exact values in a signed ID token claim.
+- User and group access is issuer-scoped. The configuration stores the issuer that its users and groups belong to, and a
+  sign-in matches only when the verified ID token's `iss` equals it. A subject or group name from another issuer grants
+  nothing.
+- Changing to a provider with a different issuer, in Settings or through local recovery, requires an explicit decision
+  to remove existing users and groups or to carry them over to the new issuer. Same-issuer changes keep them. See
+  [changing the identity provider](administration.md#change-the-identity-provider).
 - Non-administrators see only the clusters and namespaces assigned to them. The API authorizes resources before it
   returns counts, search results, topology, or history.
 - Administrators can see all enrolled namespaces and change settings.
@@ -65,10 +81,29 @@ data, and provider error messages are not stored or returned by the API. Credent
 
 ## First-run setup
 
-Protected browser setup requires a deployment-provided token, expires one hour after startup, rate-limits attempts, and
-closes permanently once a verified login creates the first administrator. Anyone who holds the setup token can become
-the first administrator, so restrict access to it and remove it after setup. See
-[first administrator setup](bootstrap.md).
+Protected browser setup requires a deployment-provided token, expires one hour after startup, rate-limits rejected
+tokens, and closes permanently once a verified login creates the first administrator. The valid token is never
+throttled, so failed guesses through a shared proxy address cannot lock out its holder. The console logs each rejected
+token with the client address, never the submitted value. Anyone who holds the setup token can become the first
+administrator, so restrict access to it and remove it after setup. See [first administrator setup](bootstrap.md).
+
+## Browser protections
+
+Every response carries `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
+and this content security policy:
+
+```text
+default-src 'self'; script-src 'self'; style-src 'self' 'nonce-<random>'; img-src 'self' data:; font-src 'self';
+connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'
+```
+
+- Scripts load only from the console origin. Inline scripts and `eval` are blocked.
+- Stylesheets load only from the console origin. Each application shell response carries a new random nonce, which
+  the frontend uses for the style elements that dialogs inject to lock page scrolling. Other responses carry no nonce.
+  Because the shell is never cached, a page never reuses an earlier nonce.
+- Inline style attributes are blocked. The frontend applies dynamic sizes and positions through the CSS object model,
+  which the policy does not restrict.
+- Other sites cannot frame the console.
 
 ## Demo mode
 
@@ -77,7 +112,8 @@ page as demonstration data. Do not expose it.
 
 ## Operational guidance
 
-- Serve the console over HTTPS only.
+- Serve the console over HTTPS only. When the public callback URL uses HTTPS, every response carries
+  `Strict-Transport-Security: max-age=31536000`. The console does not set `includeSubDomains` or `preload`.
 - Back up the encryption key separately from database backups, and restrict access to both.
 - Use TLS with certificate verification for remote PostgreSQL connections.
 - Run the provided container as non-root with a read-only root filesystem, as the chart does.

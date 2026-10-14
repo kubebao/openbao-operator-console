@@ -189,12 +189,18 @@ func TestSetupUnlockOriginExpiryAndRateLimits(t *testing.T) {
 			t.Fatal("wrong token was accepted or valid attempts were limited too early")
 		}
 	}
-	response = setupRequest(fixture.handler, "POST", "/api/v1/setup/unlock", payload, "https://console.example")
+	response = setupRequest(fixture.handler, "POST", "/api/v1/setup/unlock", []byte(`{"token":"wrong"}`), "https://console.example")
 	if response.Code != 429 || response.Header().Get("Retry-After") != "60" {
-		t.Fatal("setup attempts were not rate limited")
+		t.Fatal("failed setup attempts were not rate limited")
+	}
+	// Behind an ingress every client shares one address. Failed guesses must not lock
+	// out the holder of the valid token.
+	if response = setupRequest(fixture.handler, "POST", "/api/v1/setup/unlock", payload, "https://console.example"); response.Code != 200 {
+		t.Fatal("rate limit throttled the valid setup token")
 	}
 	now = now.Add(time.Minute)
-	if response = setupRequest(fixture.handler, "POST", "/api/v1/setup/unlock", payload, "https://console.example"); response.Code != 200 {
+	response = setupRequest(fixture.handler, "POST", "/api/v1/setup/unlock", []byte(`{"token":"wrong"}`), "https://console.example")
+	if response.Code != 401 {
 		t.Fatal("rate limit did not permit a later retry")
 	}
 	now = now.Add(time.Hour)
@@ -218,9 +224,9 @@ func TestSetupClaimRequiresVerifiedLoginAndClosesPermanently(t *testing.T) {
 		t.Fatalf("verified setup callback = %d: %s", callback.Code, callback.Body.String())
 	}
 	current, revision := fixture.service.Current()
-	user, allowed := fixture.service.Resolve(context.Background(), "engineer", nil)
+	user, allowed := fixture.service.Resolve(context.Background(), config.Principal{Issuer: provider.URL, Subject: "engineer"})
 	if revision != 1 || !allowed || !user.Admin || current.Identity == nil || current.Identity.Issuer != provider.URL ||
-		len(fixture.repository.changes) != 1 {
+		current.AccessIssuer != provider.URL || len(fixture.repository.changes) != 1 {
 		t.Fatal("verified subject did not become the first administrator")
 	}
 	if bytes.Contains(fixture.repository.record.Payload, []byte("setup-provider-secret")) ||

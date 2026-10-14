@@ -6,6 +6,8 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -98,11 +100,14 @@ func liveIdentity(t *testing.T, ctx context.Context, keycloak bool) (keycloakSet
 	if err != nil {
 		t.Fatal("cannot read Keycloak test CA")
 	}
-	providerContext, err := auth.ProviderContext(ctx, certificate)
-	if err != nil {
+	roots, err := x509.SystemCertPool()
+	if err != nil || !roots.AppendCertsFromPEM(ca) {
 		t.Fatal("cannot configure Keycloak certificate trust")
 	}
-	return identity, providerContext, ca
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots}
+	client := &http.Client{Transport: transport, Timeout: 10 * time.Second}
+	return identity, oidc.ClientContext(ctx, client), ca
 }
 
 // liveSession is a browser session against a console served over TLS.
@@ -215,12 +220,13 @@ func startLiveConsole(
 	if err != nil {
 		t.Fatal(err)
 	}
-	configuration, err := consolesettings.New(ctx, &configurationRepository{}, bytes.Repeat([]byte{4}, 32), config.Config{
+	seed := config.Config{
 		Connections:       []config.Connection{connection},
 		Users:             []config.User{user},
 		MaxBackupAgeHours: 24,
-		Identity:          &provider,
-	})
+	}
+	seed.SeedIdentity(provider)
+	configuration, err := consolesettings.Open(ctx, &configurationRepository{}, bytes.Repeat([]byte{4}, 32), &seed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -374,6 +380,12 @@ func keycloakLoginAction(t *testing.T, body io.Reader) string {
 
 func signedTestProvider(t *testing.T) *httptest.Server {
 	t.Helper()
+	return signedTestProviderFor(t, "engineer")
+}
+
+// signedTestProviderFor signs ID tokens for subject with its own HTTPS issuer.
+func signedTestProviderFor(t *testing.T, subject string) *httptest.Server {
+	t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
@@ -430,7 +442,7 @@ func signedTestProvider(t *testing.T) *httptest.Server {
 			Claims(map[string]any{
 				"iss":   issuer,
 				"aud":   "console",
-				"sub":   "engineer",
+				"sub":   subject,
 				"nonce": nonce,
 				"exp":   time.Now().Add(time.Hour).Unix(),
 			}).

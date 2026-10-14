@@ -546,6 +546,11 @@ export interface components {
             /** Format: int64 */
             readonly revision: number;
             readonly identity: components["schemas"]["IdentityInput"];
+            /**
+             * @description Required when the candidate issuer differs from the active issuer, and rejected otherwise. carryOver binds every user and group to the new issuer; remove deletes them. In both cases the account that completes the trial becomes an administrator under the new issuer.
+             * @enum {string}
+             */
+            readonly accessRules?: "carryOver" | "remove";
         };
         readonly LoginRedirect: {
             readonly url: string;

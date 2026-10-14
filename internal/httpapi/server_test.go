@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -24,17 +25,63 @@ func (viewerAuth) Callback(http.ResponseWriter, *http.Request) {}
 func (viewerAuth) Logout(http.ResponseWriter, *http.Request)   {}
 
 type memoryFleet struct {
-	snapshot     fleet.Snapshot
-	historyReads int
+	snapshot      fleet.Snapshot
+	snapshotReads int
+	historyReads  int
 }
 
 func (m *memoryFleet) Snapshot(context.Context) (fleet.Snapshot, error) {
+	m.snapshotReads++
 	return m.snapshot, nil
 }
 
 // Activity ignores the scopes, so the response proves that authorization filters again.
 func (m *memoryFleet) Activity(context.Context, []config.Scope) ([]fleet.Activity, error) {
 	return m.snapshot.Activity, nil
+}
+
+type pingDatabase struct {
+	err   error
+	pings int
+}
+
+func (d *pingDatabase) Ping(context.Context) error {
+	d.pings++
+	return d.err
+}
+
+func TestReadinessPingsTheDatabaseWithoutReadingEvidence(t *testing.T) {
+	repository := &memoryFleet{}
+	service := configurationService(t)
+	for _, test := range []struct {
+		name     string
+		server   *Server
+		database *pingDatabase
+		status   int
+	}{
+		{"database available", &Server{Settings: service}, &pingDatabase{}, http.StatusNoContent},
+		{"database unavailable", &Server{Settings: service}, &pingDatabase{err: errors.New("unreachable")}, http.StatusServiceUnavailable},
+		{"settings not loaded", &Server{}, &pingDatabase{}, http.StatusServiceUnavailable},
+		{"demo", &Server{Demo: true}, nil, http.StatusNoContent},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			test.server.Fleet, test.server.Auth = repository, viewerAuth{}
+			if test.database != nil {
+				test.server.Database = test.database
+			}
+			response := httptest.NewRecorder()
+			test.server.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+			if response.Code != test.status {
+				t.Fatalf("readyz = %d, want %d", response.Code, test.status)
+			}
+			if test.database != nil && test.server.Settings != nil && test.database.pings != 1 {
+				t.Fatal("readiness did not ping the database")
+			}
+			if repository.snapshotReads != 0 {
+				t.Fatal("readiness read fleet evidence")
+			}
+		})
+	}
 }
 
 func (m *memoryFleet) History(context.Context, string) ([]fleet.Observation, error) {

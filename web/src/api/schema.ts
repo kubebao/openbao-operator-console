@@ -26,7 +26,7 @@ const restoreTest = z.object({
   digest: z.string().nullable(),
   reason: z.string(),
 })
-export const deploymentSchema: z.ZodType<Deployment> = z.object({
+const deploymentObject = z.object({
   id: z.string(),
   uid: z.string(),
   resourceVersion: z.string(),
@@ -101,7 +101,7 @@ export const deploymentSchema: z.ZodType<Deployment> = z.object({
   ),
 })
 
-const operatorSchema: z.ZodType<Operator> = z.object({
+const operatorObject = z.object({
   id: z.string(),
   namespace: z.string(),
   name: z.string(),
@@ -132,7 +132,7 @@ const operatorSchema: z.ZodType<Operator> = z.object({
 const snapshotObject = z.object({
   mode: z.enum(['demo', 'live']),
   collectedAt: timestamp,
-  deployments: z.array(deploymentSchema),
+  deployments: z.array(deploymentObject),
   connections: z.array(
     z.object({
       id: z.string(),
@@ -150,7 +150,7 @@ const snapshotObject = z.object({
           checkedAt: timestamp.nullable(),
         }),
       ),
-      operators: z.array(operatorSchema),
+      operators: z.array(operatorObject),
     }),
   ),
   relationships: z.array(
@@ -188,8 +188,8 @@ const snapshotObject = z.object({
 
 export const snapshotSchema: z.ZodType<Snapshot> = snapshotObject
 
-export const historySchema: z.ZodType<History> = z.object({
-  observations: z.array(z.object({ recordedAt: timestamp, deployment: deploymentSchema })),
+const historyObject = z.object({
+  observations: z.array(z.object({ recordedAt: timestamp, deployment: deploymentObject })),
 })
 
 export type Settings = components['schemas']['Settings']
@@ -201,6 +201,9 @@ export type GroupBinding = components['schemas']['GroupBinding']
 export type ManagedRelationship = components['schemas']['ManagedRelationship']
 export type Scope = components['schemas']['Scope']
 export type IdentityInput = components['schemas']['IdentityInput']
+export type IdentityTrial = components['schemas']['IdentityTrial']
+// AccessRules decides what happens to user and group access when the issuer changes.
+export type AccessRules = NonNullable<IdentityTrial['accessRules']>
 export type ConnectionCheck = components['schemas']['ConnectionCheck']
 export type ConnectionCheckResult = components['schemas']['ConnectionCheckResult']
 export type SetupStatus = components['schemas']['SetupStatus']
@@ -222,7 +225,7 @@ const managedOperatorSchema = z.object({
   container: z.string(),
   namespaces: z.array(z.string()),
 })
-export const managedConnectionSchema: z.ZodType<ManagedConnection> = z
+const managedConnectionObject = z
   .object({
     renewal: z.object({ namespace: z.string(), serviceAccount: z.string() }).nullable().optional(),
     id: z.string(),
@@ -245,8 +248,8 @@ const resourceRefSchema = z.object({
   name: z.string(),
   uid: z.string(),
 })
-const configurationSchema: z.ZodType<Configuration> = z.object({
-  connections: z.array(managedConnectionSchema),
+const configurationObject = z.object({
+  connections: z.array(managedConnectionObject),
   users: z.array(
     z.object({
       subject: z.string(),
@@ -268,9 +271,9 @@ const configurationSchema: z.ZodType<Configuration> = z.object({
   maxBackupAgeHours: z.number().int().positive(),
   startupGraceMinutes: z.number().int().nonnegative(),
 })
-export const settingsSchema: z.ZodType<Settings> = z.object({
+const settingsObject = z.object({
   revision: z.number().int().positive(),
-  configuration: configurationSchema,
+  configuration: configurationObject,
   identity: z.object({
     issuer: z.string(),
     clientId: z.string(),
@@ -282,7 +285,7 @@ export const settingsSchema: z.ZodType<Settings> = z.object({
     z.object({ revision: z.number().int(), actor: z.string(), summary: z.string(), at: timestamp }),
   ),
 })
-export const connectionCheckSchema: z.ZodType<ConnectionCheckResult> = z.object({
+const connectionCheckObject = z.object({
   connection: snapshotObject.shape.connections.element,
   rbac: z.string(),
   deployments: z.array(snapshotObject.shape.deployments.element),
@@ -304,23 +307,23 @@ export const connectionCheckSchema: z.ZodType<ConnectionCheckResult> = z.object(
   }),
 })
 
-export const setupStatusSchema: z.ZodType<SetupStatus> = z.object({
+const setupStatusObject = z.object({
   state: z.enum(['required', 'unlocked', 'complete', 'expired']),
   callbackUrl: z.string(),
   sessionExpiresAt: timestamp.nullable(),
 })
-export const readerAccessSchema: z.ZodType<ReaderAccessResult> = z.object({
+const readerAccessObject = z.object({
   rbac: z.string(),
   serviceAccount: z.string(),
   serviceAccountNamespace: z.string(),
 })
-export const loginRedirectSchema: z.ZodType<components['schemas']['LoginRedirect']> = z.object({
+const loginRedirectObject = z.object({
   url: z.url().refine((value) => value.startsWith('https://'), 'Login URL must use HTTPS.'),
 })
 
-export const settingsUpdateSchema: z.ZodType<components['schemas']['SettingsUpdate']> = z.object({
+const settingsUpdateObject = z.object({
   revision: z.number().int().positive(),
-  configuration: configurationSchema,
+  configuration: configurationObject,
   credentials: z.array(
     z
       .object({
@@ -346,26 +349,70 @@ export const settingsUpdateSchema: z.ZodType<components['schemas']['SettingsUpda
   ),
 })
 
+const identityTrialObject = z.object({
+  revision: z.number().int().positive(),
+  identity: z.object({
+    issuer: z.string(),
+    clientId: z.string(),
+    ca: z.string(),
+    groupsClaim: z.string(),
+    clientSecret: z.string().exactOptional(),
+  }),
+  accessRules: z.enum(['carryOver', 'remove']).exactOptional(),
+})
+
+const credentialStatusesObject = z.object({
+  credentials: z.array(
+    z.object({
+      connectionId: z.string(),
+      mode: z.enum(['local', 'manual', 'automatic']),
+      state: z.enum([
+        'ready',
+        'pending',
+        'healthy',
+        'retrying',
+        'permissionDenied',
+        'reconnectRequired',
+        'paused',
+      ]),
+      expiresAt: timestamp.nullable(),
+      expirySource: z.enum(['unknown', 'declaredToken', 'certificate', 'tokenRequest']),
+      lastAttemptAt: timestamp.nullable(),
+      lastSuccessAt: timestamp.nullable(),
+      nextAttemptAt: timestamp.nullable(),
+    }),
+  ),
+})
+
+// The annotations check that every parsed value fits the generated contract type.
+export const historySchema: z.ZodType<History> = historyObject
+export const managedConnectionSchema: z.ZodType<ManagedConnection> = managedConnectionObject
+export const settingsSchema: z.ZodType<Settings> = settingsObject
+export const connectionCheckSchema: z.ZodType<ConnectionCheckResult> = connectionCheckObject
+export const setupStatusSchema: z.ZodType<SetupStatus> = setupStatusObject
+export const readerAccessSchema: z.ZodType<ReaderAccessResult> = readerAccessObject
+export const loginRedirectSchema: z.ZodType<components['schemas']['LoginRedirect']> =
+  loginRedirectObject
+export const settingsUpdateSchema: z.ZodType<components['schemas']['SettingsUpdate']> =
+  settingsUpdateObject
+export const identityTrialSchema: z.ZodType<IdentityTrial> = identityTrialObject
 export const credentialStatusesSchema: z.ZodType<components['schemas']['CredentialStatuses']> =
-  z.object({
-    credentials: z.array(
-      z.object({
-        connectionId: z.string(),
-        mode: z.enum(['local', 'manual', 'automatic']),
-        state: z.enum([
-          'ready',
-          'pending',
-          'healthy',
-          'retrying',
-          'permissionDenied',
-          'reconnectRequired',
-          'paused',
-        ]),
-        expiresAt: timestamp.nullable(),
-        expirySource: z.enum(['unknown', 'declaredToken', 'certificate', 'tokenRequest']),
-        lastAttemptAt: timestamp.nullable(),
-        lastSuccessAt: timestamp.nullable(),
-        nextAttemptAt: timestamp.nullable(),
-      }),
-    ),
-  })
+  credentialStatusesObject
+
+// ContractSchemas exposes the unannotated schema types to the contract test, which checks the
+// other direction: every value of a generated type, including each enum member, must be
+// accepted by its schema.
+const contractSchemas = {
+  snapshot: snapshotObject,
+  history: historyObject,
+  settings: settingsObject,
+  connectionCheck: connectionCheckObject,
+  setupStatus: setupStatusObject,
+  readerAccess: readerAccessObject,
+  loginRedirect: loginRedirectObject,
+  settingsUpdate: settingsUpdateObject,
+  identityTrial: identityTrialObject,
+  credentialStatuses: credentialStatusesObject,
+}
+
+export type ContractSchemas = typeof contractSchemas

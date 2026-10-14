@@ -12,6 +12,7 @@ import {
   credentialStatusesSchema,
 } from './schema'
 import type {
+  AccessRules,
   Configuration,
   CredentialUpdate,
   ConnectionCheck,
@@ -173,9 +174,15 @@ export async function generateReaderAccess(connection: ManagedConnection) {
     )
   return readerAccessSchema.parse(response.data)
 }
-export async function trialIdentity(revision: number, identity: IdentityInput) {
+// trialIdentity starts a candidate provider login. An issuer change requires an access
+// rules decision; an unchanged issuer must omit it.
+export async function trialIdentity(
+  revision: number,
+  identity: IdentityInput,
+  accessRules: AccessRules | null,
+) {
   const response = await client.POST('/api/v1/settings/identity/trial', {
-    body: { revision, identity },
+    body: { revision, identity, ...(accessRules ? { accessRules } : {}) },
   })
   if (!response.response.ok)
     throw new APIError(

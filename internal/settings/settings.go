@@ -2,9 +2,11 @@
 package settings
 
 import (
+	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -22,6 +24,9 @@ var (
 	ErrMissing  = errors.New("configuration is not initialized")
 	ErrInvalid  = errors.New("configuration is invalid")
 )
+
+// refreshTimeout bounds the reload after a commit with an unknown outcome.
+const refreshTimeout = 5 * time.Second
 
 type Record struct {
 	Revision int64
@@ -42,6 +47,12 @@ type Repository interface {
 }
 
 type Service struct {
+	// commit serializes configuration and credential commits with collection writes, so
+	// a collection result never lands after the configuration that superseded it. It is
+	// held across database I/O. Request handlers that only read never take it.
+	commit sync.RWMutex
+	// mu guards the published state below and is never held across database I/O. The
+	// state changes only while both locks are held, so either lock is enough to read it.
 	mu               sync.RWMutex
 	repository       Repository
 	cipher           cipher.AEAD
@@ -52,12 +63,16 @@ type Service struct {
 	readerGeneration uint64
 }
 
-func New(ctx context.Context, repository Repository, key []byte, initial config.Config) (*Service, error) {
-	return Open(ctx, repository, key, &initial)
+// stored is the configuration and the reader credentials read from the repository.
+type stored struct {
+	revision      int64
+	payload       []byte
+	configuration config.Config
+	credentials   map[string]StoredCredential
 }
 
-// Open loads stored configuration. A nil seed leaves an empty database pending
-// until a verified first administrator initializes it.
+// Open loads stored configuration. An empty database is initialized from the seed; a
+// nil seed leaves it pending until a verified first administrator initializes it.
 func Open(ctx context.Context, repository Repository, key []byte, initial *config.Config) (*Service, error) {
 	if len(key) != 32 {
 		return nil, errors.New("configuration key must contain 32 bytes")
@@ -76,7 +91,7 @@ func Open(ctx context.Context, repository Repository, key []byte, initial *confi
 		changed:     make(chan struct{}, 1),
 		credentials: map[string]StoredCredential{},
 	}
-	stored, err := repository.LoadSettings(ctx)
+	state, err := result.load(ctx)
 	if errors.Is(err, ErrMissing) {
 		if initial == nil {
 			return result, nil
@@ -96,48 +111,93 @@ func Open(ctx context.Context, repository Repository, key []byte, initial *confi
 			return result, nil
 		}
 		if errors.Is(err, ErrConflict) {
-			stored, err = repository.LoadSettings(ctx)
+			state, err = result.load(ctx)
 		}
 	}
 	if err != nil {
 		return nil, err
 	}
-	configuration, err := result.decrypt(stored.Payload)
+	result.publish(state)
+	return result, nil
+}
+
+// load reads, decrypts, and validates the stored configuration and reader credentials.
+func (s *Service) load(ctx context.Context) (stored, error) {
+	record, err := s.repository.LoadSettings(ctx)
 	if err != nil {
-		return nil, errors.New("configuration cannot be decrypted with the supplied key")
+		return stored{}, err
 	}
-	rows, err := repository.LoadCredentials(ctx)
+	configuration, err := s.decrypt(record.Payload, record.Revision)
 	if err != nil {
-		return nil, fmt.Errorf("load reader credentials: %w", err)
+		return stored{}, errors.New("configuration cannot be decrypted with the supplied key")
 	}
+	rows, err := s.repository.LoadCredentials(ctx)
+	if err != nil {
+		return stored{}, fmt.Errorf("load reader credentials: %w", err)
+	}
+	credentials := map[string]StoredCredential{}
 	for _, row := range rows {
-		state, err := result.decryptCredential(row)
+		state, err := s.decryptCredential(row)
 		if err != nil {
-			return nil, errors.New("reader credential cannot be decrypted with the supplied key")
+			return stored{}, errors.New("reader credential cannot be decrypted with the supplied key")
 		}
-		result.credentials[row.ConnectionID] = StoredCredential{Revision: row.Revision, State: state}
+		credentials[row.ConnectionID] = StoredCredential{Revision: row.Revision, State: state}
 	}
 	for i := range configuration.Connections {
 		access := &configuration.Connections[i].Access
 		if access.Mode != config.AccessRemote {
 			continue
 		}
-		stored, found := result.credentials[configuration.Connections[i].ID]
+		reader, found := credentials[configuration.Connections[i].ID]
 		if !found {
-			return nil, errors.New("stored remote connection has no reader credential")
+			return stored{}, errors.New("stored remote connection has no reader credential")
 		}
-		credential := stored.State.Credential
+		credential := reader.State.Credential
 		access.Credential = &credential
 	}
 	if err := configuration.Validate(); err != nil {
-		return nil, errors.New("stored configuration is invalid")
+		return stored{}, errors.New("stored configuration is invalid")
 	}
 	if !hasAdmin(configuration) {
-		return nil, errors.New("stored configuration has no administrator")
+		return stored{}, errors.New("stored configuration has no administrator")
 	}
-	result.configuration = configuration
-	result.revision = stored.Revision
-	return result, nil
+	return stored{revision: record.Revision, payload: record.Payload, configuration: configuration, credentials: credentials}, nil
+}
+
+// publish replaces the in-memory state. A changed revision or reader credential starts a
+// new reader generation, so collectors stop writing results from the previous one.
+func (s *Service) publish(state stored) {
+	s.mu.Lock()
+	changed := state.revision != s.revision || len(state.credentials) != len(s.credentials)
+	for id, credential := range state.credentials {
+		previous, found := s.credentials[id]
+		changed = changed || !found || previous.Revision != credential.Revision
+	}
+	s.revision = state.revision
+	s.configuration = state.configuration
+	s.credentials = state.credentials
+	if changed {
+		s.readerGeneration++
+	}
+	s.mu.Unlock()
+	if changed {
+		s.notify()
+	}
+}
+
+// refresh publishes the stored state after a commit whose outcome is unknown or that lost
+// a revision race. Later edits and renewals then start from the stored revisions instead
+// of conflicting until restart. It returns the stored state when the read succeeded. The
+// caller holds s.commit.
+func (s *Service) refresh(ctx context.Context) (stored, bool) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), refreshTimeout)
+	defer cancel()
+	state, err := s.load(ctx)
+	if err != nil {
+		return stored{}, false
+	}
+	s.publish(state)
+	return state, true
 }
 
 // importReaders replaces kubeconfig file references from the enrollment file with
@@ -244,10 +304,10 @@ func (s *Service) Current() (config.Config, int64) {
 	return clone(s.configuration), s.revision
 }
 func (s *Service) Changed() <-chan struct{} { return s.changed }
-func (s *Service) Resolve(_ context.Context, subject string, groups []string) (config.User, bool) {
+func (s *Service) Resolve(_ context.Context, principal config.Principal) (config.User, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.configuration.Resolve(subject, groups)
+	return s.configuration.Resolve(principal)
 }
 
 func (s *Service) History(ctx context.Context) ([]Change, error) {
@@ -256,13 +316,15 @@ func (s *Service) History(ctx context.Context) ([]Change, error) {
 
 // Save replaces the configuration. Remote connections keep their stored reader credentials.
 func (s *Service) Save(ctx context.Context, revision int64, configuration config.Config, actor, summary string) (int64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.commit.Lock()
+	defer s.commit.Unlock()
 	return s.save(ctx, revision, configuration, actor, summary, nil)
 }
 
 // save replaces only the credentials named by the caller. Omitted credentials are
-// resolved under the lock, so a stale edit cannot undo renewal. The caller holds s.mu.
+// resolved under the commit lock, so a stale edit cannot undo renewal. The caller holds
+// s.commit, which excludes every other writer, so save reads the published state without
+// s.mu and takes s.mu only to publish.
 func (s *Service) save(
 	ctx context.Context,
 	revision int64,
@@ -325,19 +387,26 @@ func (s *Service) save(
 		return 0, invalid("keep at least one console administrator")
 	}
 	// Reader credentials are excluded from the configuration payload and stored separately.
-	payload, err := s.encrypt(configuration)
+	next := revision + 1
+	payload, err := s.encrypt(configuration, next)
 	if err != nil {
 		return 0, err
 	}
-	record, err := s.repository.SaveSettings(ctx, revision, payload, actor, summary, writes, keep)
-	if err != nil {
-		return 0, err
+	if _, err := s.repository.SaveSettings(ctx, revision, payload, actor, summary, writes, keep); err != nil {
+		// The commit may have succeeded even though the reply failed. The stored payload
+		// carries a random nonce, so an exact match proves that this save committed.
+		if state, read := s.refresh(ctx); read && state.revision == next && bytes.Equal(state.payload, payload) {
+			return next, nil
+		}
+		return 0, fmt.Errorf("save configuration: %w", err)
 	}
+	s.mu.Lock()
 	s.configuration = configuration
 	s.credentials = states
-	s.revision = record.Revision
+	s.revision = next
+	s.mu.Unlock()
 	s.notify()
-	return s.revision, nil
+	return next, nil
 }
 
 func (s *Service) notify() {
@@ -347,14 +416,29 @@ func (s *Service) notify() {
 	}
 }
 
-func (s *Service) encrypt(configuration config.Config) ([]byte, error) {
-	return s.seal(configuration, configurationPurpose)
+func (s *Service) encrypt(configuration config.Config, revision int64) ([]byte, error) {
+	return s.seal(configuration, configurationData(revision))
 }
 
-func (s *Service) decrypt(payload []byte) (config.Config, error) {
-	var result config.Config
-	err := s.unseal(payload, configurationPurpose, &result)
-	return result, err
+func (s *Service) decrypt(payload []byte, revision int64) (config.Config, error) {
+	var stored struct {
+		config.Config
+		AccessIssuer json.RawMessage `json:"accessIssuer"`
+	}
+	if err := s.unseal(payload, configurationData(revision), &stored); err != nil {
+		return config.Config{}, err
+	}
+	// Before issuer binding, stored access belonged to the stored provider. Interpret
+	// only an absent field as that legacy format. An empty or mismatched declared
+	// binding still fails validation. The next settings save persists the binding.
+	if stored.AccessIssuer == nil {
+		if stored.Identity != nil {
+			stored.Config.AccessIssuer = stored.Identity.Issuer
+		}
+	} else if err := json.Unmarshal(stored.AccessIssuer, &stored.Config.AccessIssuer); err != nil {
+		return config.Config{}, err
+	}
+	return stored.Config, nil
 }
 
 func Summary(previous, next config.Config) string {

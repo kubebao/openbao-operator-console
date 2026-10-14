@@ -197,6 +197,7 @@ function SettingsWorkspace({
       {section === 'access' && (
         <AccessSection
           configuration={configuration}
+          issuer={settings.identity.issuer}
           onAdd={(grantKind) => {
             const grant = { key: '', name: '', admin: false, scopes: [] }
             onEditing({ kind: 'access', grantKind, mode: 'add', grant })

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -70,20 +69,8 @@ func NewProvider(ctx context.Context, issuer, clientID, clientSecret, redirect s
 	}, nil
 }
 
-// ProviderContext adds an optional private CA without disabling TLS verification.
+// providerContext adds an optional private CA without disabling TLS verification.
 // The transport is used for discovery, token exchange, and signature keys.
-func ProviderContext(ctx context.Context, caFile string) (context.Context, error) {
-	data := []byte{}
-	if caFile != "" {
-		var err error
-		data, err = os.ReadFile(caFile)
-		if err != nil {
-			return nil, errors.New("read OIDC CA file")
-		}
-	}
-	return providerContext(ctx, data)
-}
-
 func providerContext(ctx context.Context, data []byte) (context.Context, error) {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12}

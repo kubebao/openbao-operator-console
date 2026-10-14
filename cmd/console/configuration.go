@@ -80,14 +80,50 @@ func bootstrapSeed(path string) (config.Config, error) {
 		if err != nil {
 			return configuration, err
 		}
-		configuration.Identity = identity
+		// Seed users and groups are written for the bootstrap provider.
+		configuration.SeedIdentity(*identity)
 	}
 	return configuration, nil
 }
 
+// recoveredConfiguration installs the recovery identity and enrolls its administrators.
+// Like a browser identity change, a new issuer requires a decision about existing user
+// and group access; the recovery administrators are always enrolled under the new issuer.
+func recoveredConfiguration(
+	current config.Config,
+	identity config.Identity,
+	subjects []string,
+	rules config.AccessRules,
+) (config.Config, string, error) {
+	issuerChanged := current.AccessIssuer != identity.Issuer
+	if err := current.ReplaceIdentity(identity, rules); err != nil {
+		switch {
+		case errors.Is(err, config.ErrAccessRulesRequired):
+			return current, "", errors.New(
+				"the recovery issuer differs from the stored issuer: set --recover-access-rules=carryOver or --recover-access-rules=remove",
+			)
+		case errors.Is(err, config.ErrAccessRulesUnexpected):
+			return current, "", errors.New("the recovery issuer equals the stored issuer: omit --recover-access-rules")
+		default:
+			return current, "", err
+		}
+	}
+	for _, subject := range subjects {
+		current.GrantAdministrator(subject)
+	}
+	summary := "Identity provider and administrators recovered"
+	switch {
+	case issuerChanged && rules == config.AccessRulesCarryOver:
+		summary += " with a new issuer; user and group access carried over"
+	case issuerChanged:
+		summary += " with a new issuer; user and group access removed"
+	}
+	return current, summary, nil
+}
+
 // Recovery is a local administrative command. It requires the existing database
 // encryption key and verifies discovery before changing the active provider.
-func recoverConfiguration(ctx context.Context, service *settings.Service) error {
+func recoverConfiguration(ctx context.Context, service *settings.Service, rules config.AccessRules) error {
 	subjects := bootstrapAdministrators()
 	if len(subjects) == 0 {
 		return errors.New("identity recovery requires CONSOLE_BOOTSTRAP_ADMIN_SUBJECTS")
@@ -96,14 +132,14 @@ func recoverConfiguration(ctx context.Context, service *settings.Service) error 
 	if err != nil {
 		return err
 	}
+	current, revision := service.Current()
+	configuration, summary, err := recoveredConfiguration(current, *identity, subjects, rules)
+	if err != nil {
+		return err
+	}
 	if _, err := auth.Discover(ctx, *identity, os.Getenv("CONSOLE_OIDC_REDIRECT_URL")); err != nil {
 		return fmt.Errorf("recovery identity discovery failed: %w", err)
 	}
-	configuration, revision := service.Current()
-	for _, subject := range subjects {
-		configuration.GrantAdministrator(subject)
-	}
-	configuration.Identity = identity
-	_, err = service.Save(ctx, revision, configuration, "local-recovery", "Identity provider and administrators recovered")
+	_, err = service.Save(ctx, revision, configuration, "local-recovery", summary)
 	return err
 }

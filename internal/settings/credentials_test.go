@@ -40,7 +40,7 @@ func TestRenewalSurvivesRestartAndStaleSettingsWithoutChangingRevision(t *testin
 	ctx := context.Background()
 	repository := &memoryRepository{}
 	key := bytes.Repeat([]byte{4}, 32)
-	service, err := New(ctx, repository, key, renewableSeed())
+	service, err := Open(ctx, repository, key, new(renewableSeed()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestRenewalSurvivesRestartAndStaleSettingsWithoutChangingRevision(t *testin
 		!got.State.NextAttemptAt.Equal(*state.NextAttemptAt) {
 		t.Fatal("restart or stale form discarded the current credential or its schedule")
 	}
-	storedConfig, err := restarted.decrypt(repository.record.Payload)
+	storedConfig, err := restarted.decrypt(repository.record.Payload, repository.record.Revision)
 	if err != nil || storedConfig.Connections[0].Access.Credential != nil ||
 		storedConfig.Connections[0].Access.Mode != config.AccessRemote {
 		t.Fatal("reader credential remained embedded in editable settings")
@@ -112,7 +112,7 @@ func TestDelayedRenewalCannotUndoReplacementPauseRemovalOrPolicyChange(t *testin
 		t.Run(change, func(t *testing.T) {
 			ctx := context.Background()
 			repository := &memoryRepository{}
-			service, err := New(ctx, repository, bytes.Repeat([]byte{4}, 32), renewableSeed())
+			service, err := Open(ctx, repository, bytes.Repeat([]byte{4}, 32), new(renewableSeed()))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -155,7 +155,7 @@ func TestStoredRemoteConnectionRequiresItsCredential(t *testing.T) {
 	ctx := context.Background()
 	repository := &memoryRepository{}
 	key := bytes.Repeat([]byte{5}, 32)
-	if _, err := New(ctx, repository, key, renewableSeed()); err != nil {
+	if _, err := Open(ctx, repository, key, new(renewableSeed())); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := Open(ctx, repository, key, nil); err != nil {
@@ -175,7 +175,7 @@ func (failingCredentials) SaveCredential(context.Context, int64, CredentialRecor
 
 func TestFailedCredentialStorageAndInvalidStateKeepCurrentReader(t *testing.T) {
 	ctx := context.Background()
-	service, err := New(ctx, failingCredentials{&memoryRepository{}}, bytes.Repeat([]byte{4}, 32), renewableSeed())
+	service, err := Open(ctx, failingCredentials{&memoryRepository{}}, bytes.Repeat([]byte{4}, 32), new(renewableSeed()))
 	if err != nil {
 		t.Fatal(err)
 	}

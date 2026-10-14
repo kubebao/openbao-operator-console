@@ -11,14 +11,17 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
-// problemError is a handler failure with a response safe to show administrators.
+// problemError is a handler failure with a response safe to show administrators. The
+// cause is only classified for the server log; it never reaches the response.
 type problemError struct {
 	status  int
 	code    string
 	message string
+	cause   error
 }
 
 func (e *problemError) Error() string { return e.message }
+func (e *problemError) Unwrap() error { return e.cause }
 
 // badRequest reports a request the administrator can correct.
 func badRequest(message string) error {
@@ -33,26 +36,39 @@ func retryLater(message string) error {
 	return &problemError{status: http.StatusServiceUnavailable, code: "unavailable", message: message}
 }
 
-// unavailable reports err as retryable. Settings conflicts and validation errors keep
-// their own responses.
+// unavailable reports err as retryable and keeps it as the logged cause. Settings
+// conflicts and validation errors keep their own responses.
 func unavailable(err error, message string) error {
 	if errors.Is(err, settings.ErrConflict) || errors.Is(err, settings.ErrInvalid) {
 		return err
 	}
-	return retryLater(message)
+	return &problemError{status: http.StatusServiceUnavailable, code: "unavailable", message: message, cause: err}
 }
 
-func writeProblem(w http.ResponseWriter, err error) {
+// writeProblem maps err to a problem response and returns its status.
+func writeProblem(w http.ResponseWriter, err error) int {
 	var response *problemError
 	switch {
 	case errors.As(err, &response):
 		problem(w, response.status, response.code, response.message)
+		return response.status
 	case errors.Is(err, settings.ErrConflict):
 		problem(w, http.StatusConflict, "conflict", "Settings changed. Reload before saving.")
+		return http.StatusConflict
 	case errors.Is(err, settings.ErrInvalid):
 		problem(w, http.StatusBadRequest, "invalid", err.Error())
+		return http.StatusBadRequest
 	default:
 		problem(w, http.StatusServiceUnavailable, "unavailable", "The request could not be completed. Retry later.")
+		return http.StatusServiceUnavailable
+	}
+}
+
+// fail writes the problem response for err and logs server-side failures with a
+// classified cause.
+func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
+	if status := writeProblem(w, err); status >= http.StatusInternalServerError && s.Logger != nil {
+		s.Logger.Error("Request failed", "method", r.Method, "route", route(r), "status", status, "cause", failureCause(err))
 	}
 }
 
@@ -68,7 +84,7 @@ func (s *Server) admin(handler adminHandler) http.HandlerFunc {
 			return
 		}
 		if err := handler(w, r, actor); err != nil {
-			writeProblem(w, err)
+			s.fail(w, r, err)
 		}
 	}
 }
@@ -89,7 +105,7 @@ func (s *Server) administrator(w http.ResponseWriter, r *http.Request) (config.U
 		problem(w, http.StatusServiceUnavailable, "unavailable", "Settings are unavailable.")
 		return user, false
 	}
-	if r.Method != http.MethodGet && r.Header.Get("Origin") != s.Origin {
+	if r.Method != http.MethodGet && !s.sameOrigin(r) {
 		problem(w, http.StatusForbidden, "forbidden", "Invalid request origin.")
 		return user, false
 	}

@@ -3,6 +3,7 @@ package settings
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"time"
 
@@ -112,9 +113,10 @@ func (s *Service) CredentialTargets() []RenewalTarget {
 
 // UpdateCredential never changes enrollment or its revision. Both revision
 // guards prevent a delayed request from undoing a replacement, pause, or removal.
+// Like save, it holds s.commit across the write and takes s.mu only to publish.
 func (s *Service) UpdateCredential(ctx context.Context, target RenewalTarget, state CredentialState) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.commit.Lock()
+	defer s.commit.Unlock()
 	previous, found := s.credentials[target.Connection.ID]
 	if !found || s.revision != target.ConfigurationRevision || previous.Revision != target.CredentialRevision {
 		return ErrConflict
@@ -147,10 +149,15 @@ func (s *Service) UpdateCredential(ctx context.Context, target RenewalTarget, st
 		return err
 	}
 	if err := s.repository.SaveCredential(ctx, s.revision, row); err != nil {
-		return err
+		// The write may have committed, or the stored revisions moved on. Reload so the
+		// next renewal round starts from the stored credential.
+		s.refresh(ctx)
+		return fmt.Errorf("save reader credential: %w", err)
 	}
+	changed := !reflect.DeepEqual(old, state.Credential)
+	s.mu.Lock()
 	s.credentials[connection.ID] = stored
-	if !reflect.DeepEqual(old, state.Credential) {
+	if changed {
 		for i := range s.configuration.Connections {
 			if s.configuration.Connections[i].ID == connection.ID {
 				credential := state.Credential
@@ -158,6 +165,9 @@ func (s *Service) UpdateCredential(ctx context.Context, target RenewalTarget, st
 			}
 		}
 		s.readerGeneration++
+	}
+	s.mu.Unlock()
+	if changed {
 		s.notify()
 	}
 	return nil
@@ -169,9 +179,12 @@ func (s *Service) ReaderConfiguration() (config.Config, int64, uint64) {
 	return clone(s.configuration), s.revision, s.readerGeneration
 }
 
+// ApplyCollection writes a collection result only while its configuration revision and
+// reader generation are current. It shares s.commit with other collections, so commits
+// wait for in-flight collection writes, but readers of the settings never do.
 func (s *Service) ApplyCollection(ctx context.Context, revision int64, generation uint64, write func(context.Context) error) error {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.commit.RLock()
+	defer s.commit.RUnlock()
 	if revision != s.revision || generation != s.readerGeneration {
 		return ErrConflict
 	}
@@ -179,7 +192,7 @@ func (s *Service) ApplyCollection(ctx context.Context, revision int64, generatio
 }
 
 func (s *Service) encryptCredential(id string, stored StoredCredential) (CredentialRecord, error) {
-	payload, err := s.seal(stored.State, credentialPurpose+id)
+	payload, err := s.seal(stored.State, credentialData(id, stored.Revision))
 	if err != nil {
 		return CredentialRecord{}, err
 	}
@@ -191,7 +204,7 @@ func (s *Service) decryptCredential(row CredentialRecord) (CredentialState, erro
 	if row.Revision < 1 {
 		return state, errors.New("invalid reader ciphertext")
 	}
-	if err := s.unseal(row.Payload, credentialPurpose+row.ConnectionID, &state); err != nil {
+	if err := s.unseal(row.Payload, credentialData(row.ConnectionID, row.Revision), &state); err != nil {
 		return state, err
 	}
 	return state, state.validate()
