@@ -1,0 +1,129 @@
+name: Bug report
+description: Report a reproducible defect or regression in the console
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Do not post secrets, tokens, kubeconfigs, credentials, the configuration key, or
+        sensitive logs. Report security issues privately through a security advisory instead.
+
+  - type: input
+    id: version
+    attributes:
+      label: Console version
+      description: Image tag, chart version, or commit you are running (e.g., 0.1.0).
+      placeholder: X.Y.Z
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Console mode
+      options:
+        - Live (Helm chart)
+        - Live (binary or other deployment)
+        - Demo
+        - Local development (make dev)
+    validations:
+      required: true
+
+  - type: input
+    id: kubernetes
+    attributes:
+      label: Kubernetes version
+      description: Server version of the cluster that hosts the console, and of the affected enrolled cluster if different.
+      placeholder: "v1.35.x"
+    validations:
+      required: true
+
+  - type: input
+    id: operator_version
+    attributes:
+      label: OpenBao Operator version
+      description: Operator version on the affected cluster.
+      placeholder: X.Y.Z
+    validations:
+      required: true
+
+  - type: input
+    id: postgres_version
+    attributes:
+      label: PostgreSQL version
+      placeholder: "18.x"
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      description: For user interface problems.
+      placeholder: Firefox 140
+
+  - type: dropdown
+    id: affected_area
+    attributes:
+      label: Affected area
+      options:
+        - Installation or upgrade
+        - First administrator setup
+        - Sign-in or identity provider
+        - Cluster onboarding or collection
+        - Credential renewal
+        - Attention findings or evidence
+        - Fleet, topology, or history views
+        - Settings or access rules
+        - Helm chart
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: regression
+    attributes:
+      label: Did this work before?
+      options:
+        - "No"
+        - "Yes"
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Enroll a cluster with ...
+        2. Open ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console logs
+      description: Relevant JSON log lines from the console container. Redact host names and identities if needed.
+      render: shell
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Screenshots, Helm values (redacted), or anything else that helps triage.

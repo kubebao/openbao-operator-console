@@ -1,0 +1,6 @@
+# chart-testing configuration. Chart versions change only in release-please pull requests.
+chart-dirs:
+  - charts
+target-branch: main
+check-version-increment: false
+validate-maintainers: false

@@ -1,0 +1,69 @@
+name: Feature request
+description: Propose an enhancement or new capability
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing an improvement. The console is a read-only observer: it does not change clusters, read
+        Secrets, or contact OpenBao. Lifecycle actions belong in the OpenBao Operator.
+
+  - type: dropdown
+    id: affected_area
+    attributes:
+      label: Affected area
+      options:
+        - Attention findings or evidence
+        - Fleet, topology, or history views
+        - Cluster onboarding or collection
+        - Access rules or identity provider
+        - Installation or Helm chart
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem are you trying to solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: Describe the workflow, fleet setup, or operational need.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should the console show or do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence source
+      description: Which operator resource fields or Kubernetes objects would provide the evidence?
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Would you be willing to contribute this?
+      options:
+        - "Yes"
+        - "No"
+        - Maybe
