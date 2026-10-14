@@ -4,12 +4,12 @@ export type ManagedNamespace = ManagedConnection['namespaces'][number]
 export type ManagedOperator = ManagedConnection['operators'][number]
 export type Environment = ManagedNamespace['environment']
 
-export const environments: readonly Environment[] = [
+export const environments = [
   'production',
   'staging',
   'development',
   'other',
-]
+] as const satisfies readonly Environment[]
 
 // Matches the server's connection identifier rule.
 export const connectionIDPattern = '[a-zA-Z0-9_-]{1,100}'
@@ -19,7 +19,7 @@ export function isEnvironment(value: string): value is Environment {
   return environments.some((environment) => environment === value)
 }
 
-export function newNamespace(): ManagedNamespace {
+function newNamespace(): ManagedNamespace {
   return { name: '', team: '', environment: 'other', location: '' }
 }
 

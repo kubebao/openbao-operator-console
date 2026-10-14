@@ -1,8 +1,16 @@
 import { Link } from '@tanstack/react-router'
 import { Boxes, Cable, Cpu, Database, Folder, Layers3 } from 'lucide-react'
 import type { Deployment, Operator, Snapshot } from '../../api/schema'
-import { environmentLabels } from '../../lib/format'
-import { EvidenceBadge, HealthBadge, OperatorHealthBadge, Timestamp } from '../status'
+import { environmentLabels, producerFreshness, producerFreshnessLabels } from '../../lib/format'
+import { producerFreshnessTone } from '../../lib/tone'
+import {
+  EvidenceBadge,
+  HealthBadge,
+  OperatorCollectionBadge,
+  OperatorHealthBadge,
+  StatusBadge,
+  Timestamp,
+} from '../status'
 
 // DeploymentHeader identifies a deployment, its responsible operator, and its collection.
 export function DeploymentHeader({
@@ -58,18 +66,44 @@ export function DeploymentHeader({
           ) : (
             <span>{deployment.operatorId ?? 'no declared operator'}</span>
           )}
-          {operator && <OperatorHealthBadge health={operator.health} />}
+          {operator && <OperatorHealthBadge operator={operator} />}
+          {operator && operator.collection !== 'current' && (
+            <OperatorCollectionBadge collection={operator.collection} />
+          )}
         </span>
         <span>
           {deployment.evidence.collection === 'current' ? (
             <>
-              Last collected: <Timestamp value={deployment.evidence.collectedAt} />
+              Collected <Timestamp value={deployment.evidence.collectedAt} />
             </>
           ) : (
-            <EvidenceBadge collection={deployment.evidence.collection} />
+            <>
+              Collection <EvidenceBadge collection={deployment.evidence.collection} />
+            </>
           )}
         </span>
+        <ProducerEvidence evidence={deployment.evidence} />
       </div>
     </header>
+  )
+}
+
+// ProducerEvidence shows when the operator last reported status, separately from when the
+// console collected it. Without a reported time, freshness stays unknown.
+function ProducerEvidence({ evidence }: { evidence: Deployment['evidence'] }) {
+  const freshness = producerFreshness(evidence)
+  return (
+    <span>
+      {evidence.producerObservedAt === null ? (
+        'Producer time not reported'
+      ) : (
+        <>
+          Producer reported <Timestamp value={evidence.producerObservedAt} />
+        </>
+      )}
+      <StatusBadge tone={producerFreshnessTone[freshness]}>
+        {producerFreshnessLabels[freshness]}
+      </StatusBadge>
+    </span>
   )
 }

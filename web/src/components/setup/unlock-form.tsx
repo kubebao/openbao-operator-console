@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { LockKeyhole } from 'lucide-react'
 import { Field } from '../form'
+import { secretFieldProps } from '../../lib/credential'
 import { Button } from '../ui/button'
 
 // UnlockForm clears the token as soon as it is submitted.
@@ -29,8 +30,8 @@ export function UnlockForm({
           onChange={(event) => {
             setToken(event.target.value)
           }}
-          autoComplete="off"
-          spellCheck={false}
+          {...secretFieldProps}
+          autoComplete="new-password"
           required
           maxLength={256}
           autoFocus

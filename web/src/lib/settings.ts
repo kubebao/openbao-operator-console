@@ -22,6 +22,63 @@ function enrolled(configuration: Configuration, connectionId: string, namespace:
   )
 }
 
+// PrunedGrant is a user or group that loses namespaces the configuration no longer enrolls.
+// Namespaces are written as "connection/namespace".
+export interface PrunedGrant {
+  kind: GrantKind
+  key: string
+  label: string
+  namespaces: readonly string[]
+}
+
+export interface PrunedReferences {
+  grants: readonly PrunedGrant[]
+  relationships: readonly ManagedRelationship[]
+}
+
+// prunedReferences lists what pruneScopes removes, so the change can be confirmed first.
+export function prunedReferences(configuration: Configuration): PrunedReferences {
+  const lost = (scopes: readonly Scope[]) =>
+    scopes.flatMap((scope) =>
+      scope.namespaces
+        .filter((namespace) => !enrolled(configuration, scope.connectionId, namespace))
+        .map((namespace) => `${scope.connectionId}/${namespace}`),
+    )
+  const grants: PrunedGrant[] = [
+    ...configuration.users.map((user) => ({
+      kind: 'user' as const,
+      key: user.subject,
+      label: user.name || user.subject,
+      namespaces: lost(user.scopes),
+    })),
+    ...configuration.groups.map((group) => ({
+      kind: 'group' as const,
+      key: group.name,
+      label: group.name,
+      namespaces: lost(group.scopes),
+    })),
+  ]
+  return {
+    grants: grants.filter((grant) => grant.namespaces.length > 0),
+    relationships: configuration.relationships.filter(
+      (relationship) => !relationshipEnrolled(configuration, relationship),
+    ),
+  }
+}
+
+export function hasPrunedReferences(references: PrunedReferences): boolean {
+  return references.grants.length > 0 || references.relationships.length > 0
+}
+
+function relationshipEnrolled(
+  configuration: Configuration,
+  relationship: ManagedRelationship,
+): boolean {
+  return [relationship.source, relationship.target].every((resource) =>
+    enrolled(configuration, resource.connectionId, resource.namespace),
+  )
+}
+
 // pruneScopes removes access grants and relationships that reference namespaces the
 // configuration no longer enrolls.
 export function pruneScopes(configuration: Configuration): Configuration {
@@ -39,9 +96,7 @@ export function pruneScopes(configuration: Configuration): Configuration {
     users: configuration.users.map((user) => ({ ...user, scopes: prune(user.scopes) })),
     groups: configuration.groups.map((group) => ({ ...group, scopes: prune(group.scopes) })),
     relationships: configuration.relationships.filter((relationship) =>
-      [relationship.source, relationship.target].every((resource) =>
-        enrolled(configuration, resource.connectionId, resource.namespace),
-      ),
+      relationshipEnrolled(configuration, relationship),
     ),
   }
 }
@@ -88,6 +143,15 @@ export function withRelationship(
           )
         : [...configuration.relationships, relationship],
   }
+}
+
+// wholeNumber parses a typed policy value. It returns null for empty, fractional, or
+// out-of-range input.
+export function wholeNumber(value: string, min: number): number | null {
+  const trimmed = value.trim()
+  if (!/^\d+$/u.test(trimmed)) return null
+  const parsed = Number(trimmed)
+  return Number.isSafeInteger(parsed) && parsed >= min ? parsed : null
 }
 
 export function scopedNamespaceCount(scopes: readonly Scope[]): number {

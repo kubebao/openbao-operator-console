@@ -9,6 +9,8 @@ import { FormError } from '../components/form'
 import { IdentityForm } from '../components/setup/identity-form'
 import { UnlockForm } from '../components/setup/unlock-form'
 import { Button } from '../components/ui/button'
+import { useDocumentTitle } from '../components/use-document-title'
+import { RefreshBanner } from '../components/workspace/refresh-banner'
 
 const resultMessages = {
   failed:
@@ -58,6 +60,22 @@ function SetupClosed({ status, onCheck }: { status: SetupStatus; onCheck: () => 
   )
 }
 
+// SetupLoading reports the first load, or a failed refresh that keeps the last known status.
+function SetupLoading({
+  loaded,
+  failed,
+  retrying,
+  onRetry,
+}: {
+  loaded: boolean
+  failed: boolean
+  retrying: boolean
+  onRetry: () => void
+}) {
+  if (!loaded) return <p role="status">Loading setup…</p>
+  return failed ? <RefreshBanner retrying={retrying} onRetry={onRetry} /> : null
+}
+
 const emptyIdentity: IdentityInput = {
   issuer: '',
   clientId: '',
@@ -79,6 +97,7 @@ export function SetupPage() {
   const unlock = useSetupStep(unlockSetup)
   const lock = useSetupStep(lockSetup)
   const verify = useMutation({
+    gcTime: 0,
     mutationFn: (input: IdentityInput) => startSetupIdentity(input),
     onSuccess: (url) => {
       setIdentity((current) => ({ ...current, clientSecret: '' }))
@@ -92,6 +111,7 @@ export function SetupPage() {
     refetch()
   }
   const status = query.data
+  useDocumentTitle(status?.state === 'complete' ? 'Setup complete' : 'Set up your console')
   return (
     <main className="setup-page">
       <div className="setup-panel">
@@ -101,7 +121,12 @@ export function SetupPage() {
         <header className="setup-header">
           <h1>{status?.state === 'complete' ? 'Setup complete' : 'Set up your console'}</h1>
         </header>
-        {!status && <p role="status">Loading setup…</p>}
+        <SetupLoading
+          loaded={status !== undefined}
+          failed={query.isError}
+          retrying={query.isFetching}
+          onRetry={refetch}
+        />
         {(status?.state === 'complete' || status?.state === 'expired') && (
           <SetupClosed status={status} onCheck={refetch} />
         )}

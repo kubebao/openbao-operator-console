@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import { Link } from '@tanstack/react-router'
 import { ArrowRight, Database, HardDrive } from 'lucide-react'
 import type { Deployment, Relationship, Snapshot } from '../../api/schema'
@@ -129,9 +130,10 @@ export function PathEvidence({
   target: Deployment
 }) {
   const recovery = target.recovery
+  const heading = useId()
   return (
-    <aside className="topology-inspector">
-      <h2>Path evidence</h2>
+    <aside className="topology-inspector" aria-labelledby={heading}>
+      <h2 id={heading}>Path evidence</h2>
       <DetailRows
         rows={[
           { label: 'Relationship', value: provenanceLabels[route.provenance] },

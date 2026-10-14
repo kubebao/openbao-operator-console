@@ -434,9 +434,20 @@ tr.finding-critical > td {
 
 .digest-value {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   min-width: 0;
+}
+
+.digest-value code {
+  overflow-wrap: anywhere;
+}
+
+.digest-error {
+  flex-basis: 100%;
+  color: var(--red);
+  font-size: var(--text-sm);
 }
 
 .digest-value .button-icon {
@@ -517,8 +528,8 @@ tr.finding-critical > td {
   height: 8px;
 }
 
-.info-tip:hover > [role='tooltip'],
-.info-tip:focus-within > [role='tooltip'] {
+.info-tip:not(.info-tip-dismissed):hover > [role='tooltip'],
+.info-tip:not(.info-tip-dismissed):focus-within > [role='tooltip'] {
   visibility: visible;
   opacity: 1;
 }

@@ -5,17 +5,17 @@ export function BrandLogo({ className }: { className: string }) {
     <span className={className} aria-hidden="true">
       <img
         className="brand-logo-light"
-        src="/brand/kubebao-logo.png"
+        src="/brand/kubebao-logo.webp"
         alt=""
-        width={1254}
-        height={1254}
+        width={768}
+        height={768}
       />
       <img
         className="brand-logo-dark"
-        src="/brand/kubebao-logo-dark.png"
+        src="/brand/kubebao-logo-dark.webp"
         alt=""
-        width={1254}
-        height={1254}
+        width={768}
+        height={768}
       />
     </span>
   )

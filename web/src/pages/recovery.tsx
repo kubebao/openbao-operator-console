@@ -1,7 +1,8 @@
 import { Link, useParams } from '@tanstack/react-router'
-import { ArrowLeft, SearchX } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { useSnapshot } from '../api/client'
-import { EmptyState, PageHeading } from '../components/page'
+import { PageHeading } from '../components/page'
+import { useDocumentTitle } from '../components/use-document-title'
 import {
   PathEvidence,
   RecordedEvidence,
@@ -18,11 +19,19 @@ export function RecoveryPage() {
   )
   const source = snapshot?.deployments.find((deployment) => deployment.id === route?.sourceId)
   const target = snapshot?.deployments.find((deployment) => deployment.id === route?.targetId)
+  useDocumentTitle('Recovery path')
   if (!snapshot || !route || !source || !target)
     return (
-      <EmptyState title="Recovery path unavailable" icon={SearchX}>
-        The path is missing or outside your access scope.
-      </EmptyState>
+      <div className="page-enter">
+        <Link to="/topology" className="back-link">
+          <ArrowLeft size={14} />
+          Back to topology
+        </Link>
+        <PageHeading
+          title="Recovery path unavailable"
+          description="The path is missing or outside your access scope."
+        />
+      </div>
     )
   return (
     <div className="page-enter">

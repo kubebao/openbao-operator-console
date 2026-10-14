@@ -79,7 +79,7 @@ const columns = [
   }),
   column.display({
     id: 'open',
-    header: '',
+    header: () => <span className="sr-only">Details</span>,
     cell: ({ row }) => (
       <Link
         to="/deployments/$deploymentId"

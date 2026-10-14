@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { Configuration } from '../api/schema'
 import { newConnection } from './connection'
-import { pruneScopes, withGrant, withRelationship } from './settings'
+import {
+  hasPrunedReferences,
+  prunedReferences,
+  pruneScopes,
+  wholeNumber,
+  withGrant,
+  withRelationship,
+} from './settings'
 
 const configuration: Configuration = {
   connections: [
@@ -41,6 +48,27 @@ describe('pruneScopes', () => {
     expect(pruned.users[0]?.scopes).toEqual([{ connectionId: 'cluster', namespaces: ['team-a'] }])
     expect(pruned.groups[0]?.scopes).toEqual([])
     expect(pruned.relationships).toEqual([])
+  })
+  it('lists the grants and relationships it would remove', () => {
+    const references = prunedReferences(configuration)
+    expect(references.grants).toEqual([
+      { kind: 'user', key: 'engineer', label: 'Engineer', namespaces: ['cluster/removed'] },
+      { kind: 'group', key: 'gone', label: 'gone', namespaces: ['removed/team-a'] },
+    ])
+    expect(references.relationships.map((relationship) => relationship.id)).toEqual(['route'])
+    expect(hasPrunedReferences(references)).toBe(true)
+    expect(hasPrunedReferences(prunedReferences(pruneScopes(configuration)))).toBe(false)
+  })
+})
+
+describe('wholeNumber', () => {
+  it('accepts whole numbers at or above the minimum', () => {
+    expect(wholeNumber(' 12 ', 1)).toBe(12)
+    expect(wholeNumber('0', 0)).toBe(0)
+  })
+  it('rejects empty, fractional, negative, and too small values', () => {
+    for (const value of ['', '1.5', '-1', 'abc', '1e3']) expect(wholeNumber(value, 0)).toBeNull()
+    expect(wholeNumber('0', 1)).toBeNull()
   })
 })
 

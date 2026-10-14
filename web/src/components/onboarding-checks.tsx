@@ -20,7 +20,7 @@ function Lifetime({
   )
 }
 
-export function CredentialLifetime({
+function CredentialLifetime({
   expiry,
   local,
   renewal,

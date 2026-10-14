@@ -3,7 +3,8 @@ import { Link } from '@tanstack/react-router'
 import { Cable, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { useSnapshot } from '../api/client'
 import { emptyFilter } from '../lib/filters'
-import { operatorHealthLabels } from '../lib/format'
+import { capabilityCheckLabels, operatorHealthLabels } from '../lib/format'
+import { operatorNeedsAttention } from '../lib/tone'
 import type { Operator, Snapshot } from '../api/schema'
 import { EmptyState, PageHeading } from '../components/page'
 import { EvidenceBadge, StatusBadge, Timestamp } from '../components/status'
@@ -12,13 +13,6 @@ import { Button } from '../components/ui/button'
 
 type Connection = Snapshot['connections'][number]
 
-const capabilityLabels = {
-  available: 'Available',
-  unsupported: 'API absent',
-  denied: 'Access denied',
-  unreachable: 'Unreachable',
-  notChecked: 'Not checked',
-} as const
 const capabilityHelp = {
   available: 'Namespace list succeeded.',
   unsupported: 'This API is not served. Install a compatible operator feature build if needed.',
@@ -26,10 +20,6 @@ const capabilityHelp = {
   unreachable: 'Check API reachability and the reader credential.',
   notChecked: 'A preceding read failed or collection has not started.',
 } as const
-
-function operatorNeedsAttention(operator: Operator): boolean {
-  return operator.collection !== 'current' || operator.health !== 'available'
-}
 
 function needsAttention(connection: Connection): boolean {
   return (
@@ -64,6 +54,7 @@ function OperatorSummary({ operators }: { operators: readonly Operator[] }) {
 function ClusterDetails({ connection }: { connection: Connection }) {
   return (
     <div className="cluster-details">
+      <h2 className="sr-only">{`${connection.name} details`}</h2>
       {connection.capabilities.length > 0 && (
         <section>
           <h3>Resource API access</h3>
@@ -87,7 +78,7 @@ function ClusterDetails({ connection }: { connection: Connection }) {
                     <td>
                       <code>{capability.resource}</code>
                     </td>
-                    <td>{capabilityLabels[capability.state]}</td>
+                    <td>{capabilityCheckLabels[capability.state]}</td>
                     <td className="muted">{capabilityHelp[capability.state]}</td>
                   </tr>
                 ))}
@@ -168,7 +159,9 @@ export function ClustersPage() {
                 <th>Deployments</th>
                 <th>Operator</th>
                 <th>Last collected</th>
-                <th aria-label="Details" />
+                <th>
+                  <span className="sr-only">Details</span>
+                </th>
               </tr>
             </thead>
             <tbody>

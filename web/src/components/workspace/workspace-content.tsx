@@ -5,7 +5,8 @@ import type { Snapshot } from '../../api/schema'
 import { Button } from '../ui/button'
 
 // WorkspaceContent renders the active page once fleet evidence is available. A 401 is
-// handled before this point by the sign-in screen.
+// handled before this point by the sign-in screen. Only a failed first load blocks the page;
+// the shell reports a failed background refresh and keeps the last loaded evidence.
 export function WorkspaceContent({ snapshot }: { snapshot: UseQueryResult<Snapshot> }) {
   if (snapshot.isPending)
     return (
@@ -14,7 +15,7 @@ export function WorkspaceContent({ snapshot }: { snapshot: UseQueryResult<Snapsh
         Loading fleet evidence…
       </div>
     )
-  if (snapshot.isError)
+  if (snapshot.data === undefined)
     return (
       <div className="error-state">
         <Layers3 size={30} />

@@ -1,7 +1,7 @@
 import { Search } from 'lucide-react'
 import type { Snapshot } from '../../api/schema'
 import type { FleetFilter } from '../../lib/filters'
-import { collectionGaps } from '../../lib/filters'
+import { collectionFilters, collectionGaps, healthFilters } from '../../lib/filters'
 import { collectionLabels, environmentLabels, healthLabels } from '../../lib/format'
 import { Button } from '../ui/button'
 
@@ -29,21 +29,23 @@ function selectFields(snapshot: Snapshot): readonly SelectField[] {
     {
       key: 'health',
       label: 'State',
-      options: (['critical', 'attention', 'unknown', 'healthy'] as const).map(
-        (health) => [health, healthLabels[health]] as const,
-      ),
+      options: healthFilters.map((health) => [health, healthLabels[health]] as const),
     },
     {
       key: 'collection',
       label: 'Collection',
-      options: [
-        [collectionGaps, 'Any gap'],
-        ...(['current', 'stale', 'unreachable', 'denied', 'unsupported'] as const).map(
-          (state) => [state, collectionLabels[state]] as const,
-        ),
-      ],
+      options: collectionFilters.map(
+        (state) => [state, state === collectionGaps ? 'Any gap' : collectionLabels[state]] as const,
+      ),
     },
   ]
+}
+
+// withSelected keeps a filter value from the URL visible when the snapshot does not
+// contain it, so the control never reads "All" while it filters.
+function withSelected(options: SelectField['options'], value: string): SelectField['options'] {
+  if (value === '' || options.some(([option]) => option === value)) return options
+  return [[value, `${value} (not observed)`], ...options]
 }
 
 export function FleetFilters({
@@ -81,7 +83,7 @@ export function FleetFilters({
             }}
           >
             <option value="">All</option>
-            {field.options.map(([value, label]) => (
+            {withSelected(field.options, filter[field.key]).map(([value, label]) => (
               <option value={value} key={value}>
                 {label}
               </option>

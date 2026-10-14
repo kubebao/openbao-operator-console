@@ -1,5 +1,6 @@
 import { CircleAlert, Info, LogIn } from 'lucide-react'
 import { BrandLogo } from './brand'
+import { useDocumentTitle } from './use-document-title'
 
 // Bounded reasons set by the backend after a failed or ended login. Provider errors never
 // reach the browser.
@@ -28,6 +29,7 @@ function isNotice(value: string | null): value is keyof typeof notices {
 const result = new URLSearchParams(window.location.search).get('signin')
 
 export function SignIn() {
+  useDocumentTitle('Sign in')
   const params = new URLSearchParams(window.location.search)
   params.delete('signin')
   const query = params.toString()

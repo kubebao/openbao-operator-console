@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Check, Copy } from 'lucide-react'
 import type { IdentityInput } from '../../api/schema'
 import { Field } from '../form'
+import { secretFieldProps } from '../../lib/credential'
 import { Button } from '../ui/button'
 
 function CallbackURL({ url, onError }: { url: string; onError: (message: string) => void }) {
@@ -102,7 +103,8 @@ export function IdentityForm({
           type="password"
           value={identity.clientSecret ?? ''}
           onChange={field('clientSecret')}
-          autoComplete="off"
+          {...secretFieldProps}
+          autoComplete="new-password"
           required
           maxLength={65536}
         />
@@ -117,7 +119,7 @@ export function IdentityForm({
             rows={4}
             value={identity.ca}
             onChange={field('ca')}
-            spellCheck={false}
+            {...secretFieldProps}
             maxLength={262144}
           />
         </Field>

@@ -1,13 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { Navigate, Outlet, useLocation } from '@tanstack/react-router'
 import { APIError, useSetup, useSnapshot } from '../api/client'
 import type { Snapshot } from '../api/schema'
+import { clusterNames } from '../lib/filters'
+import { operatorNeedsAttention } from '../lib/tone'
 import { SignIn } from './sign-in'
 import { Button } from './ui/button'
 import { SearchDialog } from './workspace/search-dialog'
 import { Sidebar } from './workspace/sidebar'
+import { RefreshBanner } from './workspace/refresh-banner'
 import { Topbar } from './workspace/topbar'
+import { useRouteFocus } from './workspace/use-route-focus'
 import type { Theme } from './workspace/use-theme'
 import { useTheme } from './workspace/use-theme'
 import { WorkspaceContent } from './workspace/workspace-content'
@@ -22,7 +26,8 @@ export function Shell() {
         Loading console…
       </div>
     )
-  if (setup.isError)
+  // A failed background refresh keeps the last setup status. Only a failed first load blocks.
+  if (setup.data === undefined)
     return (
       <div className="entry-state">
         <h1>Console unavailable</h1>
@@ -45,7 +50,7 @@ export function Shell() {
 function useSearchShortcut(setOpen: Dispatch<SetStateAction<boolean>>) {
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === 'k') {
         event.preventDefault()
         setOpen((open) => !open)
       }
@@ -67,23 +72,34 @@ function failedConnectionCount(snapshot: Snapshot | undefined): number {
   return (
     snapshot?.connections.filter(
       (connection) =>
-        connection.collection !== 'current' ||
-        connection.operators.some(
-          (operator) => operator.collection !== 'current' || operator.health !== 'available',
-        ),
+        connection.collection !== 'current' || connection.operators.some(operatorNeedsAttention),
     ).length ?? 0
   )
 }
 
 function WorkspaceShell({ theme, setTheme }: { theme: Theme; setTheme: (theme: Theme) => void }) {
+  const setup = useSetup()
   const snapshot = useSnapshot()
   const [searching, setSearching] = useState(false)
+  const main = useRef<HTMLElement>(null)
   useSearchShortcut(setSearching)
+  useRouteFocus(main)
   if (snapshot.isError && snapshot.error instanceof APIError && snapshot.error.status === 401)
     return <SignIn />
   const failedConnections = failedConnectionCount(snapshot.data)
+  const stale = setup.isError || (snapshot.isError && snapshot.data !== undefined)
   return (
     <div className="app-shell">
+      <a
+        className="skip-link"
+        href="#main-content"
+        onClick={(event) => {
+          event.preventDefault()
+          main.current?.focus()
+        }}
+      >
+        Skip to main content
+      </a>
       <Sidebar
         snapshot={snapshot.data}
         findings={findingCount(snapshot.data)}
@@ -99,12 +115,22 @@ function WorkspaceShell({ theme, setTheme }: { theme: Theme; setTheme: (theme: T
             setSearching(true)
           }}
         />
-        <main className="main-content" id="main-content">
+        <main className="main-content" id="main-content" ref={main} tabIndex={-1}>
+          {stale && (
+            <RefreshBanner
+              retrying={setup.isFetching || snapshot.isFetching}
+              onRetry={() => {
+                if (setup.isError) void setup.refetch()
+                if (snapshot.isError) void snapshot.refetch()
+              }}
+            />
+          )}
           <WorkspaceContent snapshot={snapshot} />
         </main>
       </div>
       <SearchDialog
         deployments={snapshot.data?.deployments ?? []}
+        clusters={clusterNames(snapshot.data)}
         open={searching}
         onOpenChange={setSearching}
       />

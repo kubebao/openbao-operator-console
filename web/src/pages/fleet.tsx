@@ -7,14 +7,14 @@ import { FleetTable } from '../components/fleet/fleet-table'
 import { QuickViews } from '../components/fleet/quick-views'
 import { EmptyState, PageHeading } from '../components/page'
 import type { FleetFilter } from '../lib/filters'
-import { emptyFilter, filterDeployments } from '../lib/filters'
+import { clusterNames, emptyFilter, filterDeployments } from '../lib/filters'
 
 export function FleetPage() {
   const { data: snapshot } = useSnapshot()
   const search = useSearch({ from: '/fleet' })
   const navigate = useNavigate()
   const data = useMemo(
-    () => filterDeployments(snapshot?.deployments ?? [], search),
+    () => filterDeployments(snapshot?.deployments ?? [], search, clusterNames(snapshot)),
     [snapshot, search],
   )
   if (!snapshot) return null

@@ -10,7 +10,9 @@ import {
   age,
   collectionLabels,
   healthLabels,
+  operatorCheckLabels,
   operatorHealthLabels,
+  operatorHealthText,
   until,
 } from '../lib/format'
 
@@ -27,8 +29,27 @@ export function HealthBadge({ health }: { health: Deployment['health'] }) {
   return <StatusBadge tone={health}>{healthLabels[health]}</StatusBadge>
 }
 
-export function OperatorHealthBadge({ health }: { health: Operator['health'] }) {
-  return <StatusBadge tone={operatorTone[health]}>{operatorHealthLabels[health]}</StatusBadge>
+// Operator health is current only while its controller Deployment is collected. The server
+// keeps the last reported health when collection fails, so it is not shown as current then.
+export function OperatorHealthBadge({
+  operator,
+}: {
+  operator: Pick<Operator, 'health' | 'collection'>
+}) {
+  if (operator.collection !== 'current')
+    return <StatusBadge tone="unknown">{operatorHealthText(operator)}</StatusBadge>
+  return (
+    <StatusBadge tone={operatorTone[operator.health]}>
+      {operatorHealthLabels[operator.health]}
+    </StatusBadge>
+  )
+}
+
+// OperatorCollectionBadge reports whether the enrolled controller Deployment was collected.
+export function OperatorCollectionBadge({ collection }: { collection: Operator['collection'] }) {
+  if (collection === 'notFound' || collection === 'invalid')
+    return <span className="evidence evidence-unsupported">{operatorCheckLabels[collection]}</span>
+  return <EvidenceBadge collection={collection} />
 }
 
 const severities: Record<Issue['severity'], { icon: LucideIcon; label: string }> = {

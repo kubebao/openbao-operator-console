@@ -1,27 +1,25 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Boxes, ChevronRight, Search, X } from 'lucide-react'
 import type { Deployment } from '../../api/schema'
+import type { ClusterNames } from '../../lib/filters'
+import { matchesQuery } from '../../lib/filters'
 import { HealthBadge } from '../status'
 import { Button } from '../ui/button'
 
 const resultLimit = 8
 
-function matches(deployment: Deployment, query: string): boolean {
-  return `${deployment.name} ${deployment.namespace} ${deployment.team} ${deployment.connectionId}`
-    .toLocaleLowerCase()
-    .includes(query.toLocaleLowerCase())
-}
-
 function SearchResult({
   deployment,
+  cluster,
   active,
   onActivate,
   onOpen,
 }: {
   deployment: Deployment
+  cluster: string
   active: boolean
   onActivate: () => void
   onOpen: () => void
@@ -40,7 +38,7 @@ function SearchResult({
       <span>
         <strong>{deployment.name}</strong>
         <small>
-          {deployment.connectionId} / {deployment.namespace}
+          {cluster} / {deployment.namespace}
         </small>
       </span>
       <HealthBadge health={deployment.health} />
@@ -52,10 +50,12 @@ function SearchResult({
 // SearchDialog finds deployments in the authorized snapshot and opens the selected one.
 export function SearchDialog({
   deployments,
+  clusters,
   open,
   onOpenChange,
 }: {
   deployments: readonly Deployment[]
+  clusters: ClusterNames
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
@@ -63,11 +63,14 @@ export function SearchDialog({
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const results = deployments
-    .filter((deployment) => matches(deployment, query))
+    .filter((deployment) => matchesQuery(deployment, query, clusters))
     .slice(0, resultLimit)
   const selected = Math.min(active, Math.max(results.length - 1, 0))
   const current = results[selected]
+  // Opening a result moves focus to the new page instead of the previously focused control.
+  const navigated = useRef(false)
   const openDeployment = (deploymentId: string) => {
+    navigated.current = true
     onOpenChange(false)
     void navigate({ to: '/deployments/$deploymentId', params: { deploymentId } })
   }
@@ -87,7 +90,13 @@ export function SearchDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay" />
-        <Dialog.Content className="search-dialog">
+        <Dialog.Content
+          className="search-dialog"
+          onCloseAutoFocus={(event) => {
+            if (navigated.current) event.preventDefault()
+            navigated.current = false
+          }}
+        >
           <Dialog.Title className="sr-only">Search fleet</Dialog.Title>
           <Dialog.Description className="sr-only">
             Find deployments by name, team, or Kubernetes cluster.
@@ -125,6 +134,7 @@ export function SearchDialog({
                 <SearchResult
                   key={deployment.id}
                   deployment={deployment}
+                  cluster={clusters.get(deployment.connectionId) ?? deployment.connectionId}
                   active={index === selected}
                   onActivate={() => {
                     setActive(index)

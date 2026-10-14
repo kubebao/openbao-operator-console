@@ -45,6 +45,8 @@
   --green-soft: #e7f4e6;
   --amber: #9c6511;
   --amber-soft: #fff5df;
+  /* Fill for attention segments in charts; text uses --amber. */
+  --amber-fill: #e6b654;
   --red: #cb3544;
   --red-soft: #fff0f1;
   --graph-dot: #d6e0dc;
@@ -71,6 +73,7 @@
   --green-soft: #1e3a22;
   --amber: #f0c571;
   --amber-soft: #3a3020;
+  --amber-fill: #d9a845;
   --red: #ff929c;
   --red-soft: #3d2530;
   --graph-dot: #263846;

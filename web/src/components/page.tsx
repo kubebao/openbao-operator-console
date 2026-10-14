@@ -1,6 +1,7 @@
 import type { ComponentType, ReactNode } from 'react'
 import { AlertCircle, CheckCircle2, Inbox } from 'lucide-react'
 import type { Issue } from '../api/schema'
+import { useDocumentTitle } from './use-document-title'
 
 export function PageHeading({
   title,
@@ -13,6 +14,7 @@ export function PageHeading({
   status?: ReactNode
   actions?: ReactNode
 }) {
+  useDocumentTitle(title)
   return (
     <header className="page-heading">
       <div>

@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
 import type { ManagedConnection } from '../api/schema'
 import type { CredentialDraft } from '../lib/credential'
-import { isCredentialMethod } from '../lib/credential'
+import { isCredentialMethod, secretFieldProps } from '../lib/credential'
 import { Field } from './form'
 
 // Kubeconfig uploads above this size are rejected before they are read.
@@ -102,6 +102,7 @@ export function CredentialFields({
               <input
                 required={required}
                 type="password"
+                {...secretFieldProps}
                 autoComplete="new-password"
                 value={draft.token}
                 onChange={(event) => {
@@ -144,7 +145,7 @@ function TextArea({
   return (
     <textarea
       required={required}
-      autoComplete="off"
+      {...secretFieldProps}
       rows={rows}
       value={value}
       onChange={(event) => {
@@ -157,6 +158,7 @@ function TextArea({
 function TextInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
     <input
+      {...secretFieldProps}
       value={value}
       onChange={(event) => {
         onChange(event.target.value)

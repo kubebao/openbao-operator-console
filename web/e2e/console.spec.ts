@@ -70,6 +70,33 @@ test('dark mode persists and global search is keyboard accessible', async ({ pag
   await expect(page.getByRole('heading', { name: 'finance-bao', exact: true })).toBeVisible()
 })
 
+test('keyboard users skip to content and navigation focuses the new page', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Attention', exact: true })).toBeVisible()
+  await expect(page).toHaveTitle('Attention · OpenBao Operator Console')
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('link', { name: 'Skip to main content' })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('main')).toBeFocused()
+  await page
+    .getByRole('navigation', { name: 'Main navigation' })
+    .getByRole('link', { name: 'Fleet', exact: true })
+    .click()
+  await expect(page.getByRole('heading', { name: 'Fleet', level: 1 })).toBeFocused()
+  await expect(page).toHaveTitle('Fleet · OpenBao Operator Console')
+  // Filters change only the search, so focus stays in the filter bar.
+  const state = page.getByRole('combobox', { name: 'Filter by state' })
+  await state.focus()
+  await state.selectOption('critical')
+  await expect(page).toHaveURL(/health=critical/)
+  await expect(state).toBeFocused()
+  await page.keyboard.press('ControlOrMeta+K')
+  await page.getByRole('combobox', { name: 'Search your fleet' }).fill('finance')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('heading', { name: 'finance-bao', level: 1 })).toBeFocused()
+  await expect(page).toHaveTitle('finance-bao · OpenBao Operator Console')
+})
+
 test('mobile navigation and reduced motion retain working content', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
@@ -122,7 +149,6 @@ test('a denied first collection remains visible without deployment inventory', a
         mode: 'live',
         deployments: [],
         relationships: [],
-        activity: [],
         connections: snapshot.connections.map((connection) => ({
           ...connection,
           collection: 'denied',
@@ -246,15 +272,20 @@ test('administrators add a paused cluster, edit policies, and inspect changes', 
   await expect(page.getByRole('heading', { name: 'Demo cluster', exact: true })).toBeVisible()
   await expect(page.getByText('Paused', { exact: true })).toBeVisible()
   await page.screenshot({ path: '../.local/screenshots/settings-dark.png', fullPage: true })
-  await page.getByRole('button', { name: 'Policies', exact: true }).click()
+  const section = (name: string) =>
+    page
+      .getByRole('navigation', { name: 'Settings sections' })
+      .getByRole('link', { name, exact: true })
+  await section('Policies').click()
+  await expect(section('Policies')).toHaveAttribute('aria-current', 'page')
   await page.getByRole('spinbutton', { name: 'Maximum backup age (hours)' }).fill('12')
   await page.getByRole('button', { name: 'Save policies' }).click()
   await expect(page.getByRole('status')).toHaveText('Saved.')
   await expect.poll(() => configuration.maxBackupAgeHours).toBe(12)
   expect(revision).toBe(3)
-  await page.getByRole('button', { name: 'Changes', exact: true }).click()
+  await section('Changes').click()
   await expect(page.getByText('Updated configuration', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Clusters', exact: true }).click()
+  await section('Clusters').click()
   await page.getByRole('button', { name: 'Edit', exact: true }).click()
   await page.screenshot({ path: '../.local/screenshots/settings-editor.png', fullPage: true })
 })
@@ -312,7 +343,10 @@ test('fleet lists the most severe deployments first', async ({ page }) => {
   )
   await page.getByRole('combobox', { name: 'Filter by collection' }).selectOption('gaps')
   await expect(page.getByText('Showing 1 of 12 deployments')).toBeVisible()
-  await expect(page.getByRole('button', { name: /Collection gaps/ })).toHaveClass(/selected/)
+  await expect(page.getByRole('button', { name: /Collection gaps/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
 })
 
 test('settings require an administrator', async ({ page }) => {

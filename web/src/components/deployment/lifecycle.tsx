@@ -10,7 +10,14 @@ import {
 } from 'lucide-react'
 import type { Deployment, Operator } from '../../api/schema'
 import { fieldSeverity } from '../../lib/findings'
-import { cleanupStates, operatorHealthLabels, recoveryPhases, roleLabels } from '../../lib/format'
+import {
+  cleanupStates,
+  operatorHealthText,
+  producerFreshness,
+  producerFreshnessLabels,
+  recoveryPhases,
+  roleLabels,
+} from '../../lib/format'
 import { observedGeneration, replicaLag, upgradeLabels, upgradeState } from '../../lib/lifecycle'
 import { DetailRows } from '../page'
 import { Timestamp } from '../status'
@@ -127,13 +134,30 @@ function ReconciliationSection({
             label: 'Managed by',
             value: operator ? (
               <Link to="/clusters" className="text-link">
-                {operator.id} · {operatorHealthLabels[operator.health]}
+                {operator.id} · {operatorHealthText(operator)}
               </Link>
             ) : (
               (deployment.operatorId ?? 'No operator declared')
             ),
           },
           { label: 'Operator version label', value: deployment.operatorVersion ?? 'Not observed' },
+          {
+            label: 'Producer reported',
+            value: (
+              <Timestamp
+                value={deployment.evidence.producerObservedAt}
+                missing="Not reported (freshness unknown)"
+              />
+            ),
+          },
+          {
+            label: 'Producer freshness',
+            value: producerFreshnessLabels[producerFreshness(deployment.evidence)],
+          },
+          {
+            label: 'Collected by the console',
+            value: <Timestamp value={deployment.evidence.collectedAt} />,
+          },
         ]}
       />
     </section>

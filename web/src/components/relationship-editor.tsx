@@ -6,6 +6,16 @@ import { SettingsEditor } from './settings-editor'
 import { Field } from './form'
 import { Button } from './ui/button'
 
+// ref binds a relationship end to the observed resource identity.
+function ref(deployment: Deployment): ManagedRelationship['source'] {
+  return {
+    connectionId: deployment.connectionId,
+    namespace: deployment.namespace,
+    name: deployment.name,
+    uid: deployment.uid,
+  }
+}
+
 export function RelationshipEditor({
   initial,
   deployments,
@@ -47,14 +57,10 @@ export function RelationshipEditor({
     }
     setPending(true)
     setError('')
-    const resource = (deployment: Deployment) => ({
-      connectionId: deployment.connectionId,
-      namespace: deployment.namespace,
-      name: deployment.name,
-      uid: deployment.uid,
-    })
     try {
-      await onSave({ id, kind, repository, source: resource(source), target: resource(target) })
+      // Only snapshot recovery has a repository. A value typed before switching kind is dropped.
+      const declared = kind === 'snapshotRecovery' ? repository : ''
+      await onSave({ id, kind, repository: declared, source: ref(source), target: ref(target) })
       onClose()
     } catch (error) {
       setError(formError(error))

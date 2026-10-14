@@ -5,5 +5,8 @@ export function downloadText(value: string, filename: string, type = 'applicatio
   link.href = url
   link.download = filename
   link.click()
-  URL.revokeObjectURL(url)
+  // Some browsers start the download after click() returns, so the URL must outlive it.
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url)
+  }, 1000)
 }

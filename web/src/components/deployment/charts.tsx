@@ -1,5 +1,5 @@
-import type { BackupEvent, BandSegment, BandState } from '../../lib/history'
-import { bandLabels } from '../../lib/history'
+import type { BackupEvent, BandSegment } from '../../lib/history'
+import { bandLabels, bandStates } from '../../lib/history'
 import { absolute, bytes } from '../../lib/format'
 
 const dayFormat = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric' })
@@ -17,7 +17,7 @@ function position(value: number, start: number, end: number): string {
   return `${String(((value - start) / (end - start)) * 100)}%`
 }
 
-export function TimeAxis({ start, end }: { start: number; end: number }) {
+function TimeAxis({ start, end }: { start: number; end: number }) {
   return (
     <div className="time-axis" aria-hidden="true">
       {dayTicks(start, end).map((tick) => (
@@ -60,7 +60,7 @@ export function StateBand({
       </div>
       <TimeAxis start={start} end={end} />
       <figcaption className="chart-legend">
-        {(Object.keys(bandLabels) as BandState[])
+        {bandStates
           .filter((state) => present.has(state))
           .map((state) => (
             <span key={state}>

@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { AlertCircle, ArrowRight } from 'lucide-react'
 import type { Snapshot } from '../../api/schema'
+import { operatorNeedsAttention } from '../../lib/tone'
 
 function plural(count: number, noun: string): string {
   return `${String(count)} ${noun}${count === 1 ? '' : 's'}`
@@ -14,7 +15,7 @@ export function EvidenceBanners({ snapshot }: { snapshot: Snapshot }) {
   )
   const operators = snapshot.connections
     .flatMap((connection) => connection.operators)
-    .filter((operator) => operator.collection !== 'current' || operator.health !== 'available')
+    .filter(operatorNeedsAttention)
   return (
     <>
       {incomplete.length > 0 && (

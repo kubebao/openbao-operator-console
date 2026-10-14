@@ -40,7 +40,8 @@ const operatorFields: readonly {
 ]
 
 // ConnectionEditor edits an enrolled connection. Leaving the credential empty keeps the
-// stored reader; a new credential must pass a check before collection is enabled.
+// stored reader; a new credential must pass a check before collection is enabled. onSave
+// resolves false when the save awaits a confirmation, which keeps the editor open.
 export function ConnectionEditor({
   initial,
   onClose,
@@ -48,7 +49,7 @@ export function ConnectionEditor({
 }: {
   initial: ManagedConnection
   onClose: () => void
-  onSave: (connection: ManagedConnection, credential?: CredentialUpdate) => Promise<void>
+  onSave: (connection: ManagedConnection, credential?: CredentialUpdate) => Promise<boolean>
 }) {
   const [connection, setConnection] = useState(initial)
   const [draft, setDraft] = useState(() => emptyCredential('token'))
@@ -76,8 +77,7 @@ export function ConnectionEditor({
     }
     setSaving(true)
     try {
-      await onSave(connection, credentialUpdate(request))
-      onClose()
+      if (await onSave(connection, credentialUpdate(request))) onClose()
     } catch (failure) {
       setError(failure)
     } finally {

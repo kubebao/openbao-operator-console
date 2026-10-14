@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { ChevronRight, ListChecks } from 'lucide-react'
 import type { Issue, Snapshot } from '../../api/schema'
-import { findingLocation } from '../../lib/findings'
+import { findingLocation, severityRank } from '../../lib/findings'
 import { categoryLabels } from '../../lib/format'
 import { EmptyState } from '../page'
 import { SeverityBadge, Timestamp } from '../status'
@@ -10,7 +10,6 @@ import { SeverityBadge, Timestamp } from '../status'
 type CategoryFilter = Issue['category'] | 'all'
 type IssueOrder = 'priority' | 'oldest'
 
-const severityOrder: Record<Issue['severity'], number> = { critical: 0, high: 1, info: 2 }
 const categories: readonly CategoryFilter[] = [
   'all',
   'availability',
@@ -19,7 +18,7 @@ const categories: readonly CategoryFilter[] = [
   'visibility',
 ]
 const orders: Record<IssueOrder, (a: Issue, b: Issue) => number> = {
-  priority: (a, b) => severityOrder[a.severity] - severityOrder[b.severity],
+  priority: (a, b) => severityRank[a.severity] - severityRank[b.severity],
   oldest: (a, b) => Date.parse(a.firstSeenAt) - Date.parse(b.firstSeenAt),
 }
 
@@ -80,10 +79,12 @@ export function IssueTable({ snapshot }: { snapshot: Snapshot }) {
   return (
     <>
       <div className="table-toolbar">
-        <div className="segmented" aria-label="Issue category">
+        <div className="segmented" role="group" aria-label="Issue category">
           {categories.map((value) => (
             <button
               key={value}
+              type="button"
+              aria-pressed={category === value}
               className={category === value ? 'selected' : ''}
               onClick={() => {
                 setCategory(value)
@@ -119,7 +120,9 @@ export function IssueTable({ snapshot }: { snapshot: Snapshot }) {
               <th>Category</th>
               <th>First observed</th>
               <th>Last checked</th>
-              <th aria-label="Details" />
+              <th>
+                <span className="sr-only">Details</span>
+              </th>
             </tr>
           </thead>
           <tbody>

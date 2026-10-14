@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate, useSearch } from '@tanstack/react-router'
+import { Link, useSearch } from '@tanstack/react-router'
 import { AlertCircle, Lock } from 'lucide-react'
 import { useCredentialStatuses, useSaveSettings, useSettings, useSnapshot } from '../api/client'
 import type {
@@ -11,21 +11,24 @@ import type {
   Snapshot,
 } from '../api/schema'
 import { AccessEditor } from '../components/access-editor'
-import { ConnectionEditor } from '../components/connection-editor'
 import { FormError } from '../components/form'
 import { EmptyState, PageHeading } from '../components/page'
 import { RelationshipEditor } from '../components/relationship-editor'
 import { AccessSection } from '../components/settings/access-section'
 import { ChangesSection } from '../components/settings/changes-section'
+import { ConnectionDialog } from '../components/settings/connection-dialog'
 import { ConnectionsSection } from '../components/settings/connections-section'
+import { PrunedReferenceList } from '../components/settings/pruned-references'
 import { IdentitySettings } from '../components/settings/identity-settings'
 import { PolicySettings } from '../components/settings/policy-settings'
 import { RelationshipsSection } from '../components/settings/relationships-section'
 import { SettingsEditor } from '../components/settings-editor'
+import { useDocumentTitle } from '../components/use-document-title'
 import { Button } from '../components/ui/button'
 import { formError } from '../lib/errors'
-import type { AccessGrant, EditMode, GrantKind } from '../lib/settings'
+import type { AccessGrant, EditMode, GrantKind, PrunedReferences } from '../lib/settings'
 import {
+  prunedReferences,
   pruneScopes,
   toggleConnection,
   withGrant,
@@ -58,19 +61,23 @@ type Editing =
   | { kind: 'connection'; connection: ManagedConnection }
   | { kind: 'access'; grantKind: GrantKind; mode: EditMode; grant: AccessGrant }
   | { kind: 'relationship'; mode: EditMode; relationship: ManagedRelationship | null }
-  | { kind: 'remove'; label: string; configuration: Configuration }
+  | { kind: 'remove'; label: string; configuration: Configuration; references: PrunedReferences }
 
 export function SettingsPage() {
   const { data: snapshot } = useSnapshot()
+  useDocumentTitle('Settings')
   if (!snapshot) return null
   if (!snapshot.viewer.admin)
     return (
-      <EmptyState title="Administrator access required" icon={Lock}>
-        Console administrators manage clusters, access, and policies.{' '}
-        <Link to="/clusters" className="text-link">
-          View cluster coverage
-        </Link>
-      </EmptyState>
+      <div className="page-enter">
+        <PageHeading title="Settings" />
+        <EmptyState title="Administrator access required" icon={Lock}>
+          Console administrators manage clusters, access, and policies.{' '}
+          <Link to="/clusters" className="text-link">
+            View cluster coverage
+          </Link>
+        </EmptyState>
+      </div>
     )
   return <AdministrationPage snapshot={snapshot} />
 }
@@ -81,19 +88,30 @@ function AdministrationPage({ snapshot }: { snapshot: Snapshot }) {
   const [editing, setEditing] = useState<Editing | null>(null)
   const [error, setError] = useState<unknown>(null)
   const [notice, setNotice] = useState('')
-  if (query.isPending) return <p className="loading-state">Loading settings…</p>
-  if (query.isError)
+  if (query.isPending)
     return (
-      <EmptyState title="Settings unavailable" icon={AlertCircle}>
-        {formError(query.error)}{' '}
-        <Button
-          onClick={() => {
-            void query.refetch()
-          }}
-        >
-          Reload
-        </Button>
-      </EmptyState>
+      <div className="page-enter">
+        <PageHeading title="Settings" />
+        <p className="loading-state">Loading settings…</p>
+      </div>
+    )
+  // A failed reload keeps the loaded settings and any open editor; only a failed first load
+  // replaces the page.
+  if (query.data === undefined)
+    return (
+      <div className="page-enter">
+        <PageHeading title="Settings" />
+        <EmptyState title="Settings unavailable" icon={AlertCircle}>
+          {formError(query.error)}{' '}
+          <Button
+            onClick={() => {
+              void query.refetch()
+            }}
+          >
+            Reload
+          </Button>
+        </EmptyState>
+      </div>
     )
   return (
     <SettingsWorkspace
@@ -110,7 +128,9 @@ function AdministrationPage({ snapshot }: { snapshot: Snapshot }) {
         setEditing(null)
         setError(null)
         setNotice('')
-        void query.refetch()
+        void query.refetch().then((result) => {
+          if (result.isError) setError(result.error)
+        })
       }}
     />
   )
@@ -153,7 +173,12 @@ function SettingsWorkspace({
     onNotice('Saved.')
   }
   function remove(label: string, next: Configuration) {
-    onEditing({ kind: 'remove', label, configuration: pruneScopes(next) })
+    onEditing({
+      kind: 'remove',
+      label,
+      configuration: pruneScopes(next),
+      references: prunedReferences(next),
+    })
   }
   return (
     <div className="page-enter">
@@ -246,20 +271,20 @@ function SettingsWorkspace({
   )
 }
 
+// SectionTabs navigates between settings sections. Each section has its own address.
 function SectionTabs({ section }: { section: Section }) {
-  const navigate = useNavigate()
   return (
     <nav className="settings-tabs" aria-label="Settings sections">
       {sections.map((value) => (
-        <button
+        <Link
           key={value}
+          to="/settings"
+          search={{ section: value }}
+          aria-current={section === value ? 'page' : undefined}
           className={section === value ? 'selected' : ''}
-          onClick={() => {
-            void navigate({ to: '/settings', search: { section: value } })
-          }}
         >
           {sectionLabels[value]}
-        </button>
+        </Link>
       ))}
     </nav>
   )
@@ -285,18 +310,12 @@ function SettingsDialog({
   switch (editing.kind) {
     case 'connection':
       return (
-        <ConnectionEditor
-          initial={editing.connection}
+        <ConnectionDialog
+          connection={editing.connection}
+          configuration={configuration}
+          pending={pending}
+          commit={commit}
           onClose={onClose}
-          onSave={async (next, credential) => {
-            const connections = configuration.connections.map((item) =>
-              item.id === next.id ? next : item,
-            )
-            await commit(
-              pruneScopes({ ...configuration, connections }),
-              credential ? [credential] : [],
-            )
-          }}
         />
       )
     case 'access':
@@ -331,6 +350,7 @@ function SettingsDialog({
             This removes the configuration and any matching access grants or relationships.
             Collected history is retained.
           </p>
+          <PrunedReferenceList references={editing.references} />
           <div className="editor-actions">
             <Button variant="ghost" onClick={onClose}>
               Cancel

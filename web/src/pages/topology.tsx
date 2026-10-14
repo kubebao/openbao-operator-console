@@ -38,7 +38,9 @@ function RelationshipList({
         return (
           <button
             key={item.id}
+            type="button"
             aria-label={`Select ${item.id}`}
+            aria-current={item.id === selected.id ? 'true' : undefined}
             className={item.id === selected.id ? 'selected' : ''}
             onClick={() => {
               onSelect(item.id)
@@ -77,10 +79,12 @@ export function TopologyPage() {
     <div className="page-enter">
       <PageHeading title="Topology" />
       <div className="table-toolbar">
-        <div className="segmented" aria-label="Relationship type">
+        <div className="segmented" role="group" aria-label="Relationship type">
           {kindFilters.map((filter) => (
             <button
               key={filter.kind}
+              type="button"
+              aria-pressed={search.kind === filter.kind}
               className={search.kind === filter.kind ? 'selected' : ''}
               onClick={() => {
                 void navigate({

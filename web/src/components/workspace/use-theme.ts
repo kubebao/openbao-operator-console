@@ -18,7 +18,8 @@ function systemTheme(): Theme {
   return window.matchMedia(darkQuery).matches ? 'dark' : 'light'
 }
 
-// The system preference applies until the user chooses a theme explicitly.
+// The system preference applies until the user chooses a theme explicitly. public/theme.js
+// applies the same theme before the first paint; keep the two in sync.
 export function useTheme(): [Theme, (theme: Theme) => void] {
   const [preference, setPreference] = useState(storedTheme)
   const [system, setSystem] = useState(systemTheme)

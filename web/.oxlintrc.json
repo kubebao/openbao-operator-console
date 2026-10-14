@@ -260,6 +260,10 @@
         "typescript/switch-exhaustiveness-check": "error"
       },
       "plugins": ["react"]
+    },
+    {
+      "files": ["public/**/*.js"],
+      "env": { "browser": true }
     }
   ]
 }

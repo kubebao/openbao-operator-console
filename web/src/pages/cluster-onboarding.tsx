@@ -12,6 +12,7 @@ import { StepProgress } from '../components/onboarding/step-progress'
 import { VerifyStep } from '../components/onboarding/verify-step'
 import { OnboardingReader } from '../components/onboarding-reader'
 import { EmptyState, PageHeading } from '../components/page'
+import { useDocumentTitle } from '../components/use-document-title'
 import { Button } from '../components/ui/button'
 import { formError } from '../lib/errors'
 import type { Saved } from '../components/onboarding/use-wizard'
@@ -21,26 +22,40 @@ export function ClusterOnboardingPage() {
   const { data: snapshot } = useSnapshot()
   const query = useSettings(snapshot?.viewer.admin === true)
   const [saved, setSaved] = useState<Saved | null>(null)
+  useDocumentTitle('Add cluster')
   if (snapshot && !snapshot.viewer.admin)
     return (
-      <EmptyState title="Administrator access required" icon={Lock}>
-        A console administrator can add clusters.
-      </EmptyState>
+      <div className="page-enter">
+        <PageHeading title="Add cluster" />
+        <EmptyState title="Administrator access required" icon={Lock}>
+          A console administrator can add clusters.
+        </EmptyState>
+      </div>
     )
-  if (query.isError)
+  // A failed reload keeps the wizard and its typed credentials; only a failed first load blocks.
+  if (query.isError && query.data === undefined)
     return (
-      <EmptyState title="Settings unavailable" icon={AlertCircle}>
-        {formError(query.error)}{' '}
-        <Button
-          onClick={() => {
-            void query.refetch()
-          }}
-        >
-          Reload settings
-        </Button>
-      </EmptyState>
+      <div className="page-enter">
+        <PageHeading title="Add cluster" />
+        <EmptyState title="Settings unavailable" icon={AlertCircle}>
+          {formError(query.error)}{' '}
+          <Button
+            onClick={() => {
+              void query.refetch()
+            }}
+          >
+            Reload settings
+          </Button>
+        </EmptyState>
+      </div>
     )
-  if (!query.data) return <p className="loading-state">Loading settings…</p>
+  if (!query.data)
+    return (
+      <div className="page-enter">
+        <PageHeading title="Add cluster" />
+        <p className="loading-state">Loading settings…</p>
+      </div>
+    )
   if (saved) return <ConnectedSummary {...saved} />
   return (
     <OnboardingWizard

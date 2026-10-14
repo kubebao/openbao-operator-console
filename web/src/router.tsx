@@ -1,8 +1,10 @@
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
 import type { SearchSchemaInput } from '@tanstack/react-router'
 import type { FleetFilter } from './lib/filters'
+import { collectionFilters, healthFilters } from './lib/filters'
+import { environments } from './lib/connection'
+import { deploymentTabs } from './lib/findings'
 import { z } from 'zod'
-import { AlertCircle, SearchX } from 'lucide-react'
 import { Shell } from './components/shell'
 import { AttentionPage } from './pages/attention'
 import { FleetPage } from './pages/fleet'
@@ -14,20 +16,12 @@ import { TopologyPage } from './pages/topology'
 import { RecoveryPage } from './pages/recovery'
 import { SetupPage } from './pages/setup'
 import { ClusterOnboardingPage } from './pages/cluster-onboarding'
-import { EmptyState } from './components/page'
+import { RouteError, RouteNotFound } from './components/route-states'
 
 const root = createRootRoute({
   component: Shell,
-  errorComponent: () => (
-    <EmptyState title="This view could not load" icon={AlertCircle}>
-      Refresh the page to retry. Other fleet views remain available from the navigation.
-    </EmptyState>
-  ),
-  notFoundComponent: () => (
-    <EmptyState title="Page not found" icon={SearchX}>
-      Use the workspace navigation to return to your fleet.
-    </EmptyState>
-  ),
+  errorComponent: RouteError,
+  notFoundComponent: RouteNotFound,
 })
 const attention = createRoute({ getParentRoute: () => root, path: '/', component: AttentionPage })
 const setup = createRoute({
@@ -42,13 +36,17 @@ const clusterOnboarding = createRoute({
   path: '/settings/clusters/new',
   component: ClusterOnboardingPage,
 })
+// An unknown enumerated filter value is dropped instead of filtering silently. Teams and
+// clusters depend on the snapshot; the filter bar shows an unobserved value as selected.
+const knownOrEmpty = <T extends readonly [string, ...string[]]>(values: T) =>
+  z.union([z.literal(''), z.enum(values)]).catch('')
 const filterSchema = z.object({
   query: z.string().catch(''),
-  environment: z.string().catch(''),
+  environment: knownOrEmpty(environments),
   team: z.string().catch(''),
   cluster: z.string().catch(''),
-  health: z.string().catch(''),
-  collection: z.string().catch(''),
+  health: knownOrEmpty(healthFilters),
+  collection: knownOrEmpty(collectionFilters),
 })
 const fleet = createRoute({
   getParentRoute: () => root,
@@ -62,9 +60,7 @@ const deployment = createRoute({
   validateSearch: (search: SearchSchemaInput & { tab?: string }) =>
     z
       .object({
-        tab: z
-          .enum(['overview', 'lifecycle', 'backups', 'conditions', 'history'])
-          .catch('overview'),
+        tab: z.enum(deploymentTabs).catch('overview'),
       })
       .parse(search),
   component: DeploymentPage,
