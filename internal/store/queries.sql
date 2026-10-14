@@ -43,19 +43,35 @@ SELECT projection FROM console_connection ORDER BY id;
 -- name: ListDeployments :many
 SELECT projection FROM console_deployment ORDER BY id;
 
--- ListActivity returns the newest events in the authorized scope: element i of
--- connection_ids and namespaces is one authorized namespace.
+-- ListActivity returns one newest-first page of events in the authorized scope: element i
+-- of connection_ids and namespaces is one authorized namespace. The scope applies before the
+-- limit. A page after a cursor starts below its (recorded_at, id) position.
 -- name: ListActivity :many
-SELECT projection FROM console_activity
+SELECT id, recorded_at, projection FROM console_activity
 WHERE (connection_id, namespace) IN (
   SELECT (@connection_ids::text[])[i], (@namespaces::text[])[i]
   FROM generate_subscripts(@connection_ids::text[], 1) AS i
 )
+AND (sqlc.narg(after_at)::timestamptz IS NULL OR (recorded_at, id) < (sqlc.narg(after_at)::timestamptz, sqlc.narg(after_id)::text))
 ORDER BY recorded_at DESC, id DESC
-LIMIT 100;
+LIMIT @row_limit;
 
+-- GetHistory returns one newest-first page of a deployment's observations recorded at or
+-- after since, when set.
 -- name: GetHistory :many
-SELECT recorded_at, projection FROM console_observation WHERE deployment_id = $1 ORDER BY recorded_at DESC LIMIT 100;
+SELECT id, recorded_at, projection FROM console_observation
+WHERE deployment_id = @deployment_id
+AND (sqlc.narg(since)::timestamptz IS NULL OR recorded_at >= sqlc.narg(since)::timestamptz)
+AND (sqlc.narg(after_at)::timestamptz IS NULL OR (recorded_at, id) < (sqlc.narg(after_at)::timestamptz, sqlc.narg(after_id)::bigint))
+ORDER BY recorded_at DESC, id DESC
+LIMIT @row_limit;
+
+-- GetHistoryBaseline returns the newest observation recorded before a time window.
+-- name: GetHistoryBaseline :one
+SELECT id, recorded_at, projection FROM console_observation
+WHERE deployment_id = @deployment_id AND recorded_at < @before
+ORDER BY recorded_at DESC, id DESC
+LIMIT 1;
 
 -- name: PruneObservations :exec
 DELETE FROM console_observation WHERE recorded_at < $1;

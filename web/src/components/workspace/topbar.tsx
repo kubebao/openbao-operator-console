@@ -5,6 +5,9 @@ import { age } from '../../lib/format'
 import { Button } from '../ui/button'
 import type { Theme } from './use-theme'
 
+// Apple platforms show the Command key; others show Control. Both open search.
+const apple = /Mac|iPhone|iPad|iPod/u.test(navigator.userAgent)
+
 function collectionTitle(failedConnections: number): string {
   if (failedConnections === 0) return 'All enrolled clusters collected'
   const clusters = failedConnections === 1 ? 'cluster' : 'clusters'
@@ -27,10 +30,15 @@ export function Topbar({
   const next = theme === 'light' ? 'dark' : 'light'
   return (
     <header className="topbar">
-      <button className="global-search" onClick={onSearch}>
+      <button
+        type="button"
+        className="global-search"
+        onClick={onSearch}
+        aria-keyshortcuts={apple ? 'Meta+K' : 'Control+K'}
+      >
         <Search size={16} />
         <span>Search deployments, clusters, and teams…</span>
-        <kbd>⌘ K</kbd>
+        <kbd aria-hidden="true">{apple ? '⌘ K' : 'Ctrl K'}</kbd>
       </button>
       <div className="topbar-right">
         <Link
@@ -41,7 +49,7 @@ export function Topbar({
           <span className={`status-dot ${failedConnections > 0 ? 'dot-warning' : ''}`} />
           <span>
             Snapshot refreshed
-            <strong>{snapshot ? age(snapshot.collectedAt) : 'Connecting…'}</strong>
+            <strong>{snapshot ? age(snapshot.generatedAt) : 'Connecting…'}</strong>
           </span>
         </Link>
         <Button

@@ -1,6 +1,7 @@
 {
   "openapi": "3.0.3",
   "info": { "title": "OpenBao Operator Console", "version": "0.1.0" },
+  "security": [{ "session": [] }],
   "paths":
     {
       "/api/v1/snapshot":
@@ -22,7 +23,25 @@
                             },
                         },
                     },
-                  "401":
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
+                },
+            },
+        },
+      "/api/v1/activity":
+        {
+          "get":
+            {
+              "operationId": "listActivity",
+              "description": "Activity events in the viewer's scope, newest first, in pages. Authorization applies before the page limit.",
+              "parameters":
+                [
+                  { "$ref": "#/components/parameters/Limit" },
+                  { "$ref": "#/components/parameters/Cursor" },
+                ],
+              "responses":
+                {
+                  "200":
                     {
                       "description": "Successful response",
                       "content":
@@ -30,22 +49,13 @@
                           "application/json":
                             {
                               "schema":
-                                { "$ref": "#/components/schemas/Problem" },
+                                { "$ref": "#/components/schemas/ActivityPage" },
                             },
                         },
                     },
-                  "503":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
                 },
             },
         },
@@ -54,6 +64,7 @@
           "get":
             {
               "operationId": "getDeploymentHistory",
+              "description": "Retained observations of one visible deployment, newest first, in pages. With since, the first page also returns the newest observation recorded before since as the baseline state of the window.",
               "parameters":
                 [
                   {
@@ -62,6 +73,14 @@
                     "required": true,
                     "schema": { "type": "string" },
                   },
+                  {
+                    "name": "since",
+                    "in": "query",
+                    "description": "Return only observations recorded at or after this time.",
+                    "schema": { "type": "string", "format": "date-time" },
+                  },
+                  { "$ref": "#/components/parameters/Limit" },
+                  { "$ref": "#/components/parameters/Cursor" },
                 ],
               "responses":
                 {
@@ -77,18 +96,10 @@
                             },
                         },
                     },
-                  "404":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "404": { "$ref": "#/components/responses/NotFound" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
                 },
             },
         },
@@ -111,66 +122,9 @@
                             },
                         },
                     },
-                  "400":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "401":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "403":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "409":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "503":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
                 },
             },
           "put":
@@ -190,66 +144,11 @@
                             },
                         },
                     },
-                  "400":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "401":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "403":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "409":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "503":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "409": { "$ref": "#/components/responses/Conflict" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
                 },
               "requestBody":
                 {
@@ -286,66 +185,10 @@
                             },
                         },
                     },
-                  "400":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "401":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "403":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "409":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "503":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
                 },
               "requestBody":
                 {
@@ -382,66 +225,11 @@
                             },
                         },
                     },
-                  "400":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "401":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "403":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "409":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "503":
-                    {
-                      "description": "Successful response",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "409": { "$ref": "#/components/responses/Conflict" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
                 },
               "requestBody":
                 {
@@ -462,6 +250,7 @@
           "get":
             {
               "operationId": "getSetup",
+              "security": [{}, { "setupSession": [] }],
               "responses":
                 {
                   "200":
@@ -476,78 +265,6 @@
                             },
                         },
                     },
-                  "400":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "401":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "403":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "409":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "429":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "503":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
                 },
             },
         },
@@ -556,6 +273,7 @@
           "post":
             {
               "operationId": "unlockSetup",
+              "security": [],
               "requestBody":
                 {
                   "required": true,
@@ -582,90 +300,13 @@
                             },
                         },
                     },
-                  "400":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "401":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "403":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "409":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "429":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "503":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "410":
-                    {
-                      "description": "Setup window expired",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "409": { "$ref": "#/components/responses/Conflict" },
+                  "410": { "$ref": "#/components/responses/Gone" },
+                  "429": { "$ref": "#/components/responses/TooManyRequests" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
                 },
             },
         },
@@ -674,6 +315,7 @@
           "post":
             {
               "operationId": "startSetupIdentity",
+              "security": [{ "setupSession": [] }],
               "requestBody":
                 {
                   "required": true,
@@ -702,90 +344,13 @@
                             },
                         },
                     },
-                  "400":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "401":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "403":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "409":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "429":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "503":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "410":
-                    {
-                      "description": "Setup window expired",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "409": { "$ref": "#/components/responses/Conflict" },
+                  "410": { "$ref": "#/components/responses/Gone" },
+                  "429": { "$ref": "#/components/responses/TooManyRequests" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
                 },
             },
         },
@@ -794,6 +359,7 @@
           "post":
             {
               "operationId": "lockSetup",
+              "security": [{}, { "setupSession": [] }],
               "responses":
                 {
                   "200":
@@ -808,78 +374,8 @@
                             },
                         },
                     },
-                  "400":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "401":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "403":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "409":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "429":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "503":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "409": { "$ref": "#/components/responses/Conflict" },
                 },
             },
         },
@@ -918,78 +414,10 @@
                             },
                         },
                     },
-                  "400":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "401":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "403":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "409":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "429":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
-                  "503":
-                    {
-                      "description": "Request could not be completed",
-                      "content":
-                        {
-                          "application/json":
-                            {
-                              "schema":
-                                { "$ref": "#/components/schemas/Problem" },
-                            },
-                        },
-                    },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
                 },
             },
         },
@@ -1014,15 +442,138 @@
                             },
                         },
                     },
-                  "401": { "description": "Sign in required" },
-                  "403": { "description": "Administrator access required" },
-                  "503": { "description": "Settings unavailable" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
                 },
             },
         },
     },
   "components":
     {
+      "securitySchemes":
+        {
+          "session":
+            {
+              "type": "apiKey",
+              "in": "cookie",
+              "name": "__Host-console-session",
+              "description": "Signed-in console session, set by the OIDC callback. Demo mode accepts every request without it.",
+            },
+          "setupSession":
+            {
+              "type": "apiKey",
+              "in": "cookie",
+              "name": "__Host-console-setup",
+              "description": "Short-lived setup session, set by unlockSetup after the setup token is accepted.",
+            },
+        },
+      "parameters":
+        {
+          "Limit":
+            {
+              "name": "limit",
+              "in": "query",
+              "description": "Maximum number of items in the page.",
+              "schema":
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 500,
+                  "default": 100,
+                },
+            },
+          "Cursor":
+            {
+              "name": "cursor",
+              "in": "query",
+              "description": "Opaque nextCursor of the previous page of the same list.",
+              "schema": { "type": "string", "minLength": 1, "maxLength": 512 },
+            },
+        },
+      "responses":
+        {
+          "BadRequest":
+            {
+              "description": "The request or one of its values is invalid. The detail names the problem.",
+              "content":
+                {
+                  "application/problem+json":
+                    { "schema": { "$ref": "#/components/schemas/Problem" } },
+                },
+            },
+          "Unauthenticated":
+            {
+              "description": "The request has no valid session, or the setup token or setup session was not accepted.",
+              "content":
+                {
+                  "application/problem+json":
+                    { "schema": { "$ref": "#/components/schemas/Problem" } },
+                },
+            },
+          "Forbidden":
+            {
+              "description": "The viewer is not a console administrator, or a state-changing request did not come from the console origin.",
+              "content":
+                {
+                  "application/problem+json":
+                    { "schema": { "$ref": "#/components/schemas/Problem" } },
+                },
+            },
+          "NotFound":
+            {
+              "description": "The resource does not exist or is outside the viewer's scope. The two cases are indistinguishable.",
+              "content":
+                {
+                  "application/problem+json":
+                    { "schema": { "$ref": "#/components/schemas/Problem" } },
+                },
+            },
+          "Conflict":
+            {
+              "description": "The settings revision changed, or console setup is already complete.",
+              "content":
+                {
+                  "application/problem+json":
+                    { "schema": { "$ref": "#/components/schemas/Problem" } },
+                },
+            },
+          "Gone":
+            {
+              "description": "The setup window expired. Restart the console with a new setup token.",
+              "content":
+                {
+                  "application/problem+json":
+                    { "schema": { "$ref": "#/components/schemas/Problem" } },
+                },
+            },
+          "TooManyRequests":
+            {
+              "description": "Too many setup attempts or open setup sessions.",
+              "headers":
+                {
+                  "Retry-After":
+                    {
+                      "description": "Seconds to wait before retrying.",
+                      "schema": { "type": "integer" },
+                    },
+                },
+              "content":
+                {
+                  "application/problem+json":
+                    { "schema": { "$ref": "#/components/schemas/Problem" } },
+                },
+            },
+          "Unavailable":
+            {
+              "description": "The database or a dependency is unavailable, or console setup must complete first. Retry later.",
+              "content":
+                {
+                  "application/problem+json":
+                    { "schema": { "$ref": "#/components/schemas/Problem" } },
+                },
+            },
+        },
       "schemas":
         {
           "Evidence":
@@ -1486,19 +1037,154 @@
             {
               "type": "object",
               "additionalProperties": false,
+              "description": "One observed state transition of a deployment. The change object matching kind is set and the others are null. Legacy events have no structured change details and all change objects are null. Clients render the text.",
               "required":
-                ["id", "deploymentId", "at", "title", "detail", "outcome"],
+                [
+                  "id",
+                  "deploymentId",
+                  "deploymentName",
+                  "connectionId",
+                  "namespace",
+                  "recordedAt",
+                  "kind",
+                  "health",
+                  "collection",
+                  "finding",
+                ],
               "properties":
                 {
                   "id": { "type": "string" },
                   "deploymentId": { "type": "string" },
-                  "at": { "type": "string", "format": "date-time" },
-                  "title": { "type": "string" },
-                  "detail": { "type": "string" },
-                  "outcome":
+                  "deploymentName":
                     {
                       "type": "string",
-                      "enum": ["success", "warning", "info", "error"],
+                      "description": "The resource name when the change was recorded, or empty for an older record without a retained name. The deployment may since have been deleted.",
+                    },
+                  "connectionId": { "type": "string" },
+                  "namespace": { "type": "string" },
+                  "recordedAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "The collection attempt that observed the change. The transition happened between the previous attempt and this time.",
+                    },
+                  "kind":
+                    {
+                      "type": "string",
+                      "enum":
+                        [
+                          "healthChanged",
+                          "collectionChanged",
+                          "findingRaised",
+                          "findingResolved",
+                          "findingSeverityChanged",
+                          "legacy",
+                        ],
+                    },
+                  "health":
+                    {
+                      "nullable": true,
+                      "allOf":
+                        [{ "$ref": "#/components/schemas/HealthChange" }],
+                    },
+                  "collection":
+                    {
+                      "nullable": true,
+                      "allOf":
+                        [{ "$ref": "#/components/schemas/CollectionChange" }],
+                    },
+                  "finding":
+                    {
+                      "nullable": true,
+                      "allOf":
+                        [{ "$ref": "#/components/schemas/FindingChange" }],
+                    },
+                },
+            },
+          "HealthChange":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["from", "to"],
+              "properties":
+                {
+                  "from":
+                    {
+                      "type": "string",
+                      "enum": ["healthy", "attention", "critical", "unknown"],
+                    },
+                  "to":
+                    {
+                      "type": "string",
+                      "enum": ["healthy", "attention", "critical", "unknown"],
+                    },
+                },
+            },
+          "CollectionChange":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["from", "to"],
+              "properties":
+                {
+                  "from":
+                    {
+                      "type": "string",
+                      "enum":
+                        [
+                          "current",
+                          "stale",
+                          "denied",
+                          "unreachable",
+                          "unsupported",
+                        ],
+                    },
+                  "to":
+                    {
+                      "type": "string",
+                      "enum":
+                        [
+                          "current",
+                          "stale",
+                          "denied",
+                          "unreachable",
+                          "unsupported",
+                        ],
+                    },
+                },
+            },
+          "FindingChange":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "A finding identified by its rule. severity is the current severity, or the last severity of a resolved finding. previousSeverity is set only for findingSeverityChanged.",
+              "required": ["rule", "severity", "previousSeverity"],
+              "properties":
+                {
+                  "rule":
+                    {
+                      "type": "string",
+                      "enum":
+                        [
+                          "replica-readiness",
+                          "sealed",
+                          "upgrade-failed",
+                          "backup-failed",
+                          "backup-never-succeeded",
+                          "backup-overdue",
+                          "restore-test",
+                          "replica-history-conflict",
+                          "recovery-investigate",
+                          "collection",
+                        ],
+                    },
+                  "severity":
+                    { "type": "string", "enum": ["critical", "high", "info"] },
+                  "previousSeverity":
+                    {
+                      "type": "string",
+                      "enum": ["critical", "high", "info"],
+                      "nullable": true,
                     },
                 },
             },
@@ -1523,18 +1209,24 @@
               "required":
                 [
                   "mode",
-                  "collectedAt",
+                  "generatedAt",
+                  "build",
                   "deployments",
                   "connections",
                   "relationships",
-                  "activity",
                   "viewer",
                   "policy",
                 ],
               "properties":
                 {
                   "mode": { "type": "string", "enum": ["demo", "live"] },
-                  "collectedAt": { "type": "string", "format": "date-time" },
+                  "build": { "$ref": "#/components/schemas/BuildInfo" },
+                  "generatedAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "When the console read this snapshot from its database. It is not a collection time: each connection, operator, and deployment reports its own collection and producer times.",
+                    },
                   "deployments":
                     {
                       "type": "array",
@@ -1550,13 +1242,27 @@
                       "type": "array",
                       "items": { "$ref": "#/components/schemas/Relationship" },
                     },
-                  "activity":
-                    {
-                      "type": "array",
-                      "items": { "$ref": "#/components/schemas/Activity" },
-                    },
                   "viewer": { "$ref": "#/components/schemas/Viewer" },
                   "policy": { "$ref": "#/components/schemas/AttentionPolicy" },
+                },
+            },
+          "BuildInfo":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["version", "commit"],
+              "properties":
+                {
+                  "version":
+                    {
+                      "type": "string",
+                      "description": "Console build version, or dev for an unversioned build.",
+                    },
+                  "commit":
+                    {
+                      "type": "string",
+                      "description": "Console source revision when available; empty when unknown.",
+                    },
                 },
             },
           "AttentionPolicy":
@@ -1571,11 +1277,31 @@
                   "startupGraceMinutes": { "type": "integer", "minimum": 0 },
                 },
             },
+          "ActivityPage":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["events", "nextCursor"],
+              "properties":
+                {
+                  "events":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Activity" },
+                    },
+                  "nextCursor":
+                    {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Pass as cursor to read the next, older page. Null on the last page.",
+                    },
+                },
+            },
           "History":
             {
               "type": "object",
               "additionalProperties": false,
-              "required": ["observations"],
+              "required": ["observations", "baseline", "nextCursor"],
               "properties":
                 {
                   "observations":
@@ -1583,18 +1309,60 @@
                       "type": "array",
                       "items": { "$ref": "#/components/schemas/Observation" },
                     },
+                  "baseline":
+                    {
+                      "nullable": true,
+                      "description": "The newest observation recorded before since: the state at the start of the window. Set only on the first page of a request with since.",
+                      "allOf": [{ "$ref": "#/components/schemas/Observation" }],
+                    },
+                  "nextCursor":
+                    {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Pass as cursor to read the next, older page. Null on the last page.",
+                    },
                 },
             },
           "Problem":
             {
               "type": "object",
               "additionalProperties": false,
-              "required": ["code", "message"],
+              "description": "RFC 9457 problem details, served as application/problem+json. Clients branch on code. The detail is safe to show to the requester.",
+              "required": ["type", "title", "status", "detail", "code"],
               "properties":
                 {
-                  "code": { "type": "string" },
-                  "message": { "type": "string" },
+                  "type":
+                    {
+                      "type": "string",
+                      "enum": ["about:blank"],
+                      "description": "The console defines no problem type URIs. The title is the HTTP status phrase.",
+                    },
+                  "title": { "type": "string" },
+                  "status":
+                    { "type": "integer", "minimum": 400, "maximum": 599 },
+                  "detail": { "type": "string" },
+                  "code": { "$ref": "#/components/schemas/ProblemCode" },
                 },
+            },
+          "ProblemCode":
+            {
+              "type": "string",
+              "description": "Machine-readable failure reason. Every value the server emits is listed.",
+              "enum":
+                [
+                  "invalid",
+                  "unauthenticated",
+                  "invalid_token",
+                  "setup_locked",
+                  "forbidden",
+                  "not_found",
+                  "conflict",
+                  "setup_complete",
+                  "setup_expired",
+                  "rate_limited",
+                  "unavailable",
+                  "setup_required",
+                ],
             },
           "Observation":
             {

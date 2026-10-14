@@ -135,16 +135,38 @@ func (q *Queries) GetConnectionDeployments(ctx context.Context, connectionID str
 }
 
 const getHistory = `-- name: GetHistory :many
-SELECT recorded_at, projection FROM console_observation WHERE deployment_id = $1 ORDER BY recorded_at DESC LIMIT 100
+SELECT id, recorded_at, projection FROM console_observation
+WHERE deployment_id = $1
+AND ($2::timestamptz IS NULL OR recorded_at >= $2::timestamptz)
+AND ($3::timestamptz IS NULL OR (recorded_at, id) < ($3::timestamptz, $4::bigint))
+ORDER BY recorded_at DESC, id DESC
+LIMIT $5
 `
 
+type GetHistoryParams struct {
+	DeploymentID string
+	Since        pgtype.Timestamptz
+	AfterAt      pgtype.Timestamptz
+	AfterID      pgtype.Int8
+	RowLimit     int32
+}
+
 type GetHistoryRow struct {
+	ID         int64
 	RecordedAt pgtype.Timestamptz
 	Projection []byte
 }
 
-func (q *Queries) GetHistory(ctx context.Context, deploymentID string) ([]GetHistoryRow, error) {
-	rows, err := q.db.Query(ctx, getHistory, deploymentID)
+// GetHistory returns one newest-first page of a deployment's observations recorded at or
+// after since, when set.
+func (q *Queries) GetHistory(ctx context.Context, arg GetHistoryParams) ([]GetHistoryRow, error) {
+	rows, err := q.db.Query(ctx, getHistory,
+		arg.DeploymentID,
+		arg.Since,
+		arg.AfterAt,
+		arg.AfterID,
+		arg.RowLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +174,7 @@ func (q *Queries) GetHistory(ctx context.Context, deploymentID string) ([]GetHis
 	items := []GetHistoryRow{}
 	for rows.Next() {
 		var i GetHistoryRow
-		if err := rows.Scan(&i.RecordedAt, &i.Projection); err != nil {
+		if err := rows.Scan(&i.ID, &i.RecordedAt, &i.Projection); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -161,6 +183,32 @@ func (q *Queries) GetHistory(ctx context.Context, deploymentID string) ([]GetHis
 		return nil, err
 	}
 	return items, nil
+}
+
+const getHistoryBaseline = `-- name: GetHistoryBaseline :one
+SELECT id, recorded_at, projection FROM console_observation
+WHERE deployment_id = $1 AND recorded_at < $2
+ORDER BY recorded_at DESC, id DESC
+LIMIT 1
+`
+
+type GetHistoryBaselineParams struct {
+	DeploymentID string
+	Before       pgtype.Timestamptz
+}
+
+type GetHistoryBaselineRow struct {
+	ID         int64
+	RecordedAt pgtype.Timestamptz
+	Projection []byte
+}
+
+// GetHistoryBaseline returns the newest observation recorded before a time window.
+func (q *Queries) GetHistoryBaseline(ctx context.Context, arg GetHistoryBaselineParams) (GetHistoryBaselineRow, error) {
+	row := q.db.QueryRow(ctx, getHistoryBaseline, arg.DeploymentID, arg.Before)
+	var i GetHistoryBaselineRow
+	err := row.Scan(&i.ID, &i.RecordedAt, &i.Projection)
+	return i, err
 }
 
 const getSettings = `-- name: GetSettings :one
@@ -242,35 +290,52 @@ func (q *Queries) InsertSettingsChange(ctx context.Context, arg InsertSettingsCh
 }
 
 const listActivity = `-- name: ListActivity :many
-SELECT projection FROM console_activity
+SELECT id, recorded_at, projection FROM console_activity
 WHERE (connection_id, namespace) IN (
   SELECT ($1::text[])[i], ($2::text[])[i]
   FROM generate_subscripts($1::text[], 1) AS i
 )
+AND ($3::timestamptz IS NULL OR (recorded_at, id) < ($3::timestamptz, $4::text))
 ORDER BY recorded_at DESC, id DESC
-LIMIT 100
+LIMIT $5
 `
 
 type ListActivityParams struct {
 	ConnectionIds []string
 	Namespaces    []string
+	AfterAt       pgtype.Timestamptz
+	AfterID       pgtype.Text
+	RowLimit      int32
 }
 
-// ListActivity returns the newest events in the authorized scope: element i of
-// connection_ids and namespaces is one authorized namespace.
-func (q *Queries) ListActivity(ctx context.Context, arg ListActivityParams) ([][]byte, error) {
-	rows, err := q.db.Query(ctx, listActivity, arg.ConnectionIds, arg.Namespaces)
+type ListActivityRow struct {
+	ID         string
+	RecordedAt pgtype.Timestamptz
+	Projection []byte
+}
+
+// ListActivity returns one newest-first page of events in the authorized scope: element i
+// of connection_ids and namespaces is one authorized namespace. The scope applies before the
+// limit. A page after a cursor starts below its (recorded_at, id) position.
+func (q *Queries) ListActivity(ctx context.Context, arg ListActivityParams) ([]ListActivityRow, error) {
+	rows, err := q.db.Query(ctx, listActivity,
+		arg.ConnectionIds,
+		arg.Namespaces,
+		arg.AfterAt,
+		arg.AfterID,
+		arg.RowLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := [][]byte{}
+	items := []ListActivityRow{}
 	for rows.Next() {
-		var projection []byte
-		if err := rows.Scan(&projection); err != nil {
+		var i ListActivityRow
+		if err := rows.Scan(&i.ID, &i.RecordedAt, &i.Projection); err != nil {
 			return nil, err
 		}
-		items = append(items, projection)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

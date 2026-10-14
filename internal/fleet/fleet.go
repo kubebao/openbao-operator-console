@@ -19,15 +19,14 @@ type Policy struct {
 	StartupGrace time.Duration
 }
 
-// Snapshot is a coherent view of the fleet at one time. Activity is read separately for
-// the viewer's scope.
+// Snapshot is a coherent view of the fleet at one time. Activity and history are read
+// separately in pages.
 type Snapshot struct {
-	CollectedAt   time.Time      `json:"collectedAt"`
+	GeneratedAt   time.Time      `json:"generatedAt"`
 	Policy        Policy         `json:"-"`
 	Connections   []Connection   `json:"connections"`
 	Deployments   []Deployment   `json:"deployments"`
 	Relationships []Relationship `json:"relationships"`
-	Activity      []Activity     `json:"activity"`
 }
 
 // Connection is the collection state of one enrolled cluster.
@@ -191,23 +190,83 @@ type Relationship struct {
 	ObservedAt *time.Time       `json:"observedAt"`
 }
 
-// Activity records a visible state transition of one deployment. The connection and
-// namespace authorize the event, including after its deployment is deleted.
+// Activity records one observed state transition of a deployment as structured fields;
+// clients render the text. The connection and namespace authorize the event, including
+// after its deployment is deleted. The change matching Kind is set; legacy events have
+// no structured change.
 type Activity struct {
-	ID           string          `json:"id"`
-	DeploymentID string          `json:"deploymentId"`
-	ConnectionID string          `json:"connectionId"`
-	Namespace    string          `json:"namespace"`
-	At           time.Time       `json:"at"`
-	Title        string          `json:"title"`
-	Detail       string          `json:"detail"`
-	Outcome      ActivityOutcome `json:"outcome"`
+	ID             string `json:"id"`
+	DeploymentID   string `json:"deploymentId"`
+	DeploymentName string `json:"deploymentName"`
+	ConnectionID   string `json:"connectionId"`
+	Namespace      string `json:"namespace"`
+	// RecordedAt is the collection attempt that observed the change. The transition
+	// happened between the previous attempt and this time.
+	RecordedAt time.Time         `json:"recordedAt"`
+	Kind       ActivityKind      `json:"kind"`
+	Health     *HealthChange     `json:"health,omitempty"`
+	Collection *CollectionChange `json:"collection,omitempty"`
+	Finding    *FindingChange    `json:"finding,omitempty"`
+}
+
+// HealthChange is the assessed health before and after a transition.
+type HealthChange struct {
+	From Health `json:"from"`
+	To   Health `json:"to"`
+}
+
+// CollectionChange is the collection result before and after a transition.
+type CollectionChange struct {
+	From EvidenceCollection `json:"from"`
+	To   EvidenceCollection `json:"to"`
+}
+
+// FindingChange identifies a finding by its rule. Severity is the current severity, or the
+// last severity of a resolved finding. PreviousSeverity is set only for a severity change.
+type FindingChange struct {
+	Rule             Rule      `json:"rule"`
+	Severity         Severity  `json:"severity"`
+	PreviousSeverity *Severity `json:"previousSeverity,omitempty"`
 }
 
 // Observation is one retained deployment projection.
 type Observation struct {
 	RecordedAt time.Time  `json:"recordedAt"`
 	Deployment Deployment `json:"deployment"`
+}
+
+// Cursor is a position in a newest-first list. The rows that follow it were recorded
+// earlier, or at the same time with a smaller ID.
+type Cursor struct {
+	RecordedAt time.Time
+	ID         string
+}
+
+// Page selects at most Limit rows that follow After, or the newest rows without it.
+type Page struct {
+	Limit int
+	After *Cursor
+}
+
+// ActivityPage is one page of newest-first activity. Next is nil on the last page.
+type ActivityPage struct {
+	Events []Activity
+	Next   *Cursor
+}
+
+// HistoryQuery selects the observations of one deployment recorded at or after Since.
+type HistoryQuery struct {
+	Since *time.Time
+	Page  Page
+}
+
+// HistoryPage is one page of newest-first observations. Baseline is the newest observation
+// recorded before Since, the state at the start of the window; it is read only for the
+// first page. Next is nil on the last page.
+type HistoryPage struct {
+	Observations []Observation
+	Baseline     *Observation
+	Next         *Cursor
 }
 
 // DeploymentID derives a stable identifier from the resource identity. A replacement

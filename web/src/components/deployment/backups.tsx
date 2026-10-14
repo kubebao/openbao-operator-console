@@ -12,28 +12,47 @@ import { Button } from '../ui/button'
 import { AgeMeter, BackupStrip, Sparkline } from './charts'
 import { SectionTitle } from '../info-tip'
 
+type CopyState = 'idle' | 'copied' | 'failed'
+
+const copyMessages: Record<CopyState, string> = {
+  idle: '',
+  copied: 'Digest copied.',
+  failed: 'The digest could not be copied. Select it and copy it manually.',
+}
+
 function Digest({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false)
+  const [state, setState] = useState<CopyState>('idle')
   const short = value.length > 28 ? `${value.slice(0, 19)}…${value.slice(-8)}` : value
+  const settle = (next: CopyState) => {
+    setState(next)
+    window.setTimeout(() => {
+      setState('idle')
+    }, 4000)
+  }
   return (
     <span className="digest-value">
-      <code title={value}>{short}</code>
+      <code title={value}>{state === 'failed' ? value : short}</code>
       <Button
         type="button"
         size="icon"
         variant="ghost"
         aria-label="Copy digest"
         onClick={() => {
-          void navigator.clipboard.writeText(value).then(() => {
-            setCopied(true)
-            window.setTimeout(() => {
-              setCopied(false)
-            }, 2000)
-          })
+          navigator.clipboard.writeText(value).then(
+            () => {
+              settle('copied')
+            },
+            () => {
+              settle('failed')
+            },
+          )
         }}
       >
-        {copied ? <Check size={14} /> : <Copy size={14} />}
+        {state === 'copied' ? <Check size={14} /> : <Copy size={14} />}
       </Button>
+      <span role="status" className={state === 'failed' ? 'digest-error' : 'sr-only'}>
+        {copyMessages[state]}
+      </span>
     </span>
   )
 }
@@ -47,7 +66,7 @@ export function BackupsTab({
   deployment: Deployment
   maxBackupAgeHours: number
   observations: readonly Observation[] | null
-  // The snapshot collection time; ages and the activity window are measured from it.
+  // When the snapshot was generated; ages and the activity window are measured from it.
   now: number
 }) {
   const backup = deployment.backup

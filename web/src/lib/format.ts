@@ -1,4 +1,4 @@
-import type { Deployment, Relationship, Snapshot } from '../api/schema'
+import type { Deployment, Operator, Relationship, Snapshot } from '../api/schema'
 
 function span(seconds: number): string {
   const minutes = Math.floor(seconds / 60)
@@ -51,6 +51,16 @@ export function bytes(value: number | null): string {
   return `${(value / 1024 ** 3).toFixed(1)} GiB`
 }
 
+// initials abbreviates the signed-in name, or its subject when no name is supplied.
+export function initials(viewer: Pick<Snapshot['viewer'], 'name' | 'subject'>): string {
+  const words = (viewer.name.trim() || viewer.subject.trim()).split(/\s+/u)
+  const letters = words
+    .slice(0, 2)
+    .map((word) => Array.from(word)[0] ?? '')
+    .join('')
+  return letters.toLocaleUpperCase() || '?'
+}
+
 export const roleLabels = {
   primary: 'Primary',
   replica: 'Read replica',
@@ -92,6 +102,19 @@ export const collectionLabels: Record<CollectionState, string> = {
   unsupported: 'Unsupported',
 }
 
+export type ProducerFreshness = Deployment['evidence']['producerFreshness']
+
+// producerFreshness is unknown whenever the producer reported no observation time.
+export function producerFreshness(evidence: Deployment['evidence']): ProducerFreshness {
+  return evidence.producerObservedAt === null ? 'unknown' : evidence.producerFreshness
+}
+
+export const producerFreshnessLabels: Record<ProducerFreshness, string> = {
+  fresh: 'Fresh',
+  stale: 'Stale',
+  unknown: 'Freshness unknown',
+}
+
 export const operatorCheckLabels = {
   current: 'Accessible',
   pending: 'Awaiting collection',
@@ -105,7 +128,7 @@ export const operatorCheckLabels = {
 export const capabilityCheckLabels = {
   available: 'Accessible',
   denied: 'Access denied',
-  unsupported: 'API unavailable',
+  unsupported: 'API absent',
   notChecked: 'Not checked',
   unreachable: 'Unreachable',
 } as const
@@ -116,6 +139,13 @@ export const operatorHealthLabels = {
   unavailable: 'Unavailable',
   unknown: 'Unknown',
 } as const
+
+// operatorHealthText describes operator health from current evidence only.
+export function operatorHealthText(operator: Pick<Operator, 'health' | 'collection'>): string {
+  return operator.collection === 'current'
+    ? operatorHealthLabels[operator.health]
+    : 'Health unknown'
+}
 
 export const restoreOutcomes = {
   notRun: 'Not run',

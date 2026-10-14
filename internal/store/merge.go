@@ -50,8 +50,8 @@ func merge(batch Batch, previous *fleet.Connection, stored []fleet.Deployment) c
 			continue
 		}
 		result.observations = append(result.observations, current)
-		if activity := transition(current, old, at); exists && activity != nil {
-			result.activity = append(result.activity, *activity)
+		if exists {
+			result.activity = append(result.activity, evidence.Transitions(old, current, at)...)
 		}
 	}
 	return result
@@ -114,48 +114,6 @@ func preserveFirstSeen(current *fleet.Deployment, previous fleet.Deployment) {
 			}
 		}
 	}
-}
-
-// transition describes a change in health, collection state, or findings.
-func transition(current, previous fleet.Deployment, at time.Time) *fleet.Activity {
-	if current.Health == previous.Health && current.Evidence.Collection == previous.Evidence.Collection && sameFindings(current, previous) {
-		return nil
-	}
-	outcome := fleet.ActivityOutcomeInfo
-	if current.Health == fleet.HealthHealthy && current.Evidence.Collection == fleet.EvidenceCollectionCurrent {
-		outcome = fleet.ActivityOutcomeSuccess
-	}
-	if current.Health == fleet.HealthCritical {
-		outcome = fleet.ActivityOutcomeError
-	}
-	return &fleet.Activity{
-		ID:           current.ID + ":" + at.Format(time.RFC3339Nano),
-		DeploymentID: current.ID,
-		ConnectionID: current.ConnectionID,
-		Namespace:    current.Namespace,
-		At:           at,
-		Title:        "Observed state changed",
-		Detail:       string(previous.Health) + " → " + string(current.Health) + "; collection " + string(current.Evidence.Collection),
-		Outcome:      outcome,
-	}
-}
-
-// sameFindings ignores polling timestamps and compares the investigation state.
-func sameFindings(current, previous fleet.Deployment) bool {
-	if len(current.Issues) != len(previous.Issues) {
-		return false
-	}
-	old := make(map[string]fleet.Issue, len(previous.Issues))
-	for _, issue := range previous.Issues {
-		old[issue.ID] = issue
-	}
-	for _, issue := range current.Issues {
-		before, exists := old[issue.ID]
-		if !exists || issue.Severity != before.Severity || issue.Detail != before.Detail {
-			return false
-		}
-	}
-	return true
 }
 
 // displayed clears fields that change on every operator status write or collection round

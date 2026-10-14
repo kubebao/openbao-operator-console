@@ -1,6 +1,7 @@
 package store
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -35,8 +36,9 @@ func TestFailedCollectionKeepsLastKnownDeployments(t *testing.T) {
 	if result.connection.LastSuccessAt == nil || !result.connection.LastSuccessAt.Equal(collected) {
 		t.Fatal("a failed collection replaced the last successful collection time")
 	}
-	if len(result.observations) != 1 || len(result.activity) != 1 {
-		t.Fatal("a collection state change was not recorded")
+	if len(result.observations) != 1 ||
+		!slices.Equal(kinds(result.activity), []string{"healthChanged", "collectionChanged", "findingRaised:collection"}) {
+		t.Fatalf("a collection state change was not recorded: %v", kinds(result.activity))
 	}
 }
 
@@ -85,9 +87,12 @@ func TestCollectionLossAndRecoveryRecordTransitions(t *testing.T) {
 		Collection:    fleet.ConnectionCollectionUnreachable,
 		LastAttemptAt: attempted,
 	}}, &fleet.Connection{ID: "cluster"}, []fleet.Deployment{stored})
-	if len(failed.activity) != 1 || failed.activity[0].Outcome != fleet.ActivityOutcomeInfo ||
-		failed.activity[0].Detail != "healthy → attention; collection unreachable" {
-		t.Fatalf("collection loss activity = %+v", failed.activity)
+	if got := kinds(failed.activity); !slices.Equal(got, []string{"healthChanged", "collectionChanged", "findingRaised:collection"}) {
+		t.Fatalf("collection loss activity = %v", got)
+	}
+	if change := failed.activity[1].Collection; change == nil || change.From != fleet.EvidenceCollectionCurrent ||
+		change.To != fleet.EvidenceCollectionUnreachable || !failed.activity[1].RecordedAt.Equal(attempted) {
+		t.Fatalf("collection change = %+v", failed.activity[1])
 	}
 	recovered := stored
 	recovered.Evidence.CollectedAt, recovered.Evidence.LastAttemptAt = attempted.Add(time.Minute), attempted.Add(time.Minute)
@@ -99,33 +104,25 @@ func TestCollectionLossAndRecoveryRecordTransitions(t *testing.T) {
 		},
 		Deployments: []fleet.Deployment{recovered},
 	}, &failed.connection, failed.deployments)
-	if len(result.activity) != 1 || result.activity[0].Outcome != fleet.ActivityOutcomeSuccess {
-		t.Fatalf("collection recovery activity = %+v", result.activity)
+	if got := kinds(result.activity); !slices.Equal(got, []string{"healthChanged", "collectionChanged", "findingResolved:collection"}) {
+		t.Fatalf("collection recovery activity = %v", got)
+	}
+	if change := result.activity[0].Health; change == nil || change.From != fleet.HealthAttention || change.To != fleet.HealthHealthy {
+		t.Fatalf("health change = %+v", result.activity[0])
 	}
 }
 
-func TestSameFindingsComparesInvestigationState(t *testing.T) {
-	later := observationFixture().Issues[0].FirstSeenAt.Add(time.Hour)
-	for name, tc := range map[string]struct {
-		change func(*fleet.Deployment)
-		same   bool
-	}{
-		"check times only": {change: func(d *fleet.Deployment) {
-			d.Issues[0].FirstSeenAt, d.Issues[0].LastCheckedAt = later, later
-		}, same: true},
-		"title only":    {change: func(d *fleet.Deployment) { d.Issues[0].Title = "Renamed" }, same: true},
-		"severity":      {change: func(d *fleet.Deployment) { d.Issues[0].Severity = fleet.SeverityCritical }},
-		"detail":        {change: func(d *fleet.Deployment) { d.Issues[0].Detail = "2" }},
-		"resolved":      {change: func(d *fleet.Deployment) { d.Issues = []fleet.Issue{} }},
-		"replaced rule": {change: func(d *fleet.Deployment) { d.Issues[0].ID = "cluster/team-a/bao:backup-overdue" }},
-		"added finding": {change: func(d *fleet.Deployment) { d.Issues = append(d.Issues, fleet.Issue{ID: "sealed"}) }},
-	} {
-		previous, current := observationFixture(), observationFixture()
-		tc.change(&current)
-		if got := sameFindings(current, previous); got != tc.same {
-			t.Fatalf("%s: sameFindings = %t, want %t", name, got, tc.same)
+// kinds lists event kinds, with the rule of finding events.
+func kinds(events []fleet.Activity) []string {
+	result := []string{}
+	for _, event := range events {
+		kind := string(event.Kind)
+		if event.Finding != nil {
+			kind += ":" + string(event.Finding.Rule)
 		}
+		result = append(result, kind)
 	}
+	return result
 }
 
 // A displayed change without a health, collection, or finding change records history
@@ -144,12 +141,20 @@ func TestObservationWithoutTransitionRecordsNoActivity(t *testing.T) {
 	if len(result.observations) != 1 || len(result.activity) != 0 {
 		t.Fatalf("version change recorded %d observations and %d events", len(result.observations), len(result.activity))
 	}
+	// A finding detail change, such as a failure counter, is history without an event.
+	counted := observationFixture()
+	counted.Issues[0].Detail = "2"
+	batch.Deployments = []fleet.Deployment{counted}
+	result = merge(batch, &fleet.Connection{ID: "cluster"}, []fleet.Deployment{stored})
+	if len(result.observations) != 1 || len(result.activity) != 0 {
+		t.Fatalf("detail change recorded %d observations and %d events", len(result.observations), len(result.activity))
+	}
 	changed := observationFixture()
 	changed.ConnectionID, changed.Namespace = "cluster", "team-a"
-	changed.Issues[0].Detail = "2"
+	changed.Issues[0].Severity = fleet.SeverityCritical
 	batch.Deployments = []fleet.Deployment{changed}
 	result = merge(batch, &fleet.Connection{ID: "cluster"}, []fleet.Deployment{stored})
-	if len(result.activity) != 1 || result.activity[0].Detail != "healthy → healthy; collection current" ||
+	if len(result.activity) != 1 || result.activity[0].Kind != fleet.ActivityFindingSeverityChanged ||
 		result.activity[0].ConnectionID != "cluster" || result.activity[0].Namespace != "team-a" {
 		t.Fatalf("finding change activity = %+v", result.activity)
 	}

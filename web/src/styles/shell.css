@@ -465,3 +465,41 @@
 .entry-brand {
   margin-bottom: 2.5rem;
 }
+
+.refresh-banner > span {
+  flex: 1;
+}
+
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: var(--layer-dialog);
+  padding: 8px 12px;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: var(--shadow);
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+/* The main region receives focus only as a skip-link target. */
+.main-content:focus {
+  outline: none;
+}
+
+.main-content h1:focus:not(:focus-visible) {
+  outline: none;
+}
+.build-version {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 12px 0 0;
+  color: var(--muted-foreground);
+  font-size: var(--text-xs);
+}

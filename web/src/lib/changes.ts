@@ -58,20 +58,28 @@ function replicas(value: number | null): string {
   return value === null ? 'unknown' : String(value)
 }
 
+type Health = Deployment['health']
+type Collection = Deployment['evidence']['collection']
+
+// healthChange and collectionChange describe a transition in history and in activity alike.
+export function healthChange(from: Health, to: Health): Change {
+  return { title: `State ${healthLabels[from]} → ${healthLabels[to]}`, tone: healthTone[to] }
+}
+
+export function collectionChange(from: Collection, to: Collection): Change {
+  return {
+    title: `Collection ${collectionLabels[from]} → ${collectionLabels[to]}`,
+    tone: to === 'current' ? 'success' : 'warning',
+  }
+}
+
 function stateChanges(previous: Deployment, current: Deployment): Change[] {
   const changes: Change[] = []
   if (previous.health !== current.health)
-    changes.push({
-      title: `State ${healthLabels[previous.health]} → ${healthLabels[current.health]}`,
-      tone: healthTone[current.health],
-    })
+    changes.push(healthChange(previous.health, current.health))
   const before = previous.evidence.collection
   const after = current.evidence.collection
-  if (before !== after)
-    changes.push({
-      title: `Collection ${collectionLabels[before]} → ${collectionLabels[after]}`,
-      tone: after === 'current' ? 'success' : 'warning',
-    })
+  if (before !== after) changes.push(collectionChange(before, after))
   return changes
 }
 

@@ -1,6 +1,8 @@
 import type { Deployment, Issue } from '../api/schema'
 
-export type DeploymentTab = 'overview' | 'lifecycle' | 'backups' | 'conditions' | 'history'
+// Deployment page tabs in display order. The router validates the tab search value with it.
+export const deploymentTabs = ['overview', 'lifecycle', 'backups', 'conditions', 'history'] as const
+export type DeploymentTab = (typeof deploymentTabs)[number]
 
 export const tabLabels: Record<DeploymentTab, string> = {
   overview: 'Overview',
@@ -46,7 +48,8 @@ export function findingLocation(issue: Pick<Issue, 'rule'>): FindingLocation {
   return locations[issue.rule] ?? { tab: 'overview', fields: [] }
 }
 
-const severityRank: Record<Issue['severity'], number> = { critical: 0, high: 1, info: 2 }
+// Lower ranks sort first: critical findings lead.
+export const severityRank: Record<Issue['severity'], number> = { critical: 0, high: 1, info: 2 }
 
 function strongest(issues: readonly Issue[]): Issue['severity'] | null {
   let result: Issue['severity'] | null = null

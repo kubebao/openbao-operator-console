@@ -1,22 +1,38 @@
-import { AlertCircle, ShieldCheck } from 'lucide-react'
-import type { Snapshot } from '../api/schema'
+import { AlertCircle, Info, ShieldCheck } from 'lucide-react'
+import type { Activity } from '../api/activity'
+import type { ChangeTone } from '../lib/changes'
+import { describeActivity } from '../lib/activity'
 import { Timestamp } from './status'
 
-export function RecentActivity({ snapshot, limit = 5 }: { snapshot: Snapshot; limit?: number }) {
+const icons: Record<ChangeTone, typeof AlertCircle> = {
+  critical: AlertCircle,
+  warning: AlertCircle,
+  success: ShieldCheck,
+  neutral: Info,
+}
+
+export function RecentActivity({ events }: { events: readonly Activity[] }) {
   return (
     <ul className="activity-list">
-      {snapshot.activity.slice(0, limit).map((event) => (
-        <li key={event.id}>
-          <span className={`activity-symbol activity-${event.outcome}`}>
-            {event.outcome === 'success' ? <ShieldCheck size={17} /> : <AlertCircle size={17} />}
-          </span>
-          <div>
-            <strong>{event.title}</strong>
-            <small>{event.detail}</small>
-          </div>
-          <Timestamp value={event.at} />
-        </li>
-      ))}
+      {events.map((event) => {
+        const change = describeActivity(event)
+        const Icon = icons[change.tone]
+        const resource = event.deploymentName
+          ? `${event.namespace}/${event.deploymentName}`
+          : `${event.namespace} · resource ID ${event.deploymentId}`
+        return (
+          <li key={event.id}>
+            <span className={`activity-symbol activity-${change.tone}`}>
+              <Icon size={17} />
+            </span>
+            <div>
+              <strong>{change.title}</strong>
+              <small>{change.detail ? `${resource} · ${change.detail}` : resource}</small>
+            </div>
+            <Timestamp value={event.recordedAt} />
+          </li>
+        )
+      })}
     </ul>
   )
 }

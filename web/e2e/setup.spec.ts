@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { z } from 'zod'
 import type { SetupStatus } from '../src/api/schema'
+import { problem } from './fixtures/problem'
 
 test('setup is a protected standalone flow with retry and no browser token storage', async ({
   page,
@@ -15,10 +16,7 @@ test('setup is a protected standalone flow with retry and no browser token stora
   await page.route('**/api/v1/setup/unlock', async (route) => {
     const request = z.object({ token: z.string() }).parse(route.request().postDataJSON())
     if (request.token !== token) {
-      await route.fulfill({
-        status: 401,
-        json: { code: 'invalid_token', message: 'The setup token was not accepted.' },
-      })
+      await route.fulfill(problem(401, 'invalid_token', 'The setup token was not accepted.'))
       return
     }
     status = {
@@ -29,10 +27,7 @@ test('setup is a protected standalone flow with retry and no browser token stora
     await route.fulfill({ status: 200, json: status })
   })
   await page.route('**/api/v1/setup/identity', (route) =>
-    route.fulfill({
-      status: 400,
-      json: { code: 'invalid', message: 'Identity discovery failed. Check the issuer.' },
-    }),
+    route.fulfill(problem(400, 'invalid', 'Identity discovery failed. Check the issuer.')),
   )
   await page.route('**/api/v1/setup/lock', (route) => {
     status = { ...status, state: 'required', sessionExpiresAt: null }
@@ -69,7 +64,7 @@ test('setup is a protected standalone flow with retry and no browser token stora
 
 test('signed-out console presents sign in without an outage or fake profile', async ({ page }) => {
   await page.route('**/api/v1/snapshot', (route) =>
-    route.fulfill({ status: 401, json: { code: 'unauthenticated', message: 'Sign in.' } }),
+    route.fulfill(problem(401, 'unauthenticated', 'Sign in.')),
   )
   await page.goto('/fleet')
   await expect(page.getByRole('heading', { name: 'OpenBao Operator Console' })).toBeVisible()

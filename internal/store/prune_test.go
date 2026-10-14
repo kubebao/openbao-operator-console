@@ -42,18 +42,18 @@ func TestPruneAppliesRetentionOutsideCollection(t *testing.T) {
 	apply(now, fleet.HealthHealthy)
 	scope := []config.Scope{{ConnectionID: "one", Namespaces: []string{"team"}}}
 	// Collection writes no longer prune.
-	if history, err := p.History(ctx, "bao"); err != nil || len(history) != 3 {
+	if history, err := firstHistory(p, ctx, "bao"); err != nil || len(history) != 3 {
 		t.Fatalf("history before pruning = %d, %v", len(history), err)
 	}
 	if err := p.Prune(ctx, now); err != nil {
 		t.Fatal(err)
 	}
-	history, err := p.History(ctx, "bao")
+	history, err := firstHistory(p, ctx, "bao")
 	if err != nil || len(history) != 1 || !history[0].RecordedAt.Equal(now) {
 		t.Fatalf("history after pruning = %+v, %v", history, err)
 	}
-	events, err := p.Activity(ctx, scope)
-	if err != nil || len(events) != 1 || !events[0].At.Equal(now) {
+	events, err := firstActivity(p, ctx, scope)
+	if err != nil || len(events) != 1 || !events[0].RecordedAt.Equal(now) {
 		t.Fatalf("activity after pruning = %+v, %v", events, err)
 	}
 	// The current inventory is not history and survives retention.

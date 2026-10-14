@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/kubebao/openbao-operator-console/internal/config"
@@ -25,28 +27,28 @@ var policy = fleet.Policy{MaxBackupAge: 24 * time.Hour, StartupGrace: 10 * time.
 
 func New(now time.Time) *Repository {
 	snapshot := fleet.Snapshot{
-		CollectedAt:   now,
+		GeneratedAt:   now,
 		Policy:        policy,
 		Connections:   connections(now),
 		Deployments:   []fleet.Deployment{},
 		Relationships: relationships(now),
-		Activity:      []fleet.Activity{},
 	}
 	for _, row := range fixtures {
 		snapshot.Deployments = append(snapshot.Deployments, deployment(row, now))
 	}
-	repository := &Repository{snapshot: snapshot, history: map[string][]fleet.Observation{}, activity: activity(now)}
+	repository := &Repository{snapshot: snapshot, history: map[string][]fleet.Observation{}, activity: []fleet.Activity{}}
 	for _, deployment := range snapshot.Deployments {
-		repository.history[deployment.ID] = history(deployment, now)
+		observations := history(deployment, now)
+		repository.history[deployment.ID] = observations
+		repository.activity = append(repository.activity, transitions(observations)...)
 	}
-	// Events carry the scope of their deployment, as stored events do.
-	for i := range repository.activity {
-		for _, deployment := range snapshot.Deployments {
-			if deployment.ID == repository.activity[i].DeploymentID {
-				repository.activity[i].ConnectionID, repository.activity[i].Namespace = deployment.ConnectionID, deployment.Namespace
-			}
+	// Like stored events, the feed is newest first.
+	slices.SortStableFunc(repository.activity, func(a, b fleet.Activity) int {
+		if order := b.RecordedAt.Compare(a.RecordedAt); order != 0 {
+			return order
 		}
-	}
+		return strings.Compare(b.ID, a.ID)
+	})
 	return repository
 }
 
@@ -323,49 +325,15 @@ func relationships(now time.Time) []fleet.Relationship {
 	}
 }
 
-func activity(now time.Time) []fleet.Activity {
-	return []fleet.Activity{
-		{
-			ID:           "event-1",
-			DeploymentID: "payments",
-			At:           now.Add(-14 * time.Minute),
-			Title:        "Backup completed",
-			Detail:       "Successful Job completion recorded · payments-bao",
-			Outcome:      fleet.ActivityOutcomeSuccess,
-		},
-		{
-			ID:           "event-2",
-			DeploymentID: "customer-x",
-			At:           now.Add(-2 * time.Hour),
-			Title:        "Backup failure observed",
-			Detail:       "Two consecutive failures · customer-x-bao",
-			Outcome:      fleet.ActivityOutcomeWarning,
-		},
-		{
-			ID:           "event-3",
-			DeploymentID: "identity",
-			At:           now.Add(-3 * time.Hour),
-			Title:        "Sealed state observed",
-			Detail:       "No ready replicas · identity-bao",
-			Outcome:      fleet.ActivityOutcomeError,
-		},
-		{
-			ID:           "event-4",
-			DeploymentID: "staging",
-			At:           now.Add(-7 * time.Hour),
-			Title:        "Upgrade failure observed",
-			Detail:       "Post-upgrade checks · staging-bao",
-			Outcome:      fleet.ActivityOutcomeWarning,
-		},
-		{
-			ID:           "event-5",
-			DeploymentID: "payments-dr",
-			At:           now.Add(-72 * time.Hour),
-			Title:        "Recovery target application confirmed",
-			Detail:       "Expected source identity · historical receipt",
-			Outcome:      fleet.ActivityOutcomeSuccess,
-		},
+// transitions derives the activity of a newest-first history with the rules that the
+// store applies to collected observations.
+func transitions(observations []fleet.Observation) []fleet.Activity {
+	result := []fleet.Activity{}
+	for i := len(observations) - 1; i > 0; i-- {
+		previous, current := observations[i], observations[i-1]
+		result = append(result, evidence.Transitions(previous.Deployment, current.Deployment, current.RecordedAt)...)
 	}
+	return result
 }
 
 // copyDeployment returns an independent deep copy, so history entries never share pointers.
@@ -536,21 +504,71 @@ func (r *Repository) Viewer() config.User {
 	return viewer
 }
 
-// Activity returns the fixture events in the given scopes, newest first.
-func (r *Repository) Activity(_ context.Context, scopes []config.Scope) ([]fleet.Activity, error) {
+// Activity returns one page of fixture events in the given scopes, newest first.
+func (r *Repository) Activity(_ context.Context, scopes []config.Scope, page fleet.Page) (fleet.ActivityPage, error) {
 	viewer := config.User{Scopes: scopes}
-	result := []fleet.Activity{}
+	visible := []fleet.Activity{}
 	for _, event := range r.activity {
 		if viewer.CanView(event.ConnectionID, event.Namespace) {
-			result = append(result, event)
+			visible = append(visible, event)
 		}
+	}
+	events, next := paginate(visible, page, func(event fleet.Activity) fleet.Cursor {
+		return fleet.Cursor{RecordedAt: event.RecordedAt, ID: event.ID}
+	})
+	return fleet.ActivityPage{Events: events, Next: next}, nil
+}
+
+// History returns one page of a fixture history with the store's window and cursor rules.
+// Cursor IDs are zero-padded sequence numbers, so they order like stored row IDs.
+func (r *Repository) History(_ context.Context, id string, query fleet.HistoryQuery) (fleet.HistoryPage, error) {
+	type sequenced struct {
+		observation fleet.Observation
+		position    fleet.Cursor
+	}
+	observations := r.history[id]
+	window := []sequenced{}
+	result := fleet.HistoryPage{Observations: []fleet.Observation{}}
+	for i, observation := range observations {
+		if query.Since != nil && observation.RecordedAt.Before(*query.Since) {
+			if result.Baseline == nil && query.Page.After == nil {
+				baseline := observation
+				result.Baseline = &baseline
+			}
+			continue
+		}
+		position := fleet.Cursor{RecordedAt: observation.RecordedAt, ID: fmt.Sprintf("%06d", len(observations)-i)}
+		window = append(window, sequenced{observation: observation, position: position})
+	}
+	page, next := paginate(window, query.Page, func(item sequenced) fleet.Cursor { return item.position })
+	for _, item := range page {
+		result.Observations = append(result.Observations, item.observation)
+	}
+	result.Next = next
+	return result, nil
+}
+
+// paginate returns at most page.Limit items of a newest-first list that follow page.After,
+// and the position of the last returned item when more follow.
+func paginate[T any](items []T, page fleet.Page, position func(T) fleet.Cursor) ([]T, *fleet.Cursor) {
+	result := []T{}
+	for _, item := range items {
+		if page.After != nil && !follows(position(item), *page.After) {
+			continue
+		}
+		if len(result) == page.Limit {
+			last := position(result[len(result)-1])
+			return result, &last
+		}
+		result = append(result, item)
 	}
 	return result, nil
 }
 
-func (r *Repository) History(_ context.Context, id string) ([]fleet.Observation, error) {
-	if observations, ok := r.history[id]; ok {
-		return observations, nil
+// follows reports whether a lies after b in newest-first order.
+func follows(a, b fleet.Cursor) bool {
+	if !a.RecordedAt.Equal(b.RecordedAt) {
+		return a.RecordedAt.Before(b.RecordedAt)
 	}
-	return []fleet.Observation{}, nil
+	return a.ID < b.ID
 }

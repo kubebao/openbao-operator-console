@@ -17,7 +17,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	"github.com/kubebao/openbao-operator-console/internal/store/database"
 )
@@ -331,11 +330,10 @@ func (p *Postgres) Snapshot(ctx context.Context) (fleet.Snapshot, error) {
 	defer func() { _ = tx.Rollback(ctx) }()
 	q := database.New(tx)
 	result := fleet.Snapshot{
-		CollectedAt:   time.Now().UTC(),
+		GeneratedAt:   time.Now().UTC(),
 		Connections:   []fleet.Connection{},
 		Deployments:   []fleet.Deployment{},
 		Relationships: []fleet.Relationship{},
-		Activity:      []fleet.Activity{},
 	}
 	connections, err := q.ListConnections(ctx)
 	if err != nil {
@@ -366,48 +364,4 @@ func (p *Postgres) Snapshot(ctx context.Context) (fleet.Snapshot, error) {
 		result.Deployments = append(result.Deployments, d)
 	}
 	return result, tx.Commit(ctx)
-}
-
-// Activity returns the newest events in the given scopes, at most 100. The scope applies
-// before the limit, so events outside it never displace authorized events.
-func (p *Postgres) Activity(ctx context.Context, scopes []config.Scope) ([]fleet.Activity, error) {
-	params := database.ListActivityParams{ConnectionIds: []string{}, Namespaces: []string{}}
-	for _, scope := range scopes {
-		for _, namespace := range scope.Namespaces {
-			params.ConnectionIds = append(params.ConnectionIds, scope.ConnectionID)
-			params.Namespaces = append(params.Namespaces, namespace)
-		}
-	}
-	result := []fleet.Activity{}
-	if len(params.ConnectionIds) == 0 {
-		return result, nil
-	}
-	rows, err := database.New(p.pool).ListActivity(ctx, params)
-	if err != nil {
-		return nil, fmt.Errorf("list activity: %w", err)
-	}
-	for _, row := range rows {
-		var activity fleet.Activity
-		if err := json.Unmarshal(row, &activity); err != nil {
-			return nil, fmt.Errorf("decode stored activity: %w", err)
-		}
-		result = append(result, activity)
-	}
-	return result, nil
-}
-
-func (p *Postgres) History(ctx context.Context, id string) ([]fleet.Observation, error) {
-	rows, err := database.New(p.pool).GetHistory(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	result := []fleet.Observation{}
-	for _, row := range rows {
-		var d fleet.Deployment
-		if err := json.Unmarshal(row.Projection, &d); err != nil {
-			return nil, err
-		}
-		result = append(result, fleet.Observation{Deployment: d, RecordedAt: row.RecordedAt.Time})
-	}
-	return result, nil
 }

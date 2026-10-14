@@ -29,11 +29,10 @@ func TestScopeRemovesHiddenGraphCountsHistoryAndNamespaces(t *testing.T) {
 			},
 		},
 		Relationships: []fleet.Relationship{{ID: "edge", SourceID: "visible", TargetID: "hidden"}},
-		Activity:      []fleet.Activity{{ID: "secret-event", DeploymentID: "hidden"}},
 	}
 	user := config.User{Subject: "a", Scopes: []config.Scope{{ConnectionID: "cluster", Namespaces: []string{"team-a"}}}}
 	result := Scope(snapshot, user)
-	if len(result.Deployments) != 1 || len(result.Relationships) != 0 || len(result.Activity) != 0 {
+	if len(result.Deployments) != 1 || len(result.Relationships) != 0 {
 		t.Fatal("hidden resource leaked through a projected view")
 	}
 	if len(result.Connections) != 1 || len(result.Connections[0].Namespaces) != 1 {

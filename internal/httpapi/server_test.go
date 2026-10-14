@@ -25,9 +25,10 @@ func (viewerAuth) Callback(http.ResponseWriter, *http.Request) {}
 func (viewerAuth) Logout(http.ResponseWriter, *http.Request)   {}
 
 type memoryFleet struct {
-	snapshot      fleet.Snapshot
-	snapshotReads int
-	historyReads  int
+	snapshot       fleet.Snapshot
+	snapshotReads  int
+	activityScopes []config.Scope
+	historyReads   int
 }
 
 func (m *memoryFleet) Snapshot(context.Context) (fleet.Snapshot, error) {
@@ -35,9 +36,9 @@ func (m *memoryFleet) Snapshot(context.Context) (fleet.Snapshot, error) {
 	return m.snapshot, nil
 }
 
-// Activity ignores the scopes, so the response proves that authorization filters again.
-func (m *memoryFleet) Activity(context.Context, []config.Scope) ([]fleet.Activity, error) {
-	return m.snapshot.Activity, nil
+func (m *memoryFleet) Activity(_ context.Context, scopes []config.Scope, _ fleet.Page) (fleet.ActivityPage, error) {
+	m.activityScopes = scopes
+	return fleet.ActivityPage{Events: []fleet.Activity{}}, nil
 }
 
 type pingDatabase struct {
@@ -84,9 +85,9 @@ func TestReadinessPingsTheDatabaseWithoutReadingEvidence(t *testing.T) {
 	}
 }
 
-func (m *memoryFleet) History(context.Context, string) ([]fleet.Observation, error) {
+func (m *memoryFleet) History(context.Context, string, fleet.HistoryQuery) (fleet.HistoryPage, error) {
 	m.historyReads++
-	return []fleet.Observation{}, nil
+	return fleet.HistoryPage{Observations: []fleet.Observation{}}, nil
 }
 
 func TestServerAuthorizesBeforeHistoryAndFiltersEverySurface(t *testing.T) {
@@ -110,7 +111,6 @@ func TestServerAuthorizesBeforeHistoryAndFiltersEverySurface(t *testing.T) {
 			{ID: "one", Namespaces: []string{"team-a", "team-b"}, Collection: "current", LastAttemptAt: now},
 		},
 		Relationships: []fleet.Relationship{{SourceID: "visible", TargetID: "hidden"}},
-		Activity:      []fleet.Activity{{DeploymentID: "hidden", ConnectionID: "one", Namespace: "team-b"}},
 	}}
 	authentication := viewerAuth{
 		user:    config.User{Subject: "engineer", Scopes: []config.Scope{{ConnectionID: "one", Namespaces: []string{"team-a"}}}},
@@ -126,7 +126,7 @@ func TestServerAuthorizesBeforeHistoryAndFiltersEverySurface(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &snapshot); err != nil {
 		t.Fatal(err)
 	}
-	if len(snapshot.Deployments) != 1 || len(snapshot.Relationships) != 0 || len(snapshot.Activity) != 0 ||
+	if len(snapshot.Deployments) != 1 || len(snapshot.Relationships) != 0 ||
 		len(snapshot.Connections[0].Namespaces) != 1 {
 		t.Fatal("hidden inventory leaked")
 	}

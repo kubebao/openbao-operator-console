@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { activityObject } from './activity'
 import type { components } from './generated'
 
 export type Snapshot = components['schemas']['Snapshot']
@@ -131,7 +132,8 @@ const operatorObject = z.object({
 
 const snapshotObject = z.object({
   mode: z.enum(['demo', 'live']),
-  collectedAt: timestamp,
+  generatedAt: timestamp,
+  build: z.object({ version: z.string(), commit: z.string() }),
   deployments: z.array(deploymentObject),
   connections: z.array(
     z.object({
@@ -164,16 +166,6 @@ const snapshotObject = z.object({
       observedAt: timestamp.nullable(),
     }),
   ),
-  activity: z.array(
-    z.object({
-      id: z.string(),
-      deploymentId: z.string(),
-      at: timestamp,
-      title: z.string(),
-      detail: z.string(),
-      outcome: z.enum(['success', 'warning', 'info', 'error']),
-    }),
-  ),
   viewer: z.object({
     name: z.string(),
     subject: z.string(),
@@ -188,8 +180,15 @@ const snapshotObject = z.object({
 
 export const snapshotSchema: z.ZodType<Snapshot> = snapshotObject
 
+const observationObject = z.object({ recordedAt: timestamp, deployment: deploymentObject })
 const historyObject = z.object({
-  observations: z.array(z.object({ recordedAt: timestamp, deployment: deploymentObject })),
+  observations: z.array(observationObject),
+  baseline: observationObject.nullable(),
+  nextCursor: z.string().nullable(),
+})
+const activityPageObject = z.object({
+  events: z.array(activityObject),
+  nextCursor: z.string().nullable(),
 })
 
 export type Settings = components['schemas']['Settings']
@@ -386,6 +385,8 @@ const credentialStatusesObject = z.object({
 
 // The annotations check that every parsed value fits the generated contract type.
 export const historySchema: z.ZodType<History> = historyObject
+export const activityPageSchema: z.ZodType<components['schemas']['ActivityPage']> =
+  activityPageObject
 export const managedConnectionSchema: z.ZodType<ManagedConnection> = managedConnectionObject
 export const settingsSchema: z.ZodType<Settings> = settingsObject
 export const connectionCheckSchema: z.ZodType<ConnectionCheckResult> = connectionCheckObject
@@ -405,6 +406,7 @@ export const credentialStatusesSchema: z.ZodType<components['schemas']['Credenti
 const contractSchemas = {
   snapshot: snapshotObject,
   history: historyObject,
+  activityPage: activityPageObject,
   settings: settingsObject,
   connectionCheck: connectionCheckObject,
   setupStatus: setupStatusObject,

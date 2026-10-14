@@ -1,6 +1,8 @@
 import { describe, expectTypeOf, it } from 'vitest'
 import type { z } from 'zod'
 import type { components } from './generated'
+import type { ActivityContractSchema } from './activity'
+import type { ProblemContractSchema } from './problem'
 import type { ContractSchemas } from './schema'
 
 // Type-level contract checks, enforced by `pnpm typecheck`. The z.ZodType<T> annotations in
@@ -23,6 +25,8 @@ describe('runtime schemas accept the generated contract', () => {
   it('accepts every fleet value', () => {
     expectTypeOf<Contract['Snapshot']>().toExtend<Input<'snapshot'>>()
     expectTypeOf<Contract['History']>().toExtend<Input<'history'>>()
+    expectTypeOf<Contract['ActivityPage']>().toExtend<Input<'activityPage'>>()
+    expectTypeOf<Contract['Activity']>().toExtend<DeepReadonly<z.input<ActivityContractSchema>>>()
     expectTypeOf<Contract['ConnectionCheckResult']>().toExtend<Input<'connectionCheck'>>()
   })
   it('accepts every administration value', () => {
@@ -35,5 +39,8 @@ describe('runtime schemas accept the generated contract', () => {
   it('accepts every setup and login value', () => {
     expectTypeOf<Contract['SetupStatus']>().toExtend<Input<'setupStatus'>>()
     expectTypeOf<Contract['LoginRedirect']>().toExtend<Input<'loginRedirect'>>()
+  })
+  it('accepts every problem value', () => {
+    expectTypeOf<Contract['Problem']>().toExtend<DeepReadonly<z.input<ProblemContractSchema>>>()
   })
 })

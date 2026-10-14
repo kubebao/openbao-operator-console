@@ -1,16 +1,15 @@
 import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { ArrowRight, CheckCircle2, GitBranch, History as HistoryIcon } from 'lucide-react'
-import type { Deployment, Issue, Operator, Snapshot } from '../../api/schema'
+import type { Deployment, Operator, Snapshot } from '../../api/schema'
 import type { DeploymentTab } from '../../lib/findings'
-import { findingLocation, tabLabels } from '../../lib/findings'
+import { findingLocation, severityRank, tabLabels } from '../../lib/findings'
+import { operatorNeedsAttention } from '../../lib/tone'
 import type { Observation } from '../../lib/history'
 import { describeHistory } from '../../lib/history'
 import { OperatorEvidence } from '../operator-evidence'
 import { SeverityBadge, Timestamp } from '../status'
 import { EvidenceTiles } from './evidence-tiles'
-
-const severityRank: Record<Issue['severity'], number> = { critical: 0, high: 1, info: 2 }
 
 function relationshipLabel(
   relationship: Snapshot['relationships'][number],
@@ -88,14 +87,16 @@ function FindingsSection({
 
 function RecentChanges({
   observations,
+  earlierUnloaded,
   onSelect,
 }: {
   observations: readonly Observation[] | null
+  earlierUnloaded: boolean
   onSelect: (tab: DeploymentTab) => void
 }) {
   const recent = observations
-    ? describeHistory(observations)
-        .filter((entry) => !entry.quiet)
+    ? describeHistory(observations, null, earlierUnloaded)
+        .filter((entry) => !entry.quiet && !entry.earliest)
         .slice(0, 5)
     : null
   return (
@@ -185,27 +186,32 @@ export function OverviewTab({
   snapshot,
   operator,
   observations,
+  earlierUnloaded,
   onSelect,
 }: {
   deployment: Deployment
   snapshot: Snapshot
   operator: Operator | undefined
   observations: readonly Observation[] | null
+  earlierUnloaded: boolean
   onSelect: (tab: DeploymentTab) => void
 }) {
-  const operatorProblem =
-    operator !== undefined && (operator.collection !== 'current' || operator.health !== 'available')
+  const operatorProblem = operator !== undefined && operatorNeedsAttention(operator)
   return (
     <>
       <EvidenceTiles
         deployment={deployment}
-        collectedAt={snapshot.collectedAt}
+        generatedAt={snapshot.generatedAt}
         maxBackupAgeHours={snapshot.policy.maxBackupAgeHours}
         onSelect={onSelect}
       />
       <div className="overview-columns">
         <FindingsSection deployment={deployment} onSelect={onSelect} />
-        <RecentChanges observations={observations} onSelect={onSelect} />
+        <RecentChanges
+          observations={observations}
+          earlierUnloaded={earlierUnloaded}
+          onSelect={onSelect}
+        />
       </div>
       <RelationshipsLine deployment={deployment} snapshot={snapshot} />
       {operatorProblem && (

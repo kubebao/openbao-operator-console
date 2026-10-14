@@ -49,7 +49,7 @@ func TestFreshDatabaseAppliesEveryMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer p.Close()
-	if versions := appliedVersions(t, p); !equalVersions(versions, 1) || len(migrations) != 1 {
+	if versions := appliedVersions(t, p); !equalVersions(versions, 1, 2) || len(migrations) != 2 {
 		t.Fatalf("applied versions = %v", versions)
 	}
 	// A restart applies nothing twice.
@@ -58,7 +58,7 @@ func TestFreshDatabaseAppliesEveryMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	again.Close()
-	if versions := appliedVersions(t, p); !equalVersions(versions, 1) {
+	if versions := appliedVersions(t, p); !equalVersions(versions, 1, 2) {
 		t.Fatalf("restart changed applied versions to %v", versions)
 	}
 }
@@ -93,6 +93,36 @@ func TestUpgradeAppliesOnlyPendingMigrations(t *testing.T) {
 	var label string
 	if err := p.pool.QueryRow(ctx, "SELECT label FROM migration_probe WHERE id = 1").Scan(&label); err != nil || label != "kept" {
 		t.Fatalf("upgrade lost data: %v %q", err, label)
+	}
+}
+
+func TestPaginationMigrationPreservesExistingHistory(t *testing.T) {
+	dsn := isolatedDSN(t)
+	ctx := context.Background()
+	p, err := open(ctx, dsn, time.Hour, migrations[:1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.pool.Exec(ctx, `INSERT INTO console_observation(deployment_id, connection_id, recorded_at, projection)
+VALUES ('bao', 'cluster', now(), '{"resourceVersion":"kept"}')`); err != nil {
+		t.Fatal(err)
+	}
+	p.Close()
+	p, err = Open(ctx, dsn, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+	rows, err := firstHistory(p, ctx, "bao")
+	if err != nil || len(rows) != 1 || rows[0].Deployment.ResourceVersion != "kept" {
+		t.Fatal("the pagination migration lost existing history")
+	}
+	for _, name := range []string{"console_observation_deployment", "console_activity_scope"} {
+		var definition string
+		if err := p.pool.QueryRow(ctx, "SELECT pg_get_indexdef($1::regclass)", name).Scan(&definition); err != nil ||
+			!strings.Contains(definition, "id DESC") {
+			t.Fatalf("pagination index %s was not upgraded: %s, %v", name, definition, err)
+		}
 	}
 }
 

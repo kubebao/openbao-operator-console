@@ -1,6 +1,7 @@
 import type { Configuration } from '../src/api/schema'
 import { expect, test } from '@playwright/test'
 import { snapshotSchema, settingsUpdateSchema } from '../src/api/schema'
+import { problem } from './fixtures/problem'
 
 test('attention drills into deployment evidence and history', async ({ page }) => {
   await page.goto('/')
@@ -57,6 +58,8 @@ test('dark mode persists and global search is keyboard accessible', async ({ pag
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await page.reload()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  // The shortcut is available once the workspace has loaded.
+  await expect(page.getByRole('heading', { name: 'Attention', exact: true })).toBeVisible()
   await page.keyboard.press('ControlOrMeta+k')
   await page.getByRole('combobox', { name: 'Search your fleet' }).fill('finance')
   await expect(page.getByRole('option', { name: /finance-bao/ })).toHaveAttribute(
@@ -81,11 +84,7 @@ test('mobile navigation and reduced motion retain working content', async ({ pag
 
 test('sign-in explains a refused login and keeps the return path', async ({ page }) => {
   await page.route('**/api/v1/snapshot', (route) =>
-    route.fulfill({
-      status: 401,
-      contentType: 'application/json',
-      body: JSON.stringify({ code: 'unauthenticated', message: 'Sign in to view this fleet.' }),
-    }),
+    route.fulfill(problem(401, 'unauthenticated', 'Sign in to view this fleet.')),
   )
   await page.goto('/fleet?query=payments&signin=denied')
   await expect(page.getByRole('heading', { name: 'OpenBao Operator Console' })).toBeVisible()
@@ -105,11 +104,7 @@ test('sign-in explains a refused login and keeps the return path', async ({ page
 
 test('unavailable evidence never displays a healthy fleet', async ({ page }) => {
   await page.route('**/api/v1/snapshot', (route) =>
-    route.fulfill({
-      status: 503,
-      contentType: 'application/json',
-      body: JSON.stringify({ code: 'unavailable', message: 'Unavailable' }),
-    }),
+    route.fulfill(problem(503, 'unavailable', 'Unavailable')),
   )
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Fleet evidence unavailable' })).toBeVisible()

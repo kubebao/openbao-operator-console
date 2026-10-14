@@ -108,7 +108,6 @@ async function fulfillSnapshot(route: Route, state: BackendState) {
       connections: connectionStatuses(state),
       deployments: [],
       relationships: [],
-      activity: [],
     },
   })
 }

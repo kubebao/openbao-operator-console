@@ -4,7 +4,7 @@ import type { Deployment, Issue } from '../../api/schema'
 import type { DeploymentTab, EvidenceDimension } from '../../lib/findings'
 import { dimensionSeverity, tabLabels } from '../../lib/findings'
 import { restoreOutcomes } from '../../lib/format'
-import { observedGeneration, upgradeLabels, upgradeState } from '../../lib/lifecycle'
+import { observedGeneration, upgradeState, upgradeSummaries } from '../../lib/lifecycle'
 import { Timestamp } from '../status'
 import { AgeMeter, ReplicaDots } from './charts'
 
@@ -114,16 +114,16 @@ function AvailabilityTile({ deployment, onSelect }: TileProps) {
   )
 }
 
-// Backup age is measured from the snapshot's collection time, not the browser clock.
+// Backup age is measured from the time the snapshot was generated, not the browser clock.
 function BackupsTile({
   deployment,
-  collectedAt,
+  generatedAt,
   limitHours,
   onSelect,
-}: TileProps & { collectedAt: string; limitHours: number }) {
+}: TileProps & { generatedAt: string; limitHours: number }) {
   const backup = deployment.backup
   const age = backup?.lastSuccessAt
-    ? (Date.parse(collectedAt) - Date.parse(backup.lastSuccessAt)) / 3_600_000
+    ? (Date.parse(generatedAt) - Date.parse(backup.lastSuccessAt)) / 3_600_000
     : null
   return (
     <EvidenceTile
@@ -204,25 +204,23 @@ function LifecycleTile({ deployment, onSelect }: TileProps) {
         {deployment.version || 'Version not observed'}
         {target}
       </strong>
-      <span className={`upgrade-state upgrade-${upgrade}`}>
-        Upgrade {upgradeLabels[upgrade].toLocaleLowerCase()}
-      </span>
+      <span className={`upgrade-state upgrade-${upgrade}`}>{upgradeSummaries[upgrade]}</span>
     </EvidenceTile>
   )
 }
 
 export function EvidenceTiles({
   deployment,
-  collectedAt,
+  generatedAt,
   maxBackupAgeHours,
   onSelect,
-}: TileProps & { collectedAt: string; maxBackupAgeHours: number }) {
+}: TileProps & { generatedAt: string; maxBackupAgeHours: number }) {
   return (
     <div className="evidence-tiles">
       <AvailabilityTile deployment={deployment} onSelect={onSelect} />
       <BackupsTile
         deployment={deployment}
-        collectedAt={collectedAt}
+        generatedAt={generatedAt}
         limitHours={maxBackupAgeHours}
         onSelect={onSelect}
       />

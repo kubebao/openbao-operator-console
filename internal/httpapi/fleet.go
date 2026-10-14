@@ -3,6 +3,7 @@ package httpapi
 import (
 	"time"
 
+	"github.com/kubebao/openbao-operator-console/internal/buildinfo"
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/contract"
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
@@ -20,6 +21,7 @@ func mapSlice[T, R any](items []T, project func(T) R) []R {
 }
 
 func snapshotContract(snapshot fleet.Snapshot, user config.User, demo bool) contract.Snapshot {
+	version, commit := buildinfo.Current()
 	mode := contract.Live
 	if demo {
 		mode = contract.Demo
@@ -30,7 +32,8 @@ func snapshotContract(snapshot fleet.Snapshot, user config.User, demo bool) cont
 	}
 	return contract.Snapshot{
 		Mode:        mode,
-		CollectedAt: snapshot.CollectedAt,
+		GeneratedAt: snapshot.GeneratedAt,
+		Build:       contract.BuildInfo{Version: version, Commit: commit},
 		Policy: contract.AttentionPolicy{
 			MaxBackupAgeHours:   int(snapshot.Policy.MaxBackupAge / time.Hour),
 			StartupGraceMinutes: int(snapshot.Policy.StartupGrace / time.Minute),
@@ -39,7 +42,6 @@ func snapshotContract(snapshot fleet.Snapshot, user config.User, demo bool) cont
 		Connections:   mapSlice(snapshot.Connections, connectionContract),
 		Deployments:   mapSlice(snapshot.Deployments, deploymentContract),
 		Relationships: mapSlice(snapshot.Relationships, relationshipContract),
-		Activity:      mapSlice(snapshot.Activity, activityContract),
 	}
 }
 
@@ -217,12 +219,28 @@ func relationshipContract(r fleet.Relationship) contract.Relationship {
 
 func activityContract(a fleet.Activity) contract.Activity {
 	return contract.Activity{
-		Id:           a.ID,
-		DeploymentId: a.DeploymentID,
-		At:           a.At,
-		Title:        a.Title,
-		Detail:       a.Detail,
-		Outcome:      contract.ActivityOutcome(a.Outcome),
+		Id:             a.ID,
+		DeploymentId:   a.DeploymentID,
+		DeploymentName: a.DeploymentName,
+		ConnectionId:   a.ConnectionID,
+		Namespace:      a.Namespace,
+		RecordedAt:     a.RecordedAt,
+		Kind:           contract.ActivityKind(a.Kind),
+		Health: optional(a.Health, func(c fleet.HealthChange) contract.HealthChange {
+			return contract.HealthChange{From: contract.HealthChangeFrom(c.From), To: contract.HealthChangeTo(c.To)}
+		}),
+		Collection: optional(a.Collection, func(c fleet.CollectionChange) contract.CollectionChange {
+			return contract.CollectionChange{From: contract.CollectionChangeFrom(c.From), To: contract.CollectionChangeTo(c.To)}
+		}),
+		Finding: optional(a.Finding, func(c fleet.FindingChange) contract.FindingChange {
+			return contract.FindingChange{
+				Rule:     contract.FindingChangeRule(c.Rule),
+				Severity: contract.FindingChangeSeverity(c.Severity),
+				PreviousSeverity: optional(c.PreviousSeverity, func(s fleet.Severity) contract.FindingChangePreviousSeverity {
+					return contract.FindingChangePreviousSeverity(s)
+				}),
+			}
+		}),
 	}
 }
 

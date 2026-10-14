@@ -15,18 +15,24 @@ export interface HistoryEntry {
 }
 
 function ascending(observations: readonly Observation[]): Observation[] {
-  return [...observations].sort((a, b) => Date.parse(a.recordedAt) - Date.parse(b.recordedAt))
+  return [...observations]
+    .reverse()
+    .sort((a, b) => Date.parse(a.recordedAt) - Date.parse(b.recordedAt))
 }
 
 // Turns retained observations into change entries, newest first. Observations without a
 // displayed change are kept as quiet entries, and consecutive quiet entries are merged so
 // status-only updates recorded by older versions stay out of the way.
-export function describeHistory(observations: readonly Observation[]): HistoryEntry[] {
+export function describeHistory(
+  observations: readonly Observation[],
+  baseline: Observation | null = null,
+  earlierUnloaded = false,
+): HistoryEntry[] {
   const sorted = ascending(observations)
   const entries: HistoryEntry[] = []
   let quietRun: { first: Observation; count: number } | null = null
   sorted.forEach((observation, index) => {
-    const previous = sorted[index - 1]
+    const previous = sorted[index - 1] ?? baseline
     if (!previous) {
       entries.push({
         at: observation.recordedAt,
@@ -35,7 +41,9 @@ export function describeHistory(observations: readonly Observation[]): HistoryEn
         quiet: false,
         changes: [
           {
-            title: 'Earliest retained observation',
+            title: earlierUnloaded
+              ? 'Earlier observations not loaded'
+              : 'Earliest retained observation',
             detail: `State ${healthLabels[observation.deployment.health]}`,
             tone: 'neutral',
           },
@@ -82,7 +90,18 @@ export function describeHistory(observations: readonly Observation[]): HistoryEn
   return entries.reverse()
 }
 
-export type BandState = Deployment['health'] | 'uncollected' | 'unrecorded'
+export type BandState = Deployment['health'] | 'uncollected' | 'unrecorded' | 'unloaded'
+
+// Legend order for the state band.
+export const bandStates = [
+  'healthy',
+  'attention',
+  'critical',
+  'unknown',
+  'uncollected',
+  'unrecorded',
+  'unloaded',
+] as const satisfies readonly BandState[]
 
 export const bandLabels: Record<BandState, string> = {
   healthy: 'Healthy',
@@ -91,6 +110,7 @@ export const bandLabels: Record<BandState, string> = {
   unknown: 'Unknown',
   uncollected: 'Collection failed',
   unrecorded: 'Not recorded',
+  unloaded: 'Not loaded',
 }
 
 export interface BandSegment {
@@ -106,13 +126,18 @@ export function stateBand(
   observations: readonly Observation[],
   windowStart: number,
   windowEnd: number,
+  earlierUnloaded = false,
 ): BandSegment[] {
   const sorted = ascending(observations)
   const segments: BandSegment[] = []
   const first = sorted[0]
   const firstAt = first ? Date.parse(first.recordedAt) : windowEnd
   if (firstAt > windowStart)
-    segments.push({ start: windowStart, end: Math.min(firstAt, windowEnd), state: 'unrecorded' })
+    segments.push({
+      start: windowStart,
+      end: Math.min(firstAt, windowEnd),
+      state: earlierUnloaded ? 'unloaded' : 'unrecorded',
+    })
   sorted.forEach((observation, index) => {
     const next = sorted[index + 1]
     const start = Math.max(Date.parse(observation.recordedAt), windowStart)

@@ -16,6 +16,9 @@ import (
 
 func insertActivity(t *testing.T, p *Postgres, activity fleet.Activity) {
 	t.Helper()
+	if activity.Kind == "" {
+		activity.Kind = fleet.ActivityLegacy
+	}
 	projection, err := json.Marshal(activity)
 	if err != nil {
 		t.Fatal(err)
@@ -25,7 +28,7 @@ func insertActivity(t *testing.T, p *Postgres, activity fleet.Activity) {
 		DeploymentID: activity.DeploymentID,
 		ConnectionID: activity.ConnectionID,
 		Namespace:    activity.Namespace,
-		RecordedAt:   pgtype.Timestamptz{Time: activity.At, Valid: true},
+		RecordedAt:   pgtype.Timestamptz{Time: activity.RecordedAt, Valid: true},
 		Projection:   projection,
 	}); err != nil {
 		t.Fatal(err)
@@ -40,20 +43,20 @@ func TestScopedViewerReceivesNewestEventsInScope(t *testing.T) {
 	for i := range 120 {
 		insertActivity(t, p, fleet.Activity{
 			ID: fmt.Sprintf("visible-%03d", i), DeploymentID: "visible", ConnectionID: "one", Namespace: "team-a",
-			At: base.Add(time.Duration(i) * time.Second),
+			RecordedAt: base.Add(time.Duration(i) * time.Second),
 		})
 	}
 	// Newer events in another namespace and another connection would fill a fleet-wide limit.
 	for i := range 150 {
 		at := base.Add(time.Duration(1000+i) * time.Second)
 		insertActivity(t, p, fleet.Activity{
-			ID: fmt.Sprintf("namespace-%03d", i), DeploymentID: "hidden", ConnectionID: "one", Namespace: "team-b", At: at,
+			ID: fmt.Sprintf("namespace-%03d", i), DeploymentID: "hidden", ConnectionID: "one", Namespace: "team-b", RecordedAt: at,
 		})
 		insertActivity(t, p, fleet.Activity{
-			ID: fmt.Sprintf("connection-%03d", i), DeploymentID: "other", ConnectionID: "two", Namespace: "team-a", At: at,
+			ID: fmt.Sprintf("connection-%03d", i), DeploymentID: "other", ConnectionID: "two", Namespace: "team-a", RecordedAt: at,
 		})
 	}
-	events, err := p.Activity(ctx, []config.Scope{{ConnectionID: "one", Namespaces: []string{"team-a"}}})
+	events, err := firstActivity(p, ctx, []config.Scope{{ConnectionID: "one", Namespaces: []string{"team-a"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,14 +69,14 @@ func TestScopedViewerReceivesNewestEventsInScope(t *testing.T) {
 		}
 	}
 	// Two scopes combine; a scope pair never matches a namespace of another connection.
-	events, err = p.Activity(ctx, []config.Scope{
+	events, err = firstActivity(p, ctx, []config.Scope{
 		{ConnectionID: "one", Namespaces: []string{"team-a"}},
 		{ConnectionID: "two", Namespaces: []string{"team-b"}},
 	})
 	if err != nil || len(events) != 100 || events[0].ID != "visible-119" {
 		t.Fatalf("combined scopes = %v, %d events", err, len(events))
 	}
-	if events, err := p.Activity(ctx, nil); err != nil || len(events) != 0 {
+	if events, err := firstActivity(p, ctx, nil); err != nil || len(events) != 0 {
 		t.Fatalf("a viewer without scopes received %d events: %v", len(events), err)
 	}
 }
@@ -112,11 +115,11 @@ func TestEventsOfDeletedDeploymentsRemainInScope(t *testing.T) {
 	if err != nil || len(snapshot.Deployments) != 0 {
 		t.Fatalf("deployment was not deleted: %v", err)
 	}
-	events, err := p.Activity(ctx, []config.Scope{{ConnectionID: "one", Namespaces: []string{"team-a"}}})
+	events, err := firstActivity(p, ctx, []config.Scope{{ConnectionID: "one", Namespaces: []string{"team-a"}}})
 	if err != nil || len(events) != 1 || events[0].DeploymentID != d.ID || events[0].Namespace != "team-a" {
 		t.Fatalf("events of a deleted deployment = %+v, %v", events, err)
 	}
-	if hidden, err := p.Activity(ctx, []config.Scope{{ConnectionID: "one", Namespaces: []string{"team-b"}}}); err != nil ||
+	if hidden, err := firstActivity(p, ctx, []config.Scope{{ConnectionID: "one", Namespaces: []string{"team-b"}}}); err != nil ||
 		len(hidden) != 0 {
 		t.Fatalf("out-of-scope viewer received %d events: %v", len(hidden), err)
 	}

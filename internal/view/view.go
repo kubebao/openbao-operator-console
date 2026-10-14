@@ -18,8 +18,8 @@ const StaleAfter = 2 * time.Minute
 // Observations provides retained collection results.
 type Observations interface {
 	Snapshot(context.Context) (fleet.Snapshot, error)
-	History(context.Context, string) ([]fleet.Observation, error)
-	Activity(context.Context, []config.Scope) ([]fleet.Activity, error)
+	History(context.Context, string, fleet.HistoryQuery) (fleet.HistoryPage, error)
+	Activity(context.Context, []config.Scope, fleet.Page) (fleet.ActivityPage, error)
 }
 
 // Enrollment provides the current administrator configuration.
@@ -42,14 +42,14 @@ func (l Live) Snapshot(ctx context.Context) (fleet.Snapshot, error) {
 	return Build(stored, enrollment, time.Now().UTC()), nil
 }
 
-func (l Live) History(ctx context.Context, id string) ([]fleet.Observation, error) {
-	return l.Observations.History(ctx, id)
+func (l Live) History(ctx context.Context, id string, query fleet.HistoryQuery) (fleet.HistoryPage, error) {
+	return l.Observations.History(ctx, id, query)
 }
 
-// Activity returns retained events in the given scopes. Callers pass scopes already
-// intersected with the current enrollment.
-func (l Live) Activity(ctx context.Context, scopes []config.Scope) ([]fleet.Activity, error) {
-	return l.Observations.Activity(ctx, scopes)
+// Activity returns one page of retained events in the given scopes. Callers pass scopes
+// already intersected with the current enrollment.
+func (l Live) Activity(ctx context.Context, scopes []config.Scope, page fleet.Page) (fleet.ActivityPage, error) {
+	return l.Observations.Activity(ctx, scopes, page)
 }
 
 // Build keeps only enrolled connections, namespaces, and controllers, applies current
@@ -59,12 +59,11 @@ func Build(stored fleet.Snapshot, enrollment config.Config, now time.Time) fleet
 	connections := buildConnections(stored.Connections, enrollment.Connections, now)
 	deployments := buildDeployments(stored.Deployments, enrollment.Connections, connections, now)
 	return fleet.Snapshot{
-		CollectedAt:   stored.CollectedAt,
+		GeneratedAt:   stored.GeneratedAt,
 		Policy:        enrollment.Policy(),
 		Connections:   connections,
 		Deployments:   deployments,
 		Relationships: declaredRelationships(enrollment.Relationships, deployments),
-		Activity:      []fleet.Activity{},
 	}
 }
 

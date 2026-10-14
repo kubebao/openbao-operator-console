@@ -150,6 +150,34 @@ describe('change descriptions', () => {
 })
 
 describe('state band', () => {
+  it('distinguishes unloaded pages from unrecorded time', () => {
+    const start = Date.parse('2026-10-06T00:00:00Z')
+    const end = Date.parse('2026-10-06T12:00:00Z')
+    const rows = [observation('2026-10-06T06:00:00Z', deployment())]
+    expect(stateBand(rows, start, end, true)[0]?.state).toBe('unloaded')
+    expect(describeHistory(rows, null, true)[0]?.changes[0]?.title).toBe(
+      'Earlier observations not loaded',
+    )
+  })
+
+  it('uses a pre-window baseline and preserves the order of timestamp ties', () => {
+    const baseline = observation('2026-10-05T23:00:00Z', deployment())
+    const at = '2026-10-06T06:00:00Z'
+    const rows = [
+      observation(at, deployment({ health: 'critical' })),
+      observation(at, deployment({ health: 'attention' })),
+    ]
+    const entries = describeHistory(rows, baseline)
+    expect(entries.flatMap((entry) => entry.changes.map((change) => change.title))).toEqual([
+      'State Attention → Critical',
+      'State Healthy → Attention',
+    ])
+    const start = Date.parse('2026-10-06T00:00:00Z')
+    const end = Date.parse('2026-10-06T12:00:00Z')
+    const band = stateBand([...rows, baseline], start, end)
+    expect(band[0]).toMatchObject({ start, state: 'healthy' })
+    expect(band.at(-1)).toMatchObject({ end, state: 'critical' })
+  })
   it('marks time before the oldest observation as unrecorded and merges equal states', () => {
     const start = Date.parse('2026-10-06T00:00:00Z')
     const end = Date.parse('2026-10-06T12:00:00Z')

@@ -7,7 +7,25 @@ import (
 	"time"
 
 	"github.com/kubebao/openbao-operator-console/internal/auth"
+	"github.com/kubebao/openbao-operator-console/internal/fleet"
 )
+
+// Fixture activity comes from fixture history through the rules the store applies.
+func TestActivityFollowsFixtureHistory(t *testing.T) {
+	repository := New(time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC))
+	sealed := false
+	for i, event := range repository.activity {
+		if i > 0 && event.RecordedAt.After(repository.activity[i-1].RecordedAt) {
+			t.Fatal("activity is not newest first")
+		}
+		if event.DeploymentID == "identity" && event.Kind == fleet.ActivityFindingRaised && event.Finding.Rule == fleet.RuleSealed {
+			sealed = true
+		}
+	}
+	if !sealed {
+		t.Fatal("the sealed fixture has no sealed finding event")
+	}
+}
 
 func TestHistoryEndsInCurrentFixtureState(t *testing.T) {
 	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
@@ -17,7 +35,8 @@ func TestHistoryEndsInCurrentFixtureState(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, deployment := range snapshot.Deployments {
-		observations, err := repository.History(context.Background(), deployment.ID)
+		page, err := repository.History(context.Background(), deployment.ID, fleet.HistoryQuery{Page: fleet.Page{Limit: 100}})
+		observations := page.Observations
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -39,7 +58,8 @@ func TestHistoryEndsInCurrentFixtureState(t *testing.T) {
 		}
 	}
 	for id, minimum := range map[string]int{"payments": 7, "identity": 8, "customer-x": 6, "staging": 8} {
-		observations, _ := repository.History(context.Background(), id)
+		page, _ := repository.History(context.Background(), id, fleet.HistoryQuery{Page: fleet.Page{Limit: 100}})
+		observations := page.Observations
 		if len(observations) < minimum {
 			t.Fatalf("%s has %d observations, want at least %d", id, len(observations), minimum)
 		}
@@ -57,11 +77,12 @@ func TestViewerSeesEveryFixtureThroughNormalAuthorization(t *testing.T) {
 		len(scoped.Relationships) != len(snapshot.Relationships) {
 		t.Fatal("the demonstration viewer cannot see the whole fixture fleet")
 	}
-	events, err := repository.Activity(context.Background(), repository.Viewer().Scopes)
+	page, err := repository.Activity(context.Background(), repository.Viewer().Scopes, fleet.Page{Limit: 500})
+	events := page.Events
 	if err != nil || len(events) != len(repository.activity) || len(events) == 0 {
 		t.Fatalf("the demonstration viewer sees %d of %d events", len(events), len(repository.activity))
 	}
-	if hidden, _ := repository.Activity(context.Background(), nil); len(hidden) != 0 {
+	if hidden, _ := repository.Activity(context.Background(), nil, fleet.Page{Limit: 100}); len(hidden.Events) != 0 {
 		t.Fatal("events leaked without a scope")
 	}
 	if repository.Viewer().Admin {

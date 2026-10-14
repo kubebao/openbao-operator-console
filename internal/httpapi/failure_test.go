@@ -36,12 +36,12 @@ func (f failingFleet) Snapshot(context.Context) (fleet.Snapshot, error) {
 	return f.snapshot, nil
 }
 
-func (f failingFleet) Activity(context.Context, []config.Scope) ([]fleet.Activity, error) {
-	return f.snapshot.Activity, nil
+func (f failingFleet) Activity(context.Context, []config.Scope, fleet.Page) (fleet.ActivityPage, error) {
+	return fleet.ActivityPage{}, fmt.Errorf("read activity: %w", driverError{})
 }
 
-func (f failingFleet) History(context.Context, string) ([]fleet.Observation, error) {
-	return nil, f.history
+func (f failingFleet) History(context.Context, string, fleet.HistoryQuery) (fleet.HistoryPage, error) {
+	return fleet.HistoryPage{}, f.history
 }
 
 func TestFailedRequestsLogAClassifiedCause(t *testing.T) {
@@ -57,6 +57,7 @@ func TestFailedRequestsLogAClassifiedCause(t *testing.T) {
 		fleet                    Fleet
 	}{
 		{"snapshot", "/api/v1/snapshot", "/api/v1/snapshot", "database error 28P01", failingFleet{}},
+		{"activity", "/api/v1/activity", "/api/v1/activity", "database error 28P01", failingFleet{}},
 		{
 			"history",
 			"/api/v1/deployments/private-deployment/history",

@@ -7,6 +7,7 @@ import { EmptyState } from '../page'
 import { Timestamp } from '../status'
 import { StateBand } from './charts'
 import { SectionTitle } from '../info-tip'
+import { Button } from '../ui/button'
 
 const dayFormat = new Intl.DateTimeFormat(undefined, {
   weekday: 'long',
@@ -38,19 +39,27 @@ function groupByDay(entries: readonly HistoryEntry[], now: number) {
   return groups
 }
 
-export function HistoryTab({ id, now }: { id: string; now: number }) {
-  const history = useHistory(id)
+export function HistoryTab({ id, since, now }: { id: string; since: string; now: number }) {
+  const history = useHistory(id, since)
   if (history.isPending) return <p className="muted">Loading recorded changes…</p>
-  if (history.isError)
+  if (!history.data)
     return (
       <EmptyState title="History unavailable" icon={AlertCircle}>
         The console cannot read recorded observations.
+        <Button
+          onClick={() => {
+            void history.refetch()
+          }}
+        >
+          Retry history
+        </Button>
       </EmptyState>
     )
-  const observations = history.data.observations
+  const baseline = history.hasNextPage ? null : history.data.baseline
+  const observations = [...(baseline ? [baseline] : []), ...history.data.observations]
   const windowEnd = now
-  const windowStart = windowEnd - 7 * 24 * 60 * 60 * 1000
-  const entries = describeHistory(observations)
+  const windowStart = Date.parse(since)
+  const entries = describeHistory(history.data.observations, baseline, history.hasNextPage)
   const oldest = entries.at(-1)
   return (
     <>
@@ -62,7 +71,7 @@ export function HistoryTab({ id, now }: { id: string; now: number }) {
           State over the last 7 days
         </SectionTitle>
         <StateBand
-          segments={stateBand(observations, windowStart, windowEnd)}
+          segments={stateBand(observations, windowStart, windowEnd, history.hasNextPage)}
           start={windowStart}
           end={windowEnd}
         />
@@ -71,7 +80,7 @@ export function HistoryTab({ id, now }: { id: string; now: number }) {
         <div className="section-heading">
           <SectionTitle
             tipLabel="About recorded changes"
-            tip="Up to 100 recorded changes are kept for seven days."
+            tip="Observations in this seven-day window load in pages of 100. Retention depends on the console configuration. A pre-window observation provides the baseline when available."
           >
             Recorded changes
           </SectionTitle>
@@ -86,15 +95,15 @@ export function HistoryTab({ id, now }: { id: string; now: number }) {
           </span>
         </div>
         {entries.length === 0 ? (
-          <p className="muted">No observations are retained for this deployment.</p>
+          <p className="muted">No observations are retained in this window.</p>
         ) : (
           <div className="timeline">
             {groupByDay(entries, windowEnd).map((group) => (
               <section key={group.label} className="timeline-day">
                 <h3>{group.label}</h3>
                 <ol>
-                  {group.entries.map((entry) => (
-                    <li key={entry.at} className="timeline-entry">
+                  {group.entries.map((entry, index) => (
+                    <li key={`${entry.at}:${String(index)}`} className="timeline-entry">
                       <time dateTime={entry.at} className="timeline-time">
                         {timeFormat.format(new Date(entry.at))}
                       </time>
@@ -145,6 +154,21 @@ export function HistoryTab({ id, now }: { id: string; now: number }) {
           </div>
         )}
       </section>
+      {history.isError && (
+        <p role="status">
+          More history could not be loaded. Previously loaded observations remain visible.
+        </p>
+      )}
+      {history.hasNextPage && (
+        <Button
+          disabled={history.isFetchingNextPage}
+          onClick={() => {
+            void history.fetchNextPage()
+          }}
+        >
+          {history.isFetchingNextPage ? 'Loading older observations…' : 'Load older observations'}
+        </Button>
+      )}
     </>
   )
 }

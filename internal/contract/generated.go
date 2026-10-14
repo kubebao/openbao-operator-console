@@ -7,24 +7,30 @@ import (
 	"time"
 )
 
-// Defines values for ActivityOutcome.
+// Defines values for ActivityKind.
 const (
-	ActivityOutcomeError   ActivityOutcome = "error"
-	ActivityOutcomeInfo    ActivityOutcome = "info"
-	ActivityOutcomeSuccess ActivityOutcome = "success"
-	ActivityOutcomeWarning ActivityOutcome = "warning"
+	CollectionChanged      ActivityKind = "collectionChanged"
+	FindingRaised          ActivityKind = "findingRaised"
+	FindingResolved        ActivityKind = "findingResolved"
+	FindingSeverityChanged ActivityKind = "findingSeverityChanged"
+	HealthChanged          ActivityKind = "healthChanged"
+	Legacy                 ActivityKind = "legacy"
 )
 
-// Valid indicates whether the value is a known member of the ActivityOutcome enum.
-func (e ActivityOutcome) Valid() bool {
+// Valid indicates whether the value is a known member of the ActivityKind enum.
+func (e ActivityKind) Valid() bool {
 	switch e {
-	case ActivityOutcomeError:
+	case CollectionChanged:
 		return true
-	case ActivityOutcomeInfo:
+	case FindingRaised:
 		return true
-	case ActivityOutcomeSuccess:
+	case FindingResolved:
 		return true
-	case ActivityOutcomeWarning:
+	case FindingSeverityChanged:
+		return true
+	case HealthChanged:
+		return true
+	case Legacy:
 		return true
 	default:
 		return false
@@ -73,6 +79,60 @@ func (e ApiCapabilityState) Valid() bool {
 	case ApiCapabilityStateUnreachable:
 		return true
 	case ApiCapabilityStateUnsupported:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CollectionChangeFrom.
+const (
+	CollectionChangeFromCurrent     CollectionChangeFrom = "current"
+	CollectionChangeFromDenied      CollectionChangeFrom = "denied"
+	CollectionChangeFromStale       CollectionChangeFrom = "stale"
+	CollectionChangeFromUnreachable CollectionChangeFrom = "unreachable"
+	CollectionChangeFromUnsupported CollectionChangeFrom = "unsupported"
+)
+
+// Valid indicates whether the value is a known member of the CollectionChangeFrom enum.
+func (e CollectionChangeFrom) Valid() bool {
+	switch e {
+	case CollectionChangeFromCurrent:
+		return true
+	case CollectionChangeFromDenied:
+		return true
+	case CollectionChangeFromStale:
+		return true
+	case CollectionChangeFromUnreachable:
+		return true
+	case CollectionChangeFromUnsupported:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CollectionChangeTo.
+const (
+	CollectionChangeToCurrent     CollectionChangeTo = "current"
+	CollectionChangeToDenied      CollectionChangeTo = "denied"
+	CollectionChangeToStale       CollectionChangeTo = "stale"
+	CollectionChangeToUnreachable CollectionChangeTo = "unreachable"
+	CollectionChangeToUnsupported CollectionChangeTo = "unsupported"
+)
+
+// Valid indicates whether the value is a known member of the CollectionChangeTo enum.
+func (e CollectionChangeTo) Valid() bool {
+	switch e {
+	case CollectionChangeToCurrent:
+		return true
+	case CollectionChangeToDenied:
+		return true
+	case CollectionChangeToStale:
+		return true
+	case CollectionChangeToUnreachable:
+		return true
+	case CollectionChangeToUnsupported:
 		return true
 	default:
 		return false
@@ -379,6 +439,138 @@ func (e EvidenceProducerFreshness) Valid() bool {
 	}
 }
 
+// Defines values for FindingChangePreviousSeverity.
+const (
+	FindingChangePreviousSeverityCritical FindingChangePreviousSeverity = "critical"
+	FindingChangePreviousSeverityHigh     FindingChangePreviousSeverity = "high"
+	FindingChangePreviousSeverityInfo     FindingChangePreviousSeverity = "info"
+)
+
+// Valid indicates whether the value is a known member of the FindingChangePreviousSeverity enum.
+func (e FindingChangePreviousSeverity) Valid() bool {
+	switch e {
+	case FindingChangePreviousSeverityCritical:
+		return true
+	case FindingChangePreviousSeverityHigh:
+		return true
+	case FindingChangePreviousSeverityInfo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FindingChangeRule.
+const (
+	FindingChangeRuleBackupFailed           FindingChangeRule = "backup-failed"
+	FindingChangeRuleBackupNeverSucceeded   FindingChangeRule = "backup-never-succeeded"
+	FindingChangeRuleBackupOverdue          FindingChangeRule = "backup-overdue"
+	FindingChangeRuleCollection             FindingChangeRule = "collection"
+	FindingChangeRuleRecoveryInvestigate    FindingChangeRule = "recovery-investigate"
+	FindingChangeRuleReplicaHistoryConflict FindingChangeRule = "replica-history-conflict"
+	FindingChangeRuleReplicaReadiness       FindingChangeRule = "replica-readiness"
+	FindingChangeRuleRestoreTest            FindingChangeRule = "restore-test"
+	FindingChangeRuleSealed                 FindingChangeRule = "sealed"
+	FindingChangeRuleUpgradeFailed          FindingChangeRule = "upgrade-failed"
+)
+
+// Valid indicates whether the value is a known member of the FindingChangeRule enum.
+func (e FindingChangeRule) Valid() bool {
+	switch e {
+	case FindingChangeRuleBackupFailed:
+		return true
+	case FindingChangeRuleBackupNeverSucceeded:
+		return true
+	case FindingChangeRuleBackupOverdue:
+		return true
+	case FindingChangeRuleCollection:
+		return true
+	case FindingChangeRuleRecoveryInvestigate:
+		return true
+	case FindingChangeRuleReplicaHistoryConflict:
+		return true
+	case FindingChangeRuleReplicaReadiness:
+		return true
+	case FindingChangeRuleRestoreTest:
+		return true
+	case FindingChangeRuleSealed:
+		return true
+	case FindingChangeRuleUpgradeFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FindingChangeSeverity.
+const (
+	FindingChangeSeverityCritical FindingChangeSeverity = "critical"
+	FindingChangeSeverityHigh     FindingChangeSeverity = "high"
+	FindingChangeSeverityInfo     FindingChangeSeverity = "info"
+)
+
+// Valid indicates whether the value is a known member of the FindingChangeSeverity enum.
+func (e FindingChangeSeverity) Valid() bool {
+	switch e {
+	case FindingChangeSeverityCritical:
+		return true
+	case FindingChangeSeverityHigh:
+		return true
+	case FindingChangeSeverityInfo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HealthChangeFrom.
+const (
+	HealthChangeFromAttention HealthChangeFrom = "attention"
+	HealthChangeFromCritical  HealthChangeFrom = "critical"
+	HealthChangeFromHealthy   HealthChangeFrom = "healthy"
+	HealthChangeFromUnknown   HealthChangeFrom = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the HealthChangeFrom enum.
+func (e HealthChangeFrom) Valid() bool {
+	switch e {
+	case HealthChangeFromAttention:
+		return true
+	case HealthChangeFromCritical:
+		return true
+	case HealthChangeFromHealthy:
+		return true
+	case HealthChangeFromUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HealthChangeTo.
+const (
+	HealthChangeToAttention HealthChangeTo = "attention"
+	HealthChangeToCritical  HealthChangeTo = "critical"
+	HealthChangeToHealthy   HealthChangeTo = "healthy"
+	HealthChangeToUnknown   HealthChangeTo = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the HealthChangeTo enum.
+func (e HealthChangeTo) Valid() bool {
+	switch e {
+	case HealthChangeToAttention:
+		return true
+	case HealthChangeToCritical:
+		return true
+	case HealthChangeToHealthy:
+		return true
+	case HealthChangeToUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IdentityTrialAccessRules.
 const (
 	CarryOver IdentityTrialAccessRules = "carryOver"
@@ -553,6 +745,69 @@ func (e OperatorHealth) Valid() bool {
 	case OperatorHealthUnavailable:
 		return true
 	case OperatorHealthUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProblemType.
+const (
+	AboutBlank ProblemType = "about:blank"
+)
+
+// Valid indicates whether the value is a known member of the ProblemType enum.
+func (e ProblemType) Valid() bool {
+	switch e {
+	case AboutBlank:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProblemCode.
+const (
+	ProblemCodeConflict        ProblemCode = "conflict"
+	ProblemCodeForbidden       ProblemCode = "forbidden"
+	ProblemCodeInvalid         ProblemCode = "invalid"
+	ProblemCodeInvalidToken    ProblemCode = "invalid_token"
+	ProblemCodeNotFound        ProblemCode = "not_found"
+	ProblemCodeRateLimited     ProblemCode = "rate_limited"
+	ProblemCodeSetupComplete   ProblemCode = "setup_complete"
+	ProblemCodeSetupExpired    ProblemCode = "setup_expired"
+	ProblemCodeSetupLocked     ProblemCode = "setup_locked"
+	ProblemCodeSetupRequired   ProblemCode = "setup_required"
+	ProblemCodeUnauthenticated ProblemCode = "unauthenticated"
+	ProblemCodeUnavailable     ProblemCode = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the ProblemCode enum.
+func (e ProblemCode) Valid() bool {
+	switch e {
+	case ProblemCodeConflict:
+		return true
+	case ProblemCodeForbidden:
+		return true
+	case ProblemCodeInvalid:
+		return true
+	case ProblemCodeInvalidToken:
+		return true
+	case ProblemCodeNotFound:
+		return true
+	case ProblemCodeRateLimited:
+		return true
+	case ProblemCodeSetupComplete:
+		return true
+	case ProblemCodeSetupExpired:
+		return true
+	case ProblemCodeSetupLocked:
+		return true
+	case ProblemCodeSetupRequired:
+		return true
+	case ProblemCodeUnauthenticated:
+		return true
+	case ProblemCodeUnavailable:
 		return true
 	default:
 		return false
@@ -739,18 +994,34 @@ func (e SnapshotMode) Valid() bool {
 	}
 }
 
-// Activity defines model for Activity.
+// Activity One observed state transition of a deployment. The change object matching kind is set and the others are null. Legacy events have no structured change details and all change objects are null. Clients render the text.
 type Activity struct {
-	At           time.Time       `json:"at"`
-	DeploymentId string          `json:"deploymentId"`
-	Detail       string          `json:"detail"`
-	Id           string          `json:"id"`
-	Outcome      ActivityOutcome `json:"outcome"`
-	Title        string          `json:"title"`
+	Collection   *CollectionChange `json:"collection"`
+	ConnectionId string            `json:"connectionId"`
+	DeploymentId string            `json:"deploymentId"`
+
+	// DeploymentName The resource name when the change was recorded, or empty for an older record without a retained name. The deployment may since have been deleted.
+	DeploymentName string         `json:"deploymentName"`
+	Finding        *FindingChange `json:"finding"`
+	Health         *HealthChange  `json:"health"`
+	Id             string         `json:"id"`
+	Kind           ActivityKind   `json:"kind"`
+	Namespace      string         `json:"namespace"`
+
+	// RecordedAt The collection attempt that observed the change. The transition happened between the previous attempt and this time.
+	RecordedAt time.Time `json:"recordedAt"`
 }
 
-// ActivityOutcome defines model for Activity.Outcome.
-type ActivityOutcome string
+// ActivityKind defines model for Activity.Kind.
+type ActivityKind string
+
+// ActivityPage defines model for ActivityPage.
+type ActivityPage struct {
+	Events []Activity `json:"events"`
+
+	// NextCursor Pass as cursor to read the next, older page. Null on the last page.
+	NextCursor *string `json:"nextCursor"`
+}
 
 // ApiCapability defines model for ApiCapability.
 type ApiCapability struct {
@@ -783,6 +1054,15 @@ type Backup struct {
 	SizeBytes           *int64       `json:"sizeBytes"`
 }
 
+// BuildInfo defines model for BuildInfo.
+type BuildInfo struct {
+	// Commit Console source revision when available; empty when unknown.
+	Commit string `json:"commit"`
+
+	// Version Console build version, or dev for an unversioned build.
+	Version string `json:"version"`
+}
+
 // ClusterCredential defines model for ClusterCredential.
 type ClusterCredential struct {
 	Ca          string `json:"ca"`
@@ -791,6 +1071,18 @@ type ClusterCredential struct {
 	Server      string `json:"server"`
 	Token       string `json:"token"`
 }
+
+// CollectionChange defines model for CollectionChange.
+type CollectionChange struct {
+	From CollectionChangeFrom `json:"from"`
+	To   CollectionChangeTo   `json:"to"`
+}
+
+// CollectionChangeFrom defines model for CollectionChange.From.
+type CollectionChangeFrom string
+
+// CollectionChangeTo defines model for CollectionChange.To.
+type CollectionChangeTo string
 
 // Condition defines model for Condition.
 type Condition struct {
@@ -953,6 +1245,22 @@ type EvidenceCollection string
 // EvidenceProducerFreshness defines model for Evidence.ProducerFreshness.
 type EvidenceProducerFreshness string
 
+// FindingChange A finding identified by its rule. severity is the current severity, or the last severity of a resolved finding. previousSeverity is set only for findingSeverityChanged.
+type FindingChange struct {
+	PreviousSeverity *FindingChangePreviousSeverity `json:"previousSeverity"`
+	Rule             FindingChangeRule              `json:"rule"`
+	Severity         FindingChangeSeverity          `json:"severity"`
+}
+
+// FindingChangePreviousSeverity defines model for FindingChange.PreviousSeverity.
+type FindingChangePreviousSeverity string
+
+// FindingChangeRule defines model for FindingChange.Rule.
+type FindingChangeRule string
+
+// FindingChangeSeverity defines model for FindingChange.Severity.
+type FindingChangeSeverity string
+
 // GroupBinding defines model for GroupBinding.
 type GroupBinding struct {
 	Admin  bool    `json:"admin"`
@@ -960,8 +1268,25 @@ type GroupBinding struct {
 	Scopes []Scope `json:"scopes"`
 }
 
+// HealthChange defines model for HealthChange.
+type HealthChange struct {
+	From HealthChangeFrom `json:"from"`
+	To   HealthChangeTo   `json:"to"`
+}
+
+// HealthChangeFrom defines model for HealthChange.From.
+type HealthChangeFrom string
+
+// HealthChangeTo defines model for HealthChange.To.
+type HealthChangeTo string
+
 // History defines model for History.
 type History struct {
+	// Baseline The newest observation recorded before since: the state at the start of the window. Set only on the first page of a request with since.
+	Baseline *Observation `json:"baseline"`
+
+	// NextCursor Pass as cursor to read the next, older page. Null on the last page.
+	NextCursor   *string       `json:"nextCursor"`
 	Observations []Observation `json:"observations"`
 }
 
@@ -1116,11 +1441,23 @@ type OperatorCollection string
 // OperatorHealth defines model for Operator.Health.
 type OperatorHealth string
 
-// Problem defines model for Problem.
+// Problem RFC 9457 problem details, served as application/problem+json. Clients branch on code. The detail is safe to show to the requester.
 type Problem struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	// Code Machine-readable failure reason. Every value the server emits is listed.
+	Code   ProblemCode `json:"code"`
+	Detail string      `json:"detail"`
+	Status int         `json:"status"`
+	Title  string      `json:"title"`
+
+	// Type The console defines no problem type URIs. The title is the HTTP status phrase.
+	Type ProblemType `json:"type"`
 }
+
+// ProblemType The console defines no problem type URIs. The title is the HTTP status phrase.
+type ProblemType string
+
+// ProblemCode Machine-readable failure reason. Every value the server emits is listed.
+type ProblemCode string
 
 // ReaderAccessInput defines model for ReaderAccessInput.
 type ReaderAccessInput struct {
@@ -1248,10 +1585,12 @@ type SetupUnlock struct {
 
 // Snapshot defines model for Snapshot.
 type Snapshot struct {
-	Activity    []Activity   `json:"activity"`
-	CollectedAt time.Time    `json:"collectedAt"`
+	Build       BuildInfo    `json:"build"`
 	Connections []Connection `json:"connections"`
 	Deployments []Deployment `json:"deployments"`
+
+	// GeneratedAt When the console read this snapshot from its database. It is not a collection time: each connection, operator, and deployment reports its own collection and producer times.
+	GeneratedAt time.Time    `json:"generatedAt"`
 	Mode        SnapshotMode `json:"mode"`
 
 	// Policy Thresholds the attention rules apply to every deployment.
@@ -1275,6 +1614,57 @@ type Viewer struct {
 	ConnectionIds []string `json:"connectionIds"`
 	Name          string   `json:"name"`
 	Subject       string   `json:"subject"`
+}
+
+// Cursor defines model for Cursor.
+type Cursor = string
+
+// Limit defines model for Limit.
+type Limit = int
+
+// BadRequest RFC 9457 problem details, served as application/problem+json. Clients branch on code. The detail is safe to show to the requester.
+type BadRequest = Problem
+
+// Conflict RFC 9457 problem details, served as application/problem+json. Clients branch on code. The detail is safe to show to the requester.
+type Conflict = Problem
+
+// Forbidden RFC 9457 problem details, served as application/problem+json. Clients branch on code. The detail is safe to show to the requester.
+type Forbidden = Problem
+
+// Gone RFC 9457 problem details, served as application/problem+json. Clients branch on code. The detail is safe to show to the requester.
+type Gone = Problem
+
+// NotFound RFC 9457 problem details, served as application/problem+json. Clients branch on code. The detail is safe to show to the requester.
+type NotFound = Problem
+
+// TooManyRequests RFC 9457 problem details, served as application/problem+json. Clients branch on code. The detail is safe to show to the requester.
+type TooManyRequests = Problem
+
+// Unauthenticated RFC 9457 problem details, served as application/problem+json. Clients branch on code. The detail is safe to show to the requester.
+type Unauthenticated = Problem
+
+// Unavailable RFC 9457 problem details, served as application/problem+json. Clients branch on code. The detail is safe to show to the requester.
+type Unavailable = Problem
+
+// ListActivityParams defines parameters for ListActivity.
+type ListActivityParams struct {
+	// Limit Maximum number of items in the page.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque nextCursor of the previous page of the same list.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// GetDeploymentHistoryParams defines parameters for GetDeploymentHistory.
+type GetDeploymentHistoryParams struct {
+	// Since Return only observations recorded at or after this time.
+	Since *time.Time `form:"since,omitempty" json:"since,omitempty"`
+
+	// Limit Maximum number of items in the page.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque nextCursor of the previous page of the same list.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
 // UpdateSettingsJSONRequestBody defines body for UpdateSettings for application/json ContentType.

@@ -20,6 +20,23 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/api/v1/activity": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** @description Activity events in the viewer's scope, newest first, in pages. Authorization applies before the page limit. */
+        readonly get: operations["listActivity"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/api/v1/deployments/{id}/history": {
         readonly parameters: {
             readonly query?: never;
@@ -27,6 +44,7 @@ export interface paths {
             readonly path?: never;
             readonly cookie?: never;
         };
+        /** @description Retained observations of one visible deployment, newest first, in pages. With since, the first page also returns the newest observation recorded before since as the baseline state of the window. */
         readonly get: operations["getDeploymentHistory"];
         readonly put?: never;
         readonly post?: never;
@@ -329,15 +347,45 @@ export interface components {
             /** Format: date-time */
             readonly observedAt: string | null;
         };
+        /** @description One observed state transition of a deployment. The change object matching kind is set and the others are null. Legacy events have no structured change details and all change objects are null. Clients render the text. */
         readonly Activity: {
             readonly id: string;
             readonly deploymentId: string;
-            /** Format: date-time */
-            readonly at: string;
-            readonly title: string;
-            readonly detail: string;
+            /** @description The resource name when the change was recorded, or empty for an older record without a retained name. The deployment may since have been deleted. */
+            readonly deploymentName: string;
+            readonly connectionId: string;
+            readonly namespace: string;
+            /**
+             * Format: date-time
+             * @description The collection attempt that observed the change. The transition happened between the previous attempt and this time.
+             */
+            readonly recordedAt: string;
             /** @enum {string} */
-            readonly outcome: "success" | "warning" | "info" | "error";
+            readonly kind: "healthChanged" | "collectionChanged" | "findingRaised" | "findingResolved" | "findingSeverityChanged" | "legacy";
+            readonly health: components["schemas"]["HealthChange"] | null;
+            readonly collection: components["schemas"]["CollectionChange"] | null;
+            readonly finding: components["schemas"]["FindingChange"] | null;
+        };
+        readonly HealthChange: {
+            /** @enum {string} */
+            readonly from: "healthy" | "attention" | "critical" | "unknown";
+            /** @enum {string} */
+            readonly to: "healthy" | "attention" | "critical" | "unknown";
+        };
+        readonly CollectionChange: {
+            /** @enum {string} */
+            readonly from: "current" | "stale" | "denied" | "unreachable" | "unsupported";
+            /** @enum {string} */
+            readonly to: "current" | "stale" | "denied" | "unreachable" | "unsupported";
+        };
+        /** @description A finding identified by its rule. severity is the current severity, or the last severity of a resolved finding. previousSeverity is set only for findingSeverityChanged. */
+        readonly FindingChange: {
+            /** @enum {string} */
+            readonly rule: "replica-readiness" | "sealed" | "upgrade-failed" | "backup-failed" | "backup-never-succeeded" | "backup-overdue" | "restore-test" | "replica-history-conflict" | "recovery-investigate" | "collection";
+            /** @enum {string} */
+            readonly severity: "critical" | "high" | "info";
+            /** @enum {string|null} */
+            readonly previousSeverity: "critical" | "high" | "info" | null;
         };
         readonly Viewer: {
             readonly name: string;
@@ -348,27 +396,58 @@ export interface components {
         readonly Snapshot: {
             /** @enum {string} */
             readonly mode: "demo" | "live";
-            /** Format: date-time */
-            readonly collectedAt: string;
+            readonly build: components["schemas"]["BuildInfo"];
+            /**
+             * Format: date-time
+             * @description When the console read this snapshot from its database. It is not a collection time: each connection, operator, and deployment reports its own collection and producer times.
+             */
+            readonly generatedAt: string;
             readonly deployments: readonly components["schemas"]["Deployment"][];
             readonly connections: readonly components["schemas"]["Connection"][];
             readonly relationships: readonly components["schemas"]["Relationship"][];
-            readonly activity: readonly components["schemas"]["Activity"][];
             readonly viewer: components["schemas"]["Viewer"];
             readonly policy: components["schemas"]["AttentionPolicy"];
+        };
+        readonly BuildInfo: {
+            /** @description Console build version, or dev for an unversioned build. */
+            readonly version: string;
+            /** @description Console source revision when available; empty when unknown. */
+            readonly commit: string;
         };
         /** @description Thresholds the attention rules apply to every deployment. */
         readonly AttentionPolicy: {
             readonly maxBackupAgeHours: number;
             readonly startupGraceMinutes: number;
         };
+        readonly ActivityPage: {
+            readonly events: readonly components["schemas"]["Activity"][];
+            /** @description Pass as cursor to read the next, older page. Null on the last page. */
+            readonly nextCursor: string | null;
+        };
         readonly History: {
             readonly observations: readonly components["schemas"]["Observation"][];
+            /** @description The newest observation recorded before since: the state at the start of the window. Set only on the first page of a request with since. */
+            readonly baseline: components["schemas"]["Observation"] | null;
+            /** @description Pass as cursor to read the next, older page. Null on the last page. */
+            readonly nextCursor: string | null;
         };
+        /** @description RFC 9457 problem details, served as application/problem+json. Clients branch on code. The detail is safe to show to the requester. */
         readonly Problem: {
-            readonly code: string;
-            readonly message: string;
+            /**
+             * @description The console defines no problem type URIs. The title is the HTTP status phrase.
+             * @enum {string}
+             */
+            readonly type: "about:blank";
+            readonly title: string;
+            readonly status: number;
+            readonly detail: string;
+            readonly code: components["schemas"]["ProblemCode"];
         };
+        /**
+         * @description Machine-readable failure reason. Every value the server emits is listed.
+         * @enum {string}
+         */
+        readonly ProblemCode: "invalid" | "unauthenticated" | "invalid_token" | "setup_locked" | "forbidden" | "not_found" | "conflict" | "setup_complete" | "setup_expired" | "rate_limited" | "unavailable" | "setup_required";
         readonly Observation: {
             /** Format: date-time */
             readonly recordedAt: string;
@@ -609,8 +688,88 @@ export interface components {
             readonly credentials: readonly components["schemas"]["CredentialStatus"][];
         };
     };
-    responses: never;
-    parameters: never;
+    responses: {
+        /** @description The request or one of its values is invalid. The detail names the problem. */
+        readonly BadRequest: {
+            headers: {
+                readonly [name: string]: unknown;
+            };
+            content: {
+                readonly "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The request has no valid session, or the setup token or setup session was not accepted. */
+        readonly Unauthenticated: {
+            headers: {
+                readonly [name: string]: unknown;
+            };
+            content: {
+                readonly "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The viewer is not a console administrator, or a state-changing request did not come from the console origin. */
+        readonly Forbidden: {
+            headers: {
+                readonly [name: string]: unknown;
+            };
+            content: {
+                readonly "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The resource does not exist or is outside the viewer's scope. The two cases are indistinguishable. */
+        readonly NotFound: {
+            headers: {
+                readonly [name: string]: unknown;
+            };
+            content: {
+                readonly "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The settings revision changed, or console setup is already complete. */
+        readonly Conflict: {
+            headers: {
+                readonly [name: string]: unknown;
+            };
+            content: {
+                readonly "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The setup window expired. Restart the console with a new setup token. */
+        readonly Gone: {
+            headers: {
+                readonly [name: string]: unknown;
+            };
+            content: {
+                readonly "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description Too many setup attempts or open setup sessions. */
+        readonly TooManyRequests: {
+            headers: {
+                /** @description Seconds to wait before retrying. */
+                readonly "Retry-After"?: number;
+                readonly [name: string]: unknown;
+            };
+            content: {
+                readonly "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The database or a dependency is unavailable, or console setup must complete first. Retry later. */
+        readonly Unavailable: {
+            headers: {
+                readonly [name: string]: unknown;
+            };
+            content: {
+                readonly "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+    };
+    parameters: {
+        /** @description Maximum number of items in the page. */
+        readonly Limit: number;
+        /** @description Opaque nextCursor of the previous page of the same list. */
+        readonly Cursor: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -635,29 +794,48 @@ export interface operations {
                     readonly "application/json": components["schemas"]["Snapshot"];
                 };
             };
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 503: components["responses"]["Unavailable"];
+        };
+    };
+    readonly listActivity: {
+        readonly parameters: {
+            readonly query?: {
+                /** @description Maximum number of items in the page. */
+                readonly limit?: components["parameters"]["Limit"];
+                /** @description Opaque nextCursor of the previous page of the same list. */
+                readonly cursor?: components["parameters"]["Cursor"];
+            };
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
             /** @description Successful response */
-            readonly 401: {
+            readonly 200: {
                 headers: {
                     readonly [name: string]: unknown;
                 };
                 content: {
-                    readonly "application/json": components["schemas"]["Problem"];
+                    readonly "application/json": components["schemas"]["ActivityPage"];
                 };
             };
-            /** @description Successful response */
-            readonly 503: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 503: components["responses"]["Unavailable"];
         };
     };
     readonly getDeploymentHistory: {
         readonly parameters: {
-            readonly query?: never;
+            readonly query?: {
+                /** @description Return only observations recorded at or after this time. */
+                readonly since?: string;
+                /** @description Maximum number of items in the page. */
+                readonly limit?: components["parameters"]["Limit"];
+                /** @description Opaque nextCursor of the previous page of the same list. */
+                readonly cursor?: components["parameters"]["Cursor"];
+            };
             readonly header?: never;
             readonly path: {
                 readonly id: string;
@@ -675,15 +853,10 @@ export interface operations {
                     readonly "application/json": components["schemas"]["History"];
                 };
             };
-            /** @description Successful response */
-            readonly 404: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 404: components["responses"]["NotFound"];
+            readonly 503: components["responses"]["Unavailable"];
         };
     };
     readonly getSettings: {
@@ -704,51 +877,9 @@ export interface operations {
                     readonly "application/json": components["schemas"]["Settings"];
                 };
             };
-            /** @description Successful response */
-            readonly 400: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Successful response */
-            readonly 401: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Successful response */
-            readonly 403: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Successful response */
-            readonly 409: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Successful response */
-            readonly 503: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 503: components["responses"]["Unavailable"];
         };
     };
     readonly updateSettings: {
@@ -773,51 +904,11 @@ export interface operations {
                     readonly "application/json": components["schemas"]["Settings"];
                 };
             };
-            /** @description Successful response */
-            readonly 400: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Successful response */
-            readonly 401: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Successful response */
-            readonly 403: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Successful response */
-            readonly 409: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Successful response */
-            readonly 503: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 409: components["responses"]["Conflict"];
+            readonly 503: components["responses"]["Unavailable"];
         };
     };
     readonly checkConnection: {
@@ -842,51 +933,10 @@ export interface operations {
                     readonly "application/json": components["schemas"]["ConnectionCheckResult"];
                 };
             };
-            /** @description Successful response */
-            readonly 400: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Successful response */
-            readonly 401: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Successful response */
-            readonly 403: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Successful response */
-            readonly 409: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Successful response */
-            readonly 503: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 503: components["responses"]["Unavailable"];
         };
     };
     readonly testIdentity: {
@@ -911,51 +961,11 @@ export interface operations {
                     readonly "application/json": components["schemas"]["LoginRedirect"];
                 };
             };
-            /** @description Successful response */
-            readonly 400: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Successful response */
-            readonly 401: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Successful response */
-            readonly 403: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Successful response */
-            readonly 409: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Successful response */
-            readonly 503: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 409: components["responses"]["Conflict"];
+            readonly 503: components["responses"]["Unavailable"];
         };
     };
     readonly getSetup: {
@@ -974,60 +984,6 @@ export interface operations {
                 };
                 content: {
                     readonly "application/json": components["schemas"]["SetupStatus"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 400: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 401: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 403: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 409: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 429: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 503: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -1054,69 +1010,13 @@ export interface operations {
                     readonly "application/json": components["schemas"]["SetupStatus"];
                 };
             };
-            /** @description Request could not be completed */
-            readonly 400: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 401: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 403: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 409: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Setup window expired */
-            readonly 410: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 429: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 503: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 409: components["responses"]["Conflict"];
+            readonly 410: components["responses"]["Gone"];
+            readonly 429: components["responses"]["TooManyRequests"];
+            readonly 503: components["responses"]["Unavailable"];
         };
     };
     readonly startSetupIdentity: {
@@ -1141,69 +1041,13 @@ export interface operations {
                     readonly "application/json": components["schemas"]["LoginRedirect"];
                 };
             };
-            /** @description Request could not be completed */
-            readonly 400: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 401: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 403: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 409: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Setup window expired */
-            readonly 410: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 429: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 503: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 409: components["responses"]["Conflict"];
+            readonly 410: components["responses"]["Gone"];
+            readonly 429: components["responses"]["TooManyRequests"];
+            readonly 503: components["responses"]["Unavailable"];
         };
     };
     readonly lockSetup: {
@@ -1224,60 +1068,8 @@ export interface operations {
                     readonly "application/json": components["schemas"]["SetupStatus"];
                 };
             };
-            /** @description Request could not be completed */
-            readonly 400: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 401: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 403: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 409: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 429: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 503: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 409: components["responses"]["Conflict"];
         };
     };
     readonly generateReaderAccess: {
@@ -1302,60 +1094,10 @@ export interface operations {
                     readonly "application/json": components["schemas"]["ReaderAccessResult"];
                 };
             };
-            /** @description Request could not be completed */
-            readonly 400: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 401: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 403: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 409: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 429: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Request could not be completed */
-            readonly 503: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content: {
-                    readonly "application/json": components["schemas"]["Problem"];
-                };
-            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 503: components["responses"]["Unavailable"];
         };
     };
     readonly getCredentialStatuses: {
@@ -1376,27 +1118,9 @@ export interface operations {
                     readonly "application/json": components["schemas"]["CredentialStatuses"];
                 };
             };
-            /** @description Sign in required */
-            readonly 401: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Administrator access required */
-            readonly 403: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Settings unavailable */
-            readonly 503: {
-                headers: {
-                    readonly [name: string]: unknown;
-                };
-                content?: never;
-            };
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 503: components["responses"]["Unavailable"];
         };
     };
 }

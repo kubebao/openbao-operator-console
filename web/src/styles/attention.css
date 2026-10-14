@@ -90,7 +90,7 @@
 }
 
 .bar-attention {
-  background: #e6b654;
+  background: var(--amber-fill);
 }
 
 .bar-critical {
@@ -136,7 +136,7 @@
   color: var(--amber);
 }
 
-.activity-error {
+.activity-critical {
   background: var(--red-soft);
   color: var(--red);
 }

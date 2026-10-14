@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { ArrowRight, RefreshCw } from 'lucide-react'
-import { useSnapshot } from '../api/client'
+import { useActivity, useSnapshot } from '../api/client'
 import type { Snapshot } from '../api/schema'
 import { EvidenceBanners } from '../components/attention/evidence-banners'
 import { FleetOverview } from '../components/attention/fleet-overview'
@@ -32,6 +32,10 @@ function InitialFleet({ snapshot }: { snapshot: Snapshot }) {
 
 export function AttentionPage() {
   const { data: snapshot, refetch } = useSnapshot()
+  const activity = useActivity(Boolean(snapshot))
+  let activityStatus = 'No changes recorded.'
+  if (activity.isPending) activityStatus = 'Loading recorded activity…'
+  if (activity.isError) activityStatus = 'Recorded activity is unavailable.'
   if (!snapshot) return null
   if (snapshot.mode === 'live' && snapshot.connections.length === 0)
     return <InitialFleet snapshot={snapshot} />
@@ -75,10 +79,10 @@ export function AttentionPage() {
               <ArrowRight size={15} />
             </Link>
           </div>
-          {snapshot.activity.length ? (
-            <RecentActivity snapshot={snapshot} />
+          {activity.data?.length ? (
+            <RecentActivity events={activity.data.slice(0, 5)} />
           ) : (
-            <p className="muted">No changes recorded.</p>
+            <p className="muted">{activityStatus}</p>
           )}
         </section>
       </div>

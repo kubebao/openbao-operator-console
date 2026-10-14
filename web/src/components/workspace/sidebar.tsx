@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { Activity, Bell, Boxes, Cable, GitBranch, Settings2 } from 'lucide-react'
 import type { Snapshot } from '../../api/schema'
+import { initials } from '../../lib/format'
 import { Brand } from '../brand'
 
 export function Sidebar({
@@ -49,21 +50,39 @@ export function Sidebar({
           </Link>
         )}
       </nav>
-      <div className="sidebar-bottom">
-        <div className="profile">
-          <div className="avatar">PT</div>
-          <div>
-            <strong>{snapshot?.viewer.name ?? 'Platform team'}</strong>
-            {snapshot?.mode === 'live' && (
-              <form method="post" action="/auth/logout">
-                <button className="sign-out" type="submit">
-                  Sign out
-                </button>
-              </form>
+      {snapshot && (
+        <div className="sidebar-bottom">
+          <Profile viewer={snapshot.viewer} live={snapshot.mode === 'live'} />
+          <p className="build-version">
+            <span>Console {snapshot.build.version}</span>
+            {snapshot.build.commit && (
+              <code title={`Commit ${snapshot.build.commit}`}>
+                {snapshot.build.commit.slice(0, 12)}
+              </code>
             )}
-          </div>
+          </p>
         </div>
-      </div>
+      )}
     </aside>
+  )
+}
+
+function Profile({ viewer, live }: { viewer: Snapshot['viewer']; live: boolean }) {
+  return (
+    <div className="profile">
+      <div className="avatar" aria-hidden="true">
+        {initials(viewer)}
+      </div>
+      <div>
+        <strong title={viewer.subject}>{viewer.name || viewer.subject}</strong>
+        {live && (
+          <form method="post" action="/auth/logout">
+            <button className="sign-out" type="submit">
+              Sign out
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
   )
 }

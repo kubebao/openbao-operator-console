@@ -1,28 +1,33 @@
 import type { Deployment } from '../api/schema'
 
-export type UpgradeState = 'settled' | 'upgrading' | 'failed'
+export type UpgradeState = 'settled' | 'upgrading' | 'failed' | 'unknown'
 
 // Upgrade state from public fields only: a recorded failure, the Upgrading condition, or a
-// requested version that differs from the running version.
+// requested version that differs from the running version. Without both versions the
+// upgrade cannot be assessed and stays unknown.
 export function upgradeState(deployment: Deployment): UpgradeState {
   if (deployment.upgradeFailure) return 'failed'
   const upgrading = deployment.conditions.some(
     (condition) => condition.type === 'Upgrading' && condition.status === 'True',
   )
-  if (
-    upgrading ||
-    (deployment.desiredVersion !== '' &&
-      deployment.version !== '' &&
-      deployment.desiredVersion !== deployment.version)
-  )
-    return 'upgrading'
-  return 'settled'
+  if (upgrading) return 'upgrading'
+  if (deployment.desiredVersion === '' || deployment.version === '') return 'unknown'
+  return deployment.desiredVersion === deployment.version ? 'settled' : 'upgrading'
 }
 
 export const upgradeLabels: Record<UpgradeState, string> = {
   settled: 'Settled',
   upgrading: 'In progress',
   failed: 'Failed',
+  unknown: 'Unknown',
+}
+
+// Short upgrade summaries for compact views.
+export const upgradeSummaries: Record<UpgradeState, string> = {
+  settled: 'Upgrade settled',
+  upgrading: 'Upgrade in progress',
+  failed: 'Upgrade failed',
+  unknown: 'Upgrade state unknown',
 }
 
 // The newest resource generation that the operator has reported conditions for, or null

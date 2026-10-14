@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/kubebao/openbao-operator-console/internal/config"
+	"github.com/kubebao/openbao-operator-console/internal/contract"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
@@ -15,7 +16,7 @@ import (
 // cause is only classified for the server log; it never reaches the response.
 type problemError struct {
 	status  int
-	code    string
+	code    contract.ProblemCode
 	message string
 	cause   error
 }

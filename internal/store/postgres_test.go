@@ -38,7 +38,7 @@ func TestPostgresRetainsFirstSeenAcrossRestartAndFailedCollection(t *testing.T) 
 	if err := p.Apply(ctx, batch); err != nil {
 		t.Fatal(err)
 	}
-	if history, err := p.History(ctx, id); err != nil || len(history) != 1 {
+	if history, err := firstHistory(p, ctx, id); err != nil || len(history) != 1 {
 		t.Fatalf("resource version churn was recorded: %v %d", err, len(history))
 	}
 	p.Close()
@@ -62,7 +62,7 @@ func TestPostgresRetainsFirstSeenAcrossRestartAndFailedCollection(t *testing.T) 
 			!got.Issues[0].FirstSeenAt.Equal(now) {
 			t.Fatalf("lost durable evidence: %#v", got)
 		}
-		history, err := p.History(ctx, id)
+		history, err := firstHistory(p, ctx, id)
 		if err != nil || len(history) != 2 {
 			t.Fatalf("history not retained: %v %#v", err, history)
 		}

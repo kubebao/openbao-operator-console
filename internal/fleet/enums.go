@@ -228,11 +228,14 @@ const (
 	ProvenanceHistorical Provenance = "historical"
 )
 
-type ActivityOutcome string
+// ActivityKind names the transition an activity event records.
+type ActivityKind string
 
 const (
-	ActivityOutcomeSuccess ActivityOutcome = "success"
-	ActivityOutcomeInfo    ActivityOutcome = "info"
-	ActivityOutcomeWarning ActivityOutcome = "warning"
-	ActivityOutcomeError   ActivityOutcome = "error"
+	ActivityHealthChanged          ActivityKind = "healthChanged"
+	ActivityCollectionChanged      ActivityKind = "collectionChanged"
+	ActivityFindingRaised          ActivityKind = "findingRaised"
+	ActivityFindingResolved        ActivityKind = "findingResolved"
+	ActivityFindingSeverityChanged ActivityKind = "findingSeverityChanged"
+	ActivityLegacy                 ActivityKind = "legacy"
 )
