@@ -1,0 +1,72 @@
+# Values that enable every optional template branch for chart linting and rendering.
+image:
+  digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+imagePullSecrets:
+  - name: registry-credentials
+existingSecret: console-runtime
+database:
+  urlSecret: console-db-app
+  urlKey: uri
+  sslMode: verify-full
+  caSecret: console-db-ca
+historyRetention: 336h
+setup:
+  tokenSecret: console-setup
+bootstrapAdminSubjects: [first-administrator]
+oidcCA:
+  configMap: identity-ca
+serviceAccount:
+  annotations:
+    example.com/owner: platform
+readerNamespaces: [openbao-team-a]
+operatorReaders:
+  - namespace: openbao-operator-system
+    deployments: [openbao-operator-controller]
+kubeconfigSecrets:
+  - name: remote-reader
+    mountPath: /etc/console/kubeconfigs/remote
+podAnnotations:
+  example.com/scrape: "false"
+podLabels:
+  example.com/team: platform
+nodeSelector:
+  kubernetes.io/os: linux
+tolerations:
+  - key: dedicated
+    operator: Equal
+    value: platform
+    effect: NoSchedule
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 1
+        podAffinityTerm:
+          topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: openbao-operator-console
+service:
+  annotations:
+    example.com/service: console
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 1m
+  host: console.example.com
+  tlsSecret: console-tls
+networkPolicy:
+  enabled: true
+  ingressFrom:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+  egress:
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8

@@ -1,0 +1,7 @@
+# Artifact Hub repository metadata for the OCI chart repository:
+# oci://ghcr.io/kubebao/charts/openbao-operator-console
+# Add the repositoryID that Artifact Hub assigns after the repository is registered,
+# then push this file to the registry as described in docs/releasing.md.
+owners:
+  - name: dc-tec
+    email: roel@decort.tech

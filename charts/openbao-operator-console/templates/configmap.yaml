@@ -1,7 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Release.Name }}-enrollment
+  name: {{ include "console.fullname" . }}-enrollment
+  labels:
+    {{- include "console.labels" . | nindent 4 }}
 data:
   enrollment.yaml: |
     {{- toYaml .Values.enrollment | nindent 4 }}

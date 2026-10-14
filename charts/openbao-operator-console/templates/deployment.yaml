@@ -1,7 +1,10 @@
+{{- $secret := required "existingSecret is required" .Values.existingSecret }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}
+  name: {{ include "console.fullname" . }}
+  labels:
+    {{- include "console.labels" . | nindent 4 }}
 spec:
   # Sessions are local to this process. A restart requires a new login.
   replicas: 1
@@ -9,15 +12,25 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- include "console.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/instance: {{ .Release.Name }}
+        {{- include "console.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       annotations:
         checksum/enrollment: {{ toJson .Values.enrollment | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
-      serviceAccountName: {{ .Release.Name }}
+      serviceAccountName: {{ include "console.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
@@ -27,13 +40,13 @@ spec:
           type: RuntimeDefault
       containers:
         - name: console
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: {{ include "console.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - --mode=live
             - --listen=0.0.0.0:8090
             - --config=/etc/console/enrollment.yaml
-            - --reader-name={{ .Release.Name }}
+            - --reader-name={{ include "console.serviceAccountName" . }}
             - --reader-namespace={{ .Release.Namespace }}
           ports:
             - name: http
@@ -54,14 +67,29 @@ spec:
             - name: CONSOLE_BOOTSTRAP_ADMIN_SUBJECTS
               value: {{ join "," .Values.bootstrapAdminSubjects | quote }}
             {{- end }}
-            {{- $secret := required "existingSecret is required" .Values.existingSecret }}
-            {{- range $key := list "DATABASE_URL" "OIDC_REDIRECT_URL" }}
-            - name: CONSOLE_{{ $key }}
+            {{- if .Values.historyRetention }}
+            - name: CONSOLE_HISTORY_RETENTION
+              value: {{ .Values.historyRetention | quote }}
+            {{- end }}
+            - name: CONSOLE_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.urlSecret | default $secret }}
+                  key: {{ required "database.urlKey is required" .Values.database.urlKey }}
+            # libpq environment defaults. Parameters in the connection URL take precedence.
+            {{- if .Values.database.sslMode }}
+            - name: PGSSLMODE
+              value: {{ .Values.database.sslMode | quote }}
+            {{- end }}
+            {{- if .Values.database.caSecret }}
+            - name: PGSSLROOTCERT
+              value: /etc/console/database/ca.crt
+            {{- end }}
+            - name: CONSOLE_OIDC_REDIRECT_URL
               valueFrom:
                 secretKeyRef:
                   name: {{ $secret }}
-                  key: {{ $key }}
-            {{- end }}
+                  key: OIDC_REDIRECT_URL
             {{- range $key := list "OIDC_ISSUER" "OIDC_CLIENT_ID" "OIDC_CLIENT_SECRET" }}
             - name: CONSOLE_{{ $key }}
               valueFrom:
@@ -74,7 +102,8 @@ spec:
             - name: CONSOLE_OIDC_CA_FILE
               value: /etc/console/oidc/ca.crt
             {{- end }}
-          resources: {{ toYaml .Values.resources | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
           readinessProbe:
             httpGet:
               path: /readyz
@@ -107,22 +136,27 @@ spec:
               mountPath: /etc/console/oidc
               readOnly: true
             {{- end }}
-            {{- range $i, $secret := .Values.kubeconfigSecrets }}
+            {{- if .Values.database.caSecret }}
+            - name: database-ca
+              mountPath: /etc/console/database
+              readOnly: true
+            {{- end }}
+            {{- range $i, $kubeconfig := .Values.kubeconfigSecrets }}
             - name: kubeconfig-{{ $i }}
-              mountPath: {{ $secret.mountPath }}
+              mountPath: {{ required "kubeconfigSecrets[].mountPath is required" $kubeconfig.mountPath }}
               readOnly: true
             {{- end }}
       volumes:
         - name: configuration-key
           secret:
-            secretName: {{ .Values.existingSecret }}
+            secretName: {{ $secret }}
             defaultMode: 0440
             items:
               - key: CONFIG_KEY
                 path: config-key
         - name: enrollment
           configMap:
-            name: {{ .Release.Name }}-enrollment
+            name: {{ include "console.fullname" . }}-enrollment
         {{- if .Values.setup.tokenSecret }}
         - name: setup-token
           secret:
@@ -140,8 +174,30 @@ spec:
               - key: {{ .Values.oidcCA.key }}
                 path: ca.crt
         {{- end }}
-        {{- range $i, $secret := .Values.kubeconfigSecrets }}
+        {{- if .Values.database.caSecret }}
+        - name: database-ca
+          secret:
+            secretName: {{ .Values.database.caSecret }}
+            defaultMode: 0440
+            items:
+              - key: {{ .Values.database.caKey }}
+                path: ca.crt
+        {{- end }}
+        {{- range $i, $kubeconfig := .Values.kubeconfigSecrets }}
         - name: kubeconfig-{{ $i }}
           secret:
-            secretName: {{ $secret.name }}
+            secretName: {{ required "kubeconfigSecrets[].name is required" $kubeconfig.name }}
+            defaultMode: 0440
         {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

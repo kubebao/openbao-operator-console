@@ -1,14 +1,15 @@
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: {{ .Release.Name }}
+{{- $fullname := include "console.fullname" . }}
+{{- $serviceAccount := include "console.serviceAccountName" . }}
+{{- $labels := include "console.labels" . }}
 {{- range .Values.readerNamespaces }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ $.Release.Name }}-reader
+  name: {{ $fullname }}-reader
   namespace: {{ . }}
+  labels:
+    {{- $labels | nindent 4 }}
 rules:
   - apiGroups: ["openbao.org"]
     resources: ["openbaoclusters", "openbaorestores", "openbaorecoveries"]
@@ -17,24 +18,28 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ $.Release.Name }}-reader
+  name: {{ $fullname }}-reader
   namespace: {{ . }}
+  labels:
+    {{- $labels | nindent 4 }}
 subjects:
   - kind: ServiceAccount
-    name: {{ $.Release.Name }}
+    name: {{ $serviceAccount }}
     namespace: {{ $.Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ $.Release.Name }}-reader
+  name: {{ $fullname }}-reader
 {{- end }}
 {{- range .Values.operatorReaders }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ $.Release.Name }}-operator-reader
+  name: {{ $fullname }}-operator-reader
   namespace: {{ .namespace }}
+  labels:
+    {{- $labels | nindent 4 }}
 rules:
   - apiGroups: ["apps"]
     resources: ["deployments"]
@@ -44,14 +49,16 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ $.Release.Name }}-operator-reader
+  name: {{ $fullname }}-operator-reader
   namespace: {{ .namespace }}
+  labels:
+    {{- $labels | nindent 4 }}
 subjects:
   - kind: ServiceAccount
-    name: {{ $.Release.Name }}
+    name: {{ $serviceAccount }}
     namespace: {{ $.Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ $.Release.Name }}-operator-reader
+  name: {{ $fullname }}-operator-reader
 {{- end }}

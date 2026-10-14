@@ -1,0 +1,276 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpenBao Operator Console Helm chart values",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "global": {
+      "type": "object",
+      "description": "Values shared with parent charts. Not used by this chart."
+    },
+    "nameOverride": {
+      "type": "string",
+      "description": "Override the chart name used in resource names and labels."
+    },
+    "fullnameOverride": {
+      "type": "string",
+      "description": "Override the full resource name."
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "pullPolicy"],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Console image repository."
+        },
+        "tag": {
+          "type": "string",
+          "description": "Image tag. Defaults to the chart appVersion."
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^(sha256:[a-f0-9]{64})?$",
+          "description": "Image digest. Takes precedence over tag."
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        }
+      }
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "description": "Secrets for pulling the image.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "existingSecret": {
+      "type": "string",
+      "description": "Required. Secret with OIDC_REDIRECT_URL, CONFIG_KEY, and DATABASE_URL unless database.urlSecret is set."
+    },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "urlSecret": {
+          "type": "string",
+          "description": "Secret with the PostgreSQL connection URL. Defaults to existingSecret."
+        },
+        "urlKey": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Key of the connection URL."
+        },
+        "sslMode": {
+          "type": "string",
+          "enum": ["", "disable", "allow", "prefer", "require", "verify-ca", "verify-full"],
+          "description": "Default TLS mode exported as PGSSLMODE. An sslmode parameter in the URL takes precedence."
+        },
+        "caSecret": {
+          "type": "string",
+          "description": "Secret with the PostgreSQL server CA certificate, exported as PGSSLROOTCERT."
+        },
+        "caKey": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Key of the CA certificate in caSecret."
+        }
+      }
+    },
+    "historyRetention": {
+      "type": "string",
+      "pattern": "^(([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+)?$",
+      "description": "How long observation history and activity are kept, as a Go duration from 1h to 8760h. Empty uses the console default of 168h."
+    },
+    "setup": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tokenSecret": {
+          "type": "string",
+          "description": "Secret with the setup token for protected browser setup. Remove after setup."
+        },
+        "tokenKey": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Key of the setup token in tokenSecret."
+        }
+      }
+    },
+    "bootstrapAdminSubjects": {
+      "type": "array",
+      "description": "OIDC subjects granted administrator access on the first start.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "oidcCA": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "configMap": {
+          "type": "string",
+          "description": "ConfigMap with a private CA bundle for the identity provider."
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Key of the CA bundle in configMap."
+        }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "create": {
+          "type": "boolean",
+          "description": "Create the ServiceAccount."
+        },
+        "name": {
+          "type": "string",
+          "description": "ServiceAccount name. Defaults to the full resource name. Required when create is false."
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "readerNamespaces": {
+      "type": "array",
+      "description": "Namespaces on the hosting cluster where the ServiceAccount may list OpenBao resources.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "operatorReaders": {
+      "type": "array",
+      "description": "Named operator Deployments on the hosting cluster, one entry per namespace.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["namespace", "deployments"],
+        "properties": {
+          "namespace": { "type": "string", "minLength": 1 },
+          "deployments": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "enrollment": {
+      "type": "object",
+      "description": "First-start seed. The console validates its contents and ignores it after initialization.",
+      "additionalProperties": false,
+      "properties": {
+        "maxBackupAgeHours": { "type": "integer", "minimum": 1 },
+        "startupGraceMinutes": { "type": "integer", "minimum": 0 },
+        "connections": { "type": "array", "items": { "type": "object" } },
+        "users": { "type": "array", "items": { "type": "object" } },
+        "groups": { "type": "array", "items": { "type": "object" } },
+        "relationships": { "type": "array", "items": { "type": "object" } },
+        "identity": { "type": "object" }
+      }
+    },
+    "kubeconfigSecrets": {
+      "type": "array",
+      "description": "Secrets with remote reader kubeconfigs.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "mountPath"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "mountPath": { "type": "string", "pattern": "^/" }
+        }
+      }
+    },
+    "podAnnotations": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "podLabels": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "resources": {
+      "type": "object",
+      "description": "Container resource requests and limits."
+    },
+    "nodeSelector": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "tolerations": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "affinity": {
+      "type": "object"
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["ClusterIP", "NodePort", "LoadBalancer"]
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "className": { "type": "string" },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "host": {
+          "type": "string",
+          "description": "Public host name. Required when the Ingress is enabled."
+        },
+        "tlsSecret": {
+          "type": "string",
+          "description": "TLS Secret for the host. Required when the Ingress is enabled."
+        }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "ingressFrom": {
+          "type": "array",
+          "description": "NetworkPolicy peers allowed to reach the console port. Empty allows every source on that port.",
+          "items": { "type": "object" }
+        },
+        "egress": {
+          "type": "array",
+          "description": "NetworkPolicy egress rules. Empty leaves egress unrestricted.",
+          "items": { "type": "object" }
+        }
+      }
+    }
+  }
+}

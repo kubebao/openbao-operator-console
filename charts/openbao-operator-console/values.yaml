@@ -1,13 +1,47 @@
+# Override the chart name used in resource names and labels.
+nameOverride: ""
+# Override the full resource name. Defaults to the release name, followed by the chart
+# name unless the release name already contains it.
+fullnameOverride: ""
+
 image:
-  repository: openbao-operator-console
-  tag: local
+  repository: ghcr.io/kubebao/openbao-operator-console
+  # Defaults to the chart appVersion.
+  tag: ""
+  # Optional image digest, such as sha256:<hex>. Takes precedence over tag.
+  digest: ""
   pullPolicy: IfNotPresent
 
-# Must contain DATABASE_URL, OIDC_REDIRECT_URL, and CONFIG_KEY (32 raw random bytes).
+# Secrets for pulling the image from a private registry.
+imagePullSecrets: []
+# - name: registry-credentials
+
+# Must contain OIDC_REDIRECT_URL and CONFIG_KEY (32 raw random bytes), and
+# DATABASE_URL unless database.urlSecret is set.
 # Optional OIDC_ISSUER, OIDC_CLIENT_ID, and OIDC_CLIENT_SECRET seed first-start SSO.
 # The database key must survive upgrades and be backed up separately.
 # OIDC settings seed the first start; OIDC_REDIRECT_URL remains a deployment setting.
 existingSecret: ""
+
+# PostgreSQL connection. By default, the URL is read from existingSecret.
+# Reference a Secret managed by the database provider so that the console reads
+# its current value at each start. For CloudNativePG, use "<cluster>-app" and "uri".
+# The console reads the URL and CA at startup; restart it after either changes.
+database:
+  urlSecret: ""
+  urlKey: DATABASE_URL
+  # Default TLS mode, exported as PGSSLMODE. An sslmode parameter in the URL takes
+  # precedence. Set "" to use the driver default (prefer), which does not verify the server.
+  sslMode: verify-full
+  # Secret with the CA certificate that signed the server certificate, exported as
+  # PGSSLROOTCERT. Without it, verification uses the image's system CA bundle.
+  # An sslrootcert parameter in the URL takes precedence.
+  caSecret: ""
+  caKey: ca.crt
+
+# How long observation history and activity are kept, as a Go duration from 1h to 8760h.
+# Empty uses the console default of 168h (seven days).
+historyRetention: ""
 
 # Required for browser setup on an empty database without seeded SSO.
 # The referenced key contains 32 random bytes encoded as hexadecimal or URL-safe
@@ -26,6 +60,13 @@ bootstrapAdminSubjects: []
 oidcCA:
   configMap: ""
   key: ca.crt
+
+serviceAccount:
+  # Create the ServiceAccount. When false, set name to an existing ServiceAccount.
+  create: true
+  # Defaults to the full resource name.
+  name: ""
+  annotations: {}
 
 # The backend uses this ServiceAccount for connections without a kubeconfig.
 # Grant list access only in enrolled namespaces on this Kubernetes cluster.
@@ -51,6 +92,9 @@ kubeconfigSecrets: []
 # - name: remote-reader
 #   mountPath: /etc/console/kubeconfigs/remote
 
+podAnnotations: {}
+podLabels: {}
+
 resources:
   requests:
     cpu: 100m
@@ -59,8 +103,31 @@ resources:
     cpu: "1"
     memory: 512Mi
 
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+service:
+  type: ClusterIP
+  port: 8090
+  annotations: {}
+
 ingress:
   enabled: false
   className: ""
+  annotations: {}
   host: ""
   tlsSecret: ""
+
+# Restrict traffic to the console Pod. Requires a CNI plugin that enforces NetworkPolicy.
+networkPolicy:
+  enabled: false
+  # Sources allowed to reach the console port, as NetworkPolicy peers. An empty list
+  # allows every source on the console port only.
+  ingressFrom: []
+  # - namespaceSelector:
+  #     matchLabels:
+  #       kubernetes.io/metadata.name: ingress-nginx
+  # Egress rules. An empty list leaves egress unrestricted. When set, allow DNS,
+  # PostgreSQL, the identity provider, and every Kubernetes API server the console reads.
+  egress: []

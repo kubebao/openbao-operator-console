@@ -1,0 +1,49 @@
+The OpenBao Operator Console is installed as {{ include "console.fullname" . }} in namespace {{ .Release.Namespace }}.
+
+Check that it is ready:
+
+  kubectl --namespace {{ .Release.Namespace }} rollout status deployment/{{ include "console.fullname" . }}
+
+{{- if .Values.ingress.enabled }}
+
+Open the console at:
+
+  https://{{ .Values.ingress.host }}
+{{- else }}
+
+No Ingress was created. Route HTTPS traffic to the {{ include "console.fullname" . }} Service on port
+{{ .Values.service.port }} through your ingress controller or Gateway. The OIDC_REDIRECT_URL in the runtime
+Secret must use that public HTTPS address. For a local check of /readyz only:
+
+  kubectl --namespace {{ .Release.Namespace }} port-forward service/{{ include "console.fullname" . }} 8090:{{ .Values.service.port }}
+  curl --fail http://127.0.0.1:8090/readyz
+{{- end }}
+
+First administrator:
+{{- if .Values.setup.tokenSecret }}
+
+  Browser setup is enabled with the setup token in Secret {{ .Values.setup.tokenSecret }}.
+  1. Open the console. On an empty database it redirects to /setup.
+  2. Enter the setup token, register the displayed callback URL with your OpenID Connect provider,
+     and select "Verify with login" as the account that becomes the first administrator.
+  3. After you have signed in as administrator, remove the token. It stays mounted until you do:
+
+       helm upgrade {{ .Release.Name }} <chart> --namespace {{ .Release.Namespace }} --reuse-values --set setup.tokenSecret=""
+       kubectl --namespace {{ .Release.Namespace }} delete secret {{ .Values.setup.tokenSecret }}
+
+  The setup window lasts one hour from startup. If it expires, create a new token and restart the console.
+{{- else if .Values.bootstrapAdminSubjects }}
+
+  Automated bootstrap is configured. Sign in with an OIDC subject listed in bootstrapAdminSubjects.
+  The runtime Secret must contain OIDC_ISSUER, OIDC_CLIENT_ID, and OIDC_CLIENT_SECRET.
+{{- else }}
+
+  An initialized database loads its stored configuration. For a new database, choose one method:
+  - set setup.tokenSecret for protected browser setup, or
+  - set bootstrapAdminSubjects and add OIDC_* keys to the runtime Secret for automated bootstrap.
+{{- end }}
+
+Back up PostgreSQL and the CONFIG_KEY in Secret {{ .Values.existingSecret }}. A restored database cannot be read
+without the matching key.
+
+Documentation: https://github.com/kubebao/openbao-operator-console/tree/main/docs

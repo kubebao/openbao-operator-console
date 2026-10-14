@@ -1,7 +1,15 @@
 .git
+.github
+.claude
 .local
 .state
+.env
 bin
+coverage
+docs
+examples
+charts
+*.tsbuildinfo
 web/node_modules
 web/dist
 web/test-results
