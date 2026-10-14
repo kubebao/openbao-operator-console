@@ -56,8 +56,14 @@ Open <http://127.0.0.1:8090>.
 | `make e2e` | Chromium workflows through the development server |
 | `make e2e-production` | The same workflows through the compiled Go application and its content security policy |
 | `make integration` | PostgreSQL persistence; optional Kubernetes, Keycloak, and renewal checks |
-| `make helm-check` | Helm lint and template rendering |
+| `make helm-check` | Strict Helm lint and rendering with each `charts/openbao-operator-console/ci/*-values.yaml` file, and values schema rejection checks |
 | `make screenshots` | Regenerates the README screenshots in `docs/images` from demo data |
+| `make build` | Web assets and `bin/console`, with the version from `git describe` and the commit embedded |
+| `make image` | Container image for the local platform; set `IMAGE` to choose the tag |
+| `make licenses` | Regenerates `THIRD_PARTY_LICENSES` from Go and production web dependencies |
+| `make check-licenses` | Fails when `THIRD_PARTY_LICENSES` is out of date |
+| `make vulncheck` | `govulncheck` for reachable vulnerabilities in Go code and the standard library |
+| `make audit` | `pnpm audit` for production web dependencies |
 
 Install the test browser before the first browser run:
 
@@ -65,8 +71,29 @@ Install the test browser before the first browser run:
 PLAYWRIGHT_SKIP_BROWSER_GC=1 pnpm --dir web exec playwright install chromium
 ```
 
-The workflow in `.github/workflows/check.yml` runs generated-code drift, `make check`, PostgreSQL integration, the build,
-and browser tests. It does not publish an image.
+## Continuous integration
+
+`.github/workflows/check.yml` runs on every pull request and push to `main`. A newer push to a pull request cancels the
+running checks. The jobs run in parallel:
+
+| Job | Runs |
+| --- | --- |
+| Go | `make lint`, `go test -race ./...`, and `make integration` against a PostgreSQL 18 service |
+| Web | Type checking, oxlint, Prettier, unit tests, and the production build |
+| E2E (development) | `make e2e` |
+| E2E (production) | `make e2e-production` |
+| Generated code | `make check-generated` |
+| Third-party licenses | `make check-licenses` |
+| Helm (v3 and v4) | `make helm-check` and chart-testing `ct lint` with `.github/ct.yaml` |
+| Go vulnerabilities | `make vulncheck` |
+| Web dependency audit | `make audit` |
+| Container image | A `linux/amd64` and `linux/arm64` Buildx build without push |
+
+Other workflows run CodeQL for Go and TypeScript, OpenSSF Scorecard, and dependency review on pull requests. Every
+action is pinned to a commit SHA, and workflows default to read-only repository permissions. Dependabot proposes weekly
+updates for Go modules, web dependencies, actions, and base images.
+
+Releases are automated with Release Please and publish signed images and charts. See [releases](releasing.md).
 
 ## Generated code
 
@@ -94,8 +121,8 @@ export CONSOLE_TEST_DATABASE_URL='postgres://console:console-local-only@127.0.0.
 make integration
 ```
 
-Integration tests require a database named `console_test` and reject other names. `docker compose down` keeps the
-named volume; remove it only when its data is disposable.
+Integration tests require a database named `console_test` and reject other names. `docker compose down` keeps the named
+volume; remove it only when its data is disposable.
 
 ## Isolated Kubernetes test
 
@@ -121,8 +148,8 @@ export CONSOLE_TEST_KUBECONFIG="$PWD/.local/reader-kubeconfig"
 make integration
 ```
 
-The test reads only `console-sample` and expects the `console-bao` resource to declare OpenBao 2.7.0 and one replica.
-It does not run a restore or recovery. Delete the kind cluster when you are done:
+The test reads only `console-sample` and expects the `console-bao` resource to declare OpenBao 2.7.0 and one replica. It
+does not run a restore or recovery. Delete the kind cluster when you are done:
 
 ```sh
 kind delete cluster --name console-dev --kubeconfig .local/kubeconfig
@@ -166,8 +193,12 @@ docker compose --env-file .local/keycloak/compose.env -f compose.keycloak.yaml d
 ## Container image
 
 ```sh
-docker build -t openbao-operator-console:local .
+make image
+docker buildx build --platform linux/amd64,linux/arm64 .
 ```
 
-The multi-stage build compiles the web application and Go binary from pinned base images and produces a distroless,
-non-root image.
+The multi-stage build compiles the web application and Go binary from digest-pinned base images and produces a
+distroless image that runs as user and group 65532. The build stages run on the build platform and cross-compile for the
+target platform, so a multi-platform build needs no emulation. Corepack installs the pnpm version from the
+`packageManager` field in `web/package.json`. The `VERSION` and `COMMIT` build arguments set the embedded build
+information and the OCI image labels.

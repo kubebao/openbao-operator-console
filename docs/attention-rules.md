@@ -4,8 +4,8 @@ The console evaluates each collected OpenBao deployment against a fixed set of r
 finding with a severity. Findings appear in **Attention**, mark the matching tab on the deployment page, and highlight
 the evidence rows that triggered them.
 
-The overview tiles group findings by availability, backups, restore tests, and lifecycle. The History tab lists
-every recorded change, including when each finding was raised or resolved.
+The overview tiles group findings by availability, backups, restore tests, and lifecycle. The History tab lists every
+recorded change, including when each finding was raised or resolved.
 
 Rules use current evidence only. When collection fails, the console keeps the last known findings and adds a collection
 finding instead of treating missing evidence as recovery.
@@ -50,13 +50,14 @@ Administrators set two thresholds in **Settings → Policies**:
 
 ## Collection and freshness
 
-The collector reads every enrolled cluster on its own 30-second schedule. A connection without a completed collection for
-two minutes becomes stale. Stale and failed collections keep the last known deployments and findings, mark them as uncertain, and
-add **Collection is incomplete**.
+The collector reads every enrolled cluster on its own 30-second schedule. A connection without a completed collection
+for two minutes becomes stale. Stale and failed collections keep the last known deployments and findings, mark them as
+uncertain, and add **Collection is incomplete**. This high-severity finding makes the deployment at least **Attention**,
+so it is never shown as healthy while its collection is not current. Critical findings keep it **Critical**.
 
 The Attention page also shows banners when a cluster cannot provide current evidence or an enrolled operator Deployment
-is unavailable, progressing, or not observed. Deployments in an unreachable cluster cannot be discovered, so the
-console cannot assess them.
+is unavailable, progressing, or not observed. Deployments in an unreachable cluster cannot be discovered, so the console
+cannot assess them.
 
 ## What findings do not prove
 

@@ -65,11 +65,29 @@ Renewal stops after a known token expiry or a TokenRequest authentication reject
 token available for collection until Kubernetes rejects it. Removing the connection deletes its stored credential;
 administrators must remove obsolete Kubernetes grants separately.
 
+## Revoke a leaked reader token
+
+The TokenRequest grant lets the reader ServiceAccount issue tokens for itself. Anyone who obtains a valid reader token
+can therefore issue replacement tokens for that ServiceAccount and keep its read access until you revoke it. Each
+replacement has the same scoped permissions; the grant does not extend to other ServiceAccounts or resources.
+
+To revoke access, use an administrator context in the affected cluster:
+
+- **Delete and recreate the ServiceAccount.** Kubernetes binds issued tokens to the ServiceAccount UID, so deletion
+  invalidates every token issued for it, including replacements. Recreate it with the same name and namespace so the
+  existing RoleBindings apply again, issue a fresh token, and **Reconnect** the connection in the console.
+- **Remove the RoleBindings.** The generated RoleBindings are named `<serviceAccount>-reader-<suffix>`, one in each
+  namespace with a grant. Removing the one in the reader namespace stops token issuance; removing all of them also
+  stops reads. Tokens that were already issued stay valid until they expire, but they no longer carry the console
+  grants.
+
+Rotate the credential through **Reconnect** after either step. The console never removes Kubernetes grants itself.
+
 ## Storage
 
 Reader credentials are stored separately from editable configuration. Each credential has its own revision and
 persisted renewal state, so background renewals do not change the configuration revision or invalidate an open
-settings form. AES-256-GCM binds each ciphertext to its connection identifier, and the encryption key stays outside
-PostgreSQL. Renewal never changes the API server, CA, client certificate, or enrollment scope.
+settings form. AES-256-GCM binds each ciphertext to its connection identifier and credential revision, and the
+encryption key stays outside PostgreSQL. Renewal never changes the API server, CA, client certificate, or enrollment scope.
 
 Back up PostgreSQL and the matching encryption key together. See [administration](administration.md) for upgrades.
