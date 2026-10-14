@@ -32,6 +32,11 @@ func (m *memoryFleet) Snapshot(context.Context) (fleet.Snapshot, error) {
 	return m.snapshot, nil
 }
 
+// Activity ignores the scopes, so the response proves that authorization filters again.
+func (m *memoryFleet) Activity(context.Context, []config.Scope) ([]fleet.Activity, error) {
+	return m.snapshot.Activity, nil
+}
+
 func (m *memoryFleet) History(context.Context, string) ([]fleet.Observation, error) {
 	m.historyReads++
 	return []fleet.Observation{}, nil
@@ -58,7 +63,7 @@ func TestServerAuthorizesBeforeHistoryAndFiltersEverySurface(t *testing.T) {
 			{ID: "one", Namespaces: []string{"team-a", "team-b"}, Collection: "current", LastAttemptAt: now},
 		},
 		Relationships: []fleet.Relationship{{SourceID: "visible", TargetID: "hidden"}},
-		Activity:      []fleet.Activity{{DeploymentID: "hidden"}},
+		Activity:      []fleet.Activity{{DeploymentID: "hidden", ConnectionID: "one", Namespace: "team-b"}},
 	}}
 	authentication := viewerAuth{
 		user:    config.User{Subject: "engineer", Scopes: []config.Scope{{ConnectionID: "one", Namespaces: []string{"team-a"}}}},

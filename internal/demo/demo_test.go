@@ -54,8 +54,15 @@ func TestViewerSeesEveryFixtureThroughNormalAuthorization(t *testing.T) {
 	}
 	scoped := auth.Scope(snapshot, repository.Viewer())
 	if len(scoped.Deployments) != len(snapshot.Deployments) || len(scoped.Connections) != len(snapshot.Connections) ||
-		len(scoped.Relationships) != len(snapshot.Relationships) || len(scoped.Activity) != len(snapshot.Activity) {
+		len(scoped.Relationships) != len(snapshot.Relationships) {
 		t.Fatal("the demonstration viewer cannot see the whole fixture fleet")
+	}
+	events, err := repository.Activity(context.Background(), repository.Viewer().Scopes)
+	if err != nil || len(events) != len(repository.activity) || len(events) == 0 {
+		t.Fatalf("the demonstration viewer sees %d of %d events", len(events), len(repository.activity))
+	}
+	if hidden, _ := repository.Activity(context.Background(), nil); len(hidden) != 0 {
+		t.Fatal("events leaked without a scope")
 	}
 	if repository.Viewer().Admin {
 		t.Fatal("the demonstration viewer must not administer settings")

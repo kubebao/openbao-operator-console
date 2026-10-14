@@ -74,7 +74,7 @@ func TestRecoveryProjectionKeepsSubmissionSeparateFromApplication(t *testing.T) 
 			},
 		},
 	}
-	result := ProjectRecovery(request, "snapshot")
+	result := ProjectRecovery(request, "snapshot", time.Now(), 10*time.Minute)
 	if result.Phase != "unknown" || result.Stage != "RestoreSubmitted" || result.ApplicationConfirmedAt != nil {
 		t.Fatal("submission became confirmed restore application")
 	}

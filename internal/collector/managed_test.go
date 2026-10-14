@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -75,10 +76,20 @@ func (*managedConfiguration) SettingsHistory(context.Context) ([]settings.Change
 	return nil, nil
 }
 
-type batchRecorder struct{ batches chan store.Batch }
+type batchRecorder struct {
+	batches  chan store.Batch
+	retained chan []string
+}
 
 func (r *batchRecorder) Apply(_ context.Context, batch store.Batch) error {
 	r.batches <- batch
+	return nil
+}
+
+func (r *batchRecorder) RetainConnections(_ context.Context, enrolled []string) error {
+	if r.retained != nil {
+		r.retained <- enrolled
+	}
 	return nil
 }
 
@@ -167,6 +178,64 @@ func TestManagedCollectionAddsPausesAndReconfiguresReaders(t *testing.T) {
 		batch.Connection.Namespaces[0] != "after" {
 		t.Fatal("reader reused its old namespace")
 	}
+}
+
+func TestManagedCollectionForgetsOnlyRemovedConnections(t *testing.T) {
+	one := config.Connection{
+		ID:         "one",
+		Name:       "One",
+		Disabled:   true,
+		Namespaces: []config.Namespace{{Name: "team", Environment: "development"}},
+		Access:     config.Access{Mode: config.AccessInCluster},
+	}
+	two := one
+	two.ID, two.Name = "two", "Two"
+	service, err := settings.New(
+		context.Background(),
+		&managedConfiguration{},
+		bytes.Repeat([]byte{1}, 32),
+		config.Config{
+			MaxBackupAgeHours: 24,
+			Users:             []config.User{{Subject: "admin", Admin: true}},
+			Connections:       []config.Connection{one, two},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository := &batchRecorder{batches: make(chan store.Batch, 20), retained: make(chan []string, 20)}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		RunManaged(ctx, service, repository, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	}()
+	defer func() {
+		cancel()
+		<-done
+	}()
+	awaitRetained := func(want ...string) {
+		t.Helper()
+		timeout := time.After(3 * time.Second)
+		for {
+			select {
+			case got := <-repository.retained:
+				if slices.Equal(got, want) {
+					return
+				}
+			case <-timeout:
+				t.Fatalf("enrolled connections %v were not retained", want)
+			}
+		}
+	}
+	// Paused connections stay enrolled and keep their last-known inventory.
+	awaitRetained("one", "two")
+	current, revision := service.Current()
+	current.Connections = current.Connections[1:]
+	if _, err := service.Save(ctx, revision, current, "admin", "Remove reader"); err != nil {
+		t.Fatal(err)
+	}
+	awaitRetained("two")
 }
 
 func (r *managedConfiguration) LoadCredentials(context.Context) ([]settings.CredentialRecord, error) {

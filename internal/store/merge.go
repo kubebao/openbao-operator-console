@@ -131,6 +131,8 @@ func transition(current, previous fleet.Deployment, at time.Time) *fleet.Activit
 	return &fleet.Activity{
 		ID:           current.ID + ":" + at.Format(time.RFC3339Nano),
 		DeploymentID: current.ID,
+		ConnectionID: current.ConnectionID,
+		Namespace:    current.Namespace,
 		At:           at,
 		Title:        "Observed state changed",
 		Detail:       string(previous.Health) + " → " + string(current.Health) + "; collection " + string(current.Evidence.Collection),

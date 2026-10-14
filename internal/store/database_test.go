@@ -16,6 +16,21 @@ import (
 // this test. It skips without an isolated console_test database.
 func isolatedDatabase(t *testing.T) func() *Postgres {
 	t.Helper()
+	dsn := isolatedDSN(t)
+	return func() *Postgres {
+		t.Helper()
+		repository, err := Open(context.Background(), dsn, 7*24*time.Hour)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return repository
+	}
+}
+
+// isolatedDSN returns a connection URL whose search path is a schema that exists only for
+// this test. It skips without an isolated console_test database.
+func isolatedDSN(t *testing.T) string {
+	t.Helper()
 	dsn := os.Getenv("CONSOLE_TEST_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("set CONSOLE_TEST_DATABASE_URL to an isolated console_test database")
@@ -40,12 +55,5 @@ func isolatedDatabase(t *testing.T) func() *Postgres {
 	query := endpoint.Query()
 	query.Set("search_path", name)
 	endpoint.RawQuery = query.Encode()
-	return func() *Postgres {
-		t.Helper()
-		repository, err := Open(context.Background(), endpoint.String(), 7*24*time.Hour)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return repository
-	}
+	return endpoint.String()
 }

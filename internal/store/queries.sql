@@ -16,10 +16,26 @@ ON CONFLICT(id) DO UPDATE SET projection = excluded.projection;
 DELETE FROM console_deployment WHERE connection_id = $1 AND NOT (id = ANY($2::text[]));
 
 -- name: InsertObservation :exec
-INSERT INTO console_observation(deployment_id, recorded_at, projection) VALUES ($1, $2, $3);
+INSERT INTO console_observation(deployment_id, connection_id, recorded_at, projection) VALUES ($1, $2, $3, $4);
+
+-- name: ListRemovedConnections :many
+SELECT id FROM console_connection WHERE NOT (id = ANY(@enrolled::text[])) ORDER BY id;
+
+-- name: DeleteConnectionActivity :exec
+DELETE FROM console_activity WHERE connection_id = ANY(@connection_ids::text[]);
+
+-- name: DeleteConnectionObservations :exec
+DELETE FROM console_observation WHERE connection_id = ANY(@connection_ids::text[]);
+
+-- name: DeleteConnectionDeployments :exec
+DELETE FROM console_deployment WHERE connection_id = ANY(@connection_ids::text[]);
+
+-- name: DeleteConnections :exec
+DELETE FROM console_connection WHERE id = ANY(@connection_ids::text[]);
 
 -- name: InsertActivity :exec
-INSERT INTO console_activity(id, recorded_at, projection) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;
+INSERT INTO console_activity(id, deployment_id, connection_id, namespace, recorded_at, projection)
+VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING;
 
 -- name: ListConnections :many
 SELECT projection FROM console_connection ORDER BY id;
@@ -27,8 +43,16 @@ SELECT projection FROM console_connection ORDER BY id;
 -- name: ListDeployments :many
 SELECT projection FROM console_deployment ORDER BY id;
 
+-- ListActivity returns the newest events in the authorized scope: element i of
+-- connection_ids and namespaces is one authorized namespace.
 -- name: ListActivity :many
-SELECT projection FROM console_activity ORDER BY recorded_at DESC LIMIT 100;
+SELECT projection FROM console_activity
+WHERE (connection_id, namespace) IN (
+  SELECT (@connection_ids::text[])[i], (@namespaces::text[])[i]
+  FROM generate_subscripts(@connection_ids::text[], 1) AS i
+)
+ORDER BY recorded_at DESC, id DESC
+LIMIT 100;
 
 -- name: GetHistory :many
 SELECT recorded_at, projection FROM console_observation WHERE deployment_id = $1 ORDER BY recorded_at DESC LIMIT 100;

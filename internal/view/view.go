@@ -12,13 +12,14 @@ import (
 )
 
 // StaleAfter is how long current evidence remains current without a new collection
-// attempt. Collection rounds run every 30 seconds.
+// attempt. Each connection is collected every 30 seconds on its own schedule.
 const StaleAfter = 2 * time.Minute
 
 // Observations provides retained collection results.
 type Observations interface {
 	Snapshot(context.Context) (fleet.Snapshot, error)
 	History(context.Context, string) ([]fleet.Observation, error)
+	Activity(context.Context, []config.Scope) ([]fleet.Activity, error)
 }
 
 // Enrollment provides the current administrator configuration.
@@ -45,6 +46,12 @@ func (l Live) History(ctx context.Context, id string) ([]fleet.Observation, erro
 	return l.Observations.History(ctx, id)
 }
 
+// Activity returns retained events in the given scopes. Callers pass scopes already
+// intersected with the current enrollment.
+func (l Live) Activity(ctx context.Context, scopes []config.Scope) ([]fleet.Activity, error) {
+	return l.Observations.Activity(ctx, scopes)
+}
+
 // Build keeps only enrolled connections, namespaces, and controllers, applies current
 // enrollment metadata, marks evidence without a recent attempt as stale, and resolves
 // declared relationships between visible deployments.
@@ -57,7 +64,7 @@ func Build(stored fleet.Snapshot, enrollment config.Config, now time.Time) fleet
 		Connections:   connections,
 		Deployments:   deployments,
 		Relationships: declaredRelationships(enrollment.Relationships, deployments),
-		Activity:      stored.Activity,
+		Activity:      []fleet.Activity{},
 	}
 }
 

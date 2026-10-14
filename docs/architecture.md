@@ -58,6 +58,8 @@ first-seen time by resource identity and rule identity, and resolve findings onl
 
 Use one application image and an external PostgreSQL service in production. An evaluation Compose file can supply a
 dedicated local database. Database failure affects the console only. OpenBao and operator recovery remain independent.
+Startup applies numbered schema migrations in one transaction under an advisory lock and refuses a database whose schema
+is newer than the binary.
 
 Kubernetes credentials are encrypted with AES-256-GCM before database storage. The encryption key stays outside PostgreSQL.
 The settings service owns versioned configuration and serializes configuration commits with collection writes.

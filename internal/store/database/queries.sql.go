@@ -40,6 +40,42 @@ func (q *Queries) CreateSettings(ctx context.Context, ciphertext []byte) (int64,
 	return result.RowsAffected(), nil
 }
 
+const deleteConnectionActivity = `-- name: DeleteConnectionActivity :exec
+DELETE FROM console_activity WHERE connection_id = ANY($1::text[])
+`
+
+func (q *Queries) DeleteConnectionActivity(ctx context.Context, connectionIds []string) error {
+	_, err := q.db.Exec(ctx, deleteConnectionActivity, connectionIds)
+	return err
+}
+
+const deleteConnectionDeployments = `-- name: DeleteConnectionDeployments :exec
+DELETE FROM console_deployment WHERE connection_id = ANY($1::text[])
+`
+
+func (q *Queries) DeleteConnectionDeployments(ctx context.Context, connectionIds []string) error {
+	_, err := q.db.Exec(ctx, deleteConnectionDeployments, connectionIds)
+	return err
+}
+
+const deleteConnectionObservations = `-- name: DeleteConnectionObservations :exec
+DELETE FROM console_observation WHERE connection_id = ANY($1::text[])
+`
+
+func (q *Queries) DeleteConnectionObservations(ctx context.Context, connectionIds []string) error {
+	_, err := q.db.Exec(ctx, deleteConnectionObservations, connectionIds)
+	return err
+}
+
+const deleteConnections = `-- name: DeleteConnections :exec
+DELETE FROM console_connection WHERE id = ANY($1::text[])
+`
+
+func (q *Queries) DeleteConnections(ctx context.Context, connectionIds []string) error {
+	_, err := q.db.Exec(ctx, deleteConnections, connectionIds)
+	return err
+}
+
 const deleteMissingDeployments = `-- name: DeleteMissingDeployments :exec
 DELETE FROM console_deployment WHERE connection_id = $1 AND NOT (id = ANY($2::text[]))
 `
@@ -144,32 +180,49 @@ func (q *Queries) GetSettings(ctx context.Context) (GetSettingsRow, error) {
 }
 
 const insertActivity = `-- name: InsertActivity :exec
-INSERT INTO console_activity(id, recorded_at, projection) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING
+INSERT INTO console_activity(id, deployment_id, connection_id, namespace, recorded_at, projection)
+VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING
 `
 
 type InsertActivityParams struct {
-	ID         string
-	RecordedAt pgtype.Timestamptz
-	Projection []byte
+	ID           string
+	DeploymentID string
+	ConnectionID string
+	Namespace    string
+	RecordedAt   pgtype.Timestamptz
+	Projection   []byte
 }
 
 func (q *Queries) InsertActivity(ctx context.Context, arg InsertActivityParams) error {
-	_, err := q.db.Exec(ctx, insertActivity, arg.ID, arg.RecordedAt, arg.Projection)
+	_, err := q.db.Exec(ctx, insertActivity,
+		arg.ID,
+		arg.DeploymentID,
+		arg.ConnectionID,
+		arg.Namespace,
+		arg.RecordedAt,
+		arg.Projection,
+	)
 	return err
 }
 
 const insertObservation = `-- name: InsertObservation :exec
-INSERT INTO console_observation(deployment_id, recorded_at, projection) VALUES ($1, $2, $3)
+INSERT INTO console_observation(deployment_id, connection_id, recorded_at, projection) VALUES ($1, $2, $3, $4)
 `
 
 type InsertObservationParams struct {
 	DeploymentID string
+	ConnectionID string
 	RecordedAt   pgtype.Timestamptz
 	Projection   []byte
 }
 
 func (q *Queries) InsertObservation(ctx context.Context, arg InsertObservationParams) error {
-	_, err := q.db.Exec(ctx, insertObservation, arg.DeploymentID, arg.RecordedAt, arg.Projection)
+	_, err := q.db.Exec(ctx, insertObservation,
+		arg.DeploymentID,
+		arg.ConnectionID,
+		arg.RecordedAt,
+		arg.Projection,
+	)
 	return err
 }
 
@@ -189,11 +242,24 @@ func (q *Queries) InsertSettingsChange(ctx context.Context, arg InsertSettingsCh
 }
 
 const listActivity = `-- name: ListActivity :many
-SELECT projection FROM console_activity ORDER BY recorded_at DESC LIMIT 100
+SELECT projection FROM console_activity
+WHERE (connection_id, namespace) IN (
+  SELECT ($1::text[])[i], ($2::text[])[i]
+  FROM generate_subscripts($1::text[], 1) AS i
+)
+ORDER BY recorded_at DESC, id DESC
+LIMIT 100
 `
 
-func (q *Queries) ListActivity(ctx context.Context) ([][]byte, error) {
-	rows, err := q.db.Query(ctx, listActivity)
+type ListActivityParams struct {
+	ConnectionIds []string
+	Namespaces    []string
+}
+
+// ListActivity returns the newest events in the authorized scope: element i of
+// connection_ids and namespaces is one authorized namespace.
+func (q *Queries) ListActivity(ctx context.Context, arg ListActivityParams) ([][]byte, error) {
+	rows, err := q.db.Query(ctx, listActivity, arg.ConnectionIds, arg.Namespaces)
 	if err != nil {
 		return nil, err
 	}
@@ -277,6 +343,30 @@ func (q *Queries) ListReaderCredentials(ctx context.Context) ([]ConsoleReaderCre
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRemovedConnections = `-- name: ListRemovedConnections :many
+SELECT id FROM console_connection WHERE NOT (id = ANY($1::text[])) ORDER BY id
+`
+
+func (q *Queries) ListRemovedConnections(ctx context.Context, enrolled []string) ([]string, error) {
+	rows, err := q.db.Query(ctx, listRemovedConnections, enrolled)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

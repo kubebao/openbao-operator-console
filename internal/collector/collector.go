@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"slices"
-	"sync"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,7 +19,6 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/evidence"
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	"github.com/kubebao/openbao-operator-console/internal/kube"
-	"github.com/kubebao/openbao-operator-console/internal/settings"
 	"github.com/kubebao/openbao-operator-console/internal/store"
 )
 
@@ -240,7 +237,7 @@ func (r *Reader) namespace(
 	for _, cluster := range clusters {
 		deployment := Project(cluster, r.connection, namespace, now)
 		fleet.AssignOperator(&deployment, connection.Operators)
-		deployment.Recovery = latestRecovery(requests, deployment)
+		deployment.Recovery = latestRecovery(requests, deployment, cluster.GetCreationTimestamp().Time, now, r.policy)
 		evidence.Evaluate(&deployment, cluster.GetCreationTimestamp().Time, boolean(cluster.Object, "spec", "paused"), r.policy, now)
 		result = append(result, deployment)
 	}
@@ -248,8 +245,15 @@ func (r *Reader) namespace(
 }
 
 // latestRecovery selects the newest restore or recovery request that targets the
-// deployment. A request bound to another UID never applies to a replacement.
-func latestRecovery(requests []unstructured.Unstructured, deployment fleet.Deployment) *fleet.Recovery {
+// deployment. A request bound to another UID never applies to a replacement. A request
+// without a bound UID applies only when it was created at or after the cluster, so a
+// request for an earlier cluster with the same name never attaches to its replacement.
+func latestRecovery(
+	requests []unstructured.Unstructured,
+	deployment fleet.Deployment,
+	clusterCreated, now time.Time,
+	policy fleet.Policy,
+) *fleet.Recovery {
 	var result *fleet.Recovery
 	var newest time.Time
 	for _, request := range requests {
@@ -261,64 +265,19 @@ func latestRecovery(requests []unstructured.Unstructured, deployment fleet.Deplo
 			name = text(request.Object, "spec", "clusterRef", "name")
 			uid = text(request.Object, "status", "clusterRef", "uid")
 		}
-		if name != deployment.Name || (uid != "" && uid != deployment.UID) || request.GetCreationTimestamp().Time.Before(newest) {
+		created := request.GetCreationTimestamp().Time
+		if name != deployment.Name || (uid != "" && uid != deployment.UID) || (uid == "" && created.Before(clusterCreated)) ||
+			created.Before(newest) {
 			continue
 		}
-		newest = request.GetCreationTimestamp().Time
-		result = ProjectRecovery(request, mechanism)
+		newest = created
+		result = ProjectRecovery(request, mechanism, now, policy.StartupGrace)
 	}
 	return result
 }
 
-// Sink persists collection batches.
+// Sink persists collection batches and forgets connections that left the enrollment.
 type Sink interface {
 	Apply(context.Context, store.Batch) error
-}
-
-func Run(ctx context.Context, readers []*Reader, sink Sink, logger *slog.Logger) {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-	for {
-		collectRound(ctx, readers, sink, logger)
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-		}
-	}
-}
-
-// A bounded pool prevents one slow connection from delaying the whole fleet.
-// Rounds do not overlap, so each connection has at most one in-flight collection.
-func collectRound(ctx context.Context, readers []*Reader, sink Sink, logger *slog.Logger) {
-	jobs := make(chan *Reader)
-	var workers sync.WaitGroup
-	for range min(4, len(readers)) {
-		workers.Go(func() {
-			for reader := range jobs {
-				if ctx.Err() != nil {
-					continue
-				}
-				collectCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-				batch := reader.Collect(collectCtx, time.Now().UTC())
-				cancel()
-				writeCtx, writeCancel := context.WithTimeout(ctx, 10*time.Second)
-				if err := sink.Apply(writeCtx, batch); err != nil && !errors.Is(err, settings.ErrConflict) && ctx.Err() == nil {
-					logger.Error("Persist collection failed", "connection", reader.connection.ID)
-				}
-				writeCancel()
-			}
-		})
-	}
-	for _, reader := range readers {
-		select {
-		case jobs <- reader:
-		case <-ctx.Done():
-			close(jobs)
-			workers.Wait()
-			return
-		}
-	}
-	close(jobs)
-	workers.Wait()
+	RetainConnections(context.Context, []string) error
 }

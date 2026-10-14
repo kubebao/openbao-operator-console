@@ -44,10 +44,12 @@ Stored credentials are write-only in the UI. Leave credential fields empty to re
 to replace them. Remote ServiceAccount tokens support [opt-in automatic renewal](credential-renewal.md). Other remote
 credentials require manual replacement before expiration.
 
-Collection uses the saved configuration without restarting the application. A change triggers the next bounded collection
-round. In-flight results from the old revision cannot be persisted. Pausing retains last-known inventory and marks collection
-stale. Removing a connection hides its inventory and access scopes immediately; retained observations expire with normal
-history retention. The UI removes relationships and scope grants that reference a removed namespace or connection.
+Collection uses the saved configuration without restarting the application. Each connection is collected on its own
+30-second schedule. A new or changed connection is collected immediately. In-flight results from the old revision cannot
+be persisted. Pausing retains last-known inventory and marks collection stale. Removing a connection hides its inventory
+and access scopes immediately. The collector then deletes its stored inventory, history, and activity, so a connection
+enrolled again under the same ID starts without old evidence. The UI removes relationships and scope grants that
+reference a removed namespace or connection.
 
 ## Manage access and relationships
 
@@ -97,9 +99,11 @@ encryption key, and recovery process to deployment administrators.
 Every save uses a configuration revision. A stale edit returns a conflict. Reload settings before applying the change again.
 **Settings → Changes** records the actor, time, revision, and changed area without credential values.
 
-Back up PostgreSQL and the encryption key before an upgrade. A newer binary can migrate the schema at startup,
-and an older binary refuses a newer schema. Rollback across a schema change therefore requires the matching pre-upgrade
-database backup as well as the older image; a Helm rollback alone is insufficient. A database restore also restores the access rules,
+Back up PostgreSQL and the encryption key before an upgrade. At startup, a newer binary applies its pending numbered schema
+migrations in one transaction and records each version in `console_schema_migration`. A failed migration rolls back
+completely and the console does not start. An older binary refuses a database with a newer schema version and names both
+versions in the error. Rollback across a schema change therefore requires the matching pre-upgrade database backup as
+well as the older image; a Helm rollback alone is insufficient. A database restore also restores the access rules,
 identity settings, and retained observations from that backup.
 
 The console requires one serving process. Shared sessions, coordinated collectors, key rotation tooling, and a separate

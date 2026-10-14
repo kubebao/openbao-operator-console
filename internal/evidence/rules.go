@@ -235,8 +235,12 @@ func Stale(deployment *fleet.Deployment, since, now time.Time) {
 	incomplete(deployment, fleet.EvidenceCollectionStale, since, now)
 }
 
+// incomplete adds or refreshes the collection finding and recomputes health, so a
+// deployment is never healthy while its evidence is not current. Critical findings
+// remain critical.
 func incomplete(deployment *fleet.Deployment, state fleet.EvidenceCollection, since, checked time.Time) {
 	deployment.Evidence.Collection = state
+	defer func() { deployment.Health = health(*deployment) }()
 	for i := range deployment.Issues {
 		if deployment.Issues[i].Rule == fleet.RuleCollection {
 			deployment.Issues[i].LastCheckedAt = checked

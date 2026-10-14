@@ -2,10 +2,14 @@ package store
 
 import (
 	"context"
-	_ "embed"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net"
+	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -13,15 +17,13 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
 	"github.com/kubebao/openbao-operator-console/internal/store/database"
 )
 
-// schemaVersion identifies schema.sql. Pre-release databases are not migrated.
-const schemaVersion = 1
-
-//go:embed schema.sql
-var schema string
+// pruneInterval is the period of the history retention job.
+const pruneInterval = time.Hour
 
 type Postgres struct {
 	pool      *pgxpool.Pool
@@ -32,7 +34,12 @@ func repeatableRead() pgx.TxOptions {
 	return pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}
 }
 
+// Open connects to the database and applies pending schema migrations.
 func Open(ctx context.Context, dsn string, retention time.Duration) (*Postgres, error) {
+	return open(ctx, dsn, retention, migrations)
+}
+
+func open(ctx context.Context, dsn string, retention time.Duration, list []migration) (*Postgres, error) {
 	if retention <= 0 {
 		return nil, errors.New("observation retention must be positive")
 	}
@@ -51,51 +58,22 @@ func Open(ctx context.Context, dsn string, retention time.Duration) (*Postgres, 
 	}
 	tx, err := pool.Begin(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("begin schema migrations: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err := initialize(ctx, tx); err != nil {
+	if err := migrate(ctx, tx, list); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("commit schema migrations: %w", err)
 	}
 	success = true
 	return &Postgres{pool: pool, retention: retention}, nil
 }
 
-// initialize creates the schema in an empty database. An advisory lock serializes
-// concurrent starts.
-func initialize(ctx context.Context, tx pgx.Tx) error {
-	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(694263281)"); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(
-		ctx,
-		"CREATE TABLE IF NOT EXISTS console_schema_migration (version integer PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())",
-	); err != nil {
-		return err
-	}
-	var version int
-	if err := tx.QueryRow(ctx, "SELECT COALESCE(MAX(version), 0) FROM console_schema_migration").Scan(&version); err != nil {
-		return err
-	}
-	switch version {
-	case schemaVersion:
-		return nil
-	case 0:
-		if _, err := tx.Exec(ctx, schema); err != nil {
-			return fmt.Errorf("initialize schema: %w", err)
-		}
-		_, err := tx.Exec(ctx, "INSERT INTO console_schema_migration(version) VALUES ($1)", schemaVersion)
-		return err
-	default:
-		return fmt.Errorf("database schema version %d is not supported; recreate the database", version)
-	}
-}
-
 // Database containers can become reachable after the application starts. Retry
 // transport failures within the caller's startup deadline, but fail on SQL errors.
+// A deadline error names the cause of the last attempt.
 func connect(ctx context.Context, pool *pgxpool.Pool) error {
 	ctx, cancelStartup := context.WithTimeout(ctx, 30*time.Second)
 	defer cancelStartup()
@@ -115,10 +93,43 @@ func connect(ctx context.Context, pool *pgxpool.Pool) error {
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			return ctx.Err()
+			return fmt.Errorf("%s: %w", connectFailure(err), ctx.Err())
 		case <-timer.C:
 		}
 		delay = min(2*delay, 2*time.Second)
+	}
+}
+
+// connectFailure describes a failed connection attempt. It omits the driver
+// message, which contains connection parameters.
+func connectFailure(err error) string {
+	var (
+		databaseError    *pgconn.PgError
+		unknownAuthority x509.UnknownAuthorityError
+		hostname         x509.HostnameError
+		invalid          x509.CertificateInvalidError
+		verification     *tls.CertificateVerificationError
+		lookup           *net.DNSError
+	)
+	switch {
+	case errors.As(err, &databaseError):
+		return "database is starting up"
+	case errors.As(err, &unknownAuthority):
+		return "server certificate is not signed by a trusted CA"
+	case errors.As(err, &hostname):
+		return "server certificate does not match the host name"
+	case errors.As(err, &invalid) && invalid.Reason == x509.Expired:
+		return "server certificate is expired or not yet valid"
+	case errors.As(err, &invalid), errors.As(err, &verification):
+		return "server certificate is not valid"
+	case errors.As(err, &lookup):
+		return "host name lookup failed"
+	case errors.Is(err, syscall.ECONNREFUSED):
+		return "connection refused"
+	case errors.Is(err, context.DeadlineExceeded):
+		return "connection attempt timed out"
+	default:
+		return "database is unreachable"
 	}
 }
 
@@ -143,14 +154,38 @@ func (p *Postgres) Apply(ctx context.Context, batch Batch) error {
 	if err := writeChanges(ctx, queries, merge(batch, previous, stored)); err != nil {
 		return err
 	}
-	cutoff := pgtype.Timestamptz{Time: time.Now().Add(-p.retention), Valid: true}
+	return tx.Commit(ctx)
+}
+
+// Prune deletes observations and activity recorded before now minus the retention.
+func (p *Postgres) Prune(ctx context.Context, now time.Time) error {
+	queries := database.New(p.pool)
+	cutoff := pgtype.Timestamptz{Time: now.Add(-p.retention), Valid: true}
 	if err := queries.PruneObservations(ctx, cutoff); err != nil {
-		return err
+		return fmt.Errorf("prune observations: %w", err)
 	}
 	if err := queries.PruneActivity(ctx, cutoff); err != nil {
-		return err
+		return fmt.Errorf("prune activity: %w", err)
 	}
-	return tx.Commit(ctx)
+	return nil
+}
+
+// RunPruning applies the history retention at start and then hourly until ctx ends.
+func (p *Postgres) RunPruning(ctx context.Context, logger *slog.Logger) {
+	ticker := time.NewTicker(pruneInterval)
+	defer ticker.Stop()
+	for {
+		prune, cancel := context.WithTimeout(ctx, time.Minute)
+		if err := p.Prune(prune, time.Now()); err != nil && ctx.Err() == nil {
+			logger.Error("Prune history failed")
+		}
+		cancel()
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }
 
 // loadConnection returns the stored connection, or nil before its first batch, and its
@@ -216,7 +251,12 @@ func writeChanges(ctx context.Context, queries *database.Queries, changes change
 		}
 		if err := queries.InsertObservation(
 			ctx,
-			database.InsertObservationParams{DeploymentID: deployment.ID, RecordedAt: recordedAt, Projection: projection},
+			database.InsertObservationParams{
+				DeploymentID: deployment.ID,
+				ConnectionID: deployment.ConnectionID,
+				RecordedAt:   recordedAt,
+				Projection:   projection,
+			},
 		); err != nil {
 			return err
 		}
@@ -226,10 +266,14 @@ func writeChanges(ctx context.Context, queries *database.Queries, changes change
 		if err != nil {
 			return err
 		}
-		if err := queries.InsertActivity(
-			ctx,
-			database.InsertActivityParams{ID: activity.ID, RecordedAt: recordedAt, Projection: projection},
-		); err != nil {
+		if err := queries.InsertActivity(ctx, database.InsertActivityParams{
+			ID:           activity.ID,
+			DeploymentID: activity.DeploymentID,
+			ConnectionID: activity.ConnectionID,
+			Namespace:    activity.Namespace,
+			RecordedAt:   recordedAt,
+			Projection:   projection,
+		}); err != nil {
 			return err
 		}
 	}
@@ -237,6 +281,45 @@ func writeChanges(ctx context.Context, queries *database.Queries, changes change
 		return nil
 	}
 	return queries.DeleteMissingDeployments(ctx, database.DeleteMissingDeploymentsParams{ConnectionID: changes.connection.ID, Column2: ids})
+}
+
+// RetainConnections deletes the inventory, history, and activity of every stored
+// connection that is not enrolled, in one transaction. A connection ID enrolled again
+// later starts without inherited evidence.
+func (p *Postgres) RetainConnections(ctx context.Context, enrolled []string) error {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin connection removal: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	queries := database.New(tx)
+	removed, err := queries.ListRemovedConnections(ctx, enrolled)
+	if err != nil {
+		return fmt.Errorf("list removed connections: %w", err)
+	}
+	if len(removed) == 0 {
+		return nil
+	}
+	for _, id := range removed {
+		// Apply holds the same lock, so a batch of a removed connection cannot interleave.
+		if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", id); err != nil {
+			return fmt.Errorf("lock removed connection: %w", err)
+		}
+	}
+	for _, remove := range []func(context.Context, []string) error{
+		queries.DeleteConnectionActivity,
+		queries.DeleteConnectionObservations,
+		queries.DeleteConnectionDeployments,
+		queries.DeleteConnections,
+	} {
+		if err := remove(ctx, removed); err != nil {
+			return fmt.Errorf("delete removed connections: %w", err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit connection removal: %w", err)
+	}
+	return nil
 }
 
 func (p *Postgres) Snapshot(ctx context.Context) (fleet.Snapshot, error) {
@@ -282,18 +365,35 @@ func (p *Postgres) Snapshot(ctx context.Context) (fleet.Snapshot, error) {
 		}
 		result.Deployments = append(result.Deployments, d)
 	}
-	activity, err := q.ListActivity(ctx)
-	if err != nil {
-		return result, err
-	}
-	for _, row := range activity {
-		var a fleet.Activity
-		if err := json.Unmarshal(row, &a); err != nil {
-			return result, err
-		}
-		result.Activity = append(result.Activity, a)
-	}
 	return result, tx.Commit(ctx)
+}
+
+// Activity returns the newest events in the given scopes, at most 100. The scope applies
+// before the limit, so events outside it never displace authorized events.
+func (p *Postgres) Activity(ctx context.Context, scopes []config.Scope) ([]fleet.Activity, error) {
+	params := database.ListActivityParams{ConnectionIds: []string{}, Namespaces: []string{}}
+	for _, scope := range scopes {
+		for _, namespace := range scope.Namespaces {
+			params.ConnectionIds = append(params.ConnectionIds, scope.ConnectionID)
+			params.Namespaces = append(params.Namespaces, namespace)
+		}
+	}
+	result := []fleet.Activity{}
+	if len(params.ConnectionIds) == 0 {
+		return result, nil
+	}
+	rows, err := database.New(p.pool).ListActivity(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("list activity: %w", err)
+	}
+	for _, row := range rows {
+		var activity fleet.Activity
+		if err := json.Unmarshal(row, &activity); err != nil {
+			return nil, fmt.Errorf("decode stored activity: %w", err)
+		}
+		result = append(result, activity)
+	}
+	return result, nil
 }
 
 func (p *Postgres) History(ctx context.Context, id string) ([]fleet.Observation, error) {

@@ -35,7 +35,7 @@ Uploading a credential with broader privileges does not reduce them. Upload only
 | --- | --- |
 | Configuration (connections, access rules, relationships, policies, identity provider) | PostgreSQL, encrypted with AES-256-GCM |
 | Kubernetes reader credentials | PostgreSQL, encrypted per connection with AES-256-GCM and bound to the connection ID |
-| Observations, findings, and activity | PostgreSQL, approved fields only, kept for seven days |
+| Observations, findings, and activity | PostgreSQL, approved fields only; history kept for the configured retention (default seven days) |
 | Configuration changes | PostgreSQL: actor, time, revision, and changed area, without credential values |
 | Encryption key | Outside PostgreSQL, mounted from a Kubernetes Secret or file |
 

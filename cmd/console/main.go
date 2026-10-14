@@ -35,10 +35,15 @@ type options struct {
 	tlsCertificate, tlsKey      string
 	printRBAC                   string
 	check, recoverIdentity      bool
+	historyRetention            time.Duration
 }
 
 func parseOptions() (options, error) {
 	var o options
+	retention, err := historyRetentionDefault(os.Getenv("CONSOLE_HISTORY_RETENTION"))
+	if err != nil {
+		return o, err
+	}
 	flag.StringVar(&o.mode, "mode", "demo", "demo or live")
 	flag.StringVar(&o.address, "listen", "127.0.0.1:8090", "HTTP listen address")
 	flag.StringVar(&o.configPath, "config", "", "optional first-start enrollment YAML file")
@@ -54,11 +59,17 @@ func parseOptions() (options, error) {
 	flag.StringVar(&o.readerNamespace, "reader-namespace", "console-system", "local reader ServiceAccount namespace for RBAC manifests")
 	flag.StringVar(&o.tlsCertificate, "tls-cert", "", "optional HTTPS server certificate PEM file")
 	flag.StringVar(&o.tlsKey, "tls-key", "", "optional HTTPS server private key PEM file")
+	flag.DurationVar(
+		&o.historyRetention,
+		"history-retention",
+		retention,
+		"how long observation history and activity are kept, from 1h to 8760h; default from CONSOLE_HISTORY_RETENTION or 168h",
+	)
 	flag.Parse()
 	if (o.tlsCertificate == "") != (o.tlsKey == "") {
 		return o, errors.New("tls-cert and tls-key must be supplied together")
 	}
-	return o, nil
+	return o, validHistoryRetention(o.historyRetention)
 }
 
 func run() error {
@@ -129,7 +140,7 @@ func runLive(ctx context.Context, o options, logger *slog.Logger) error {
 	}
 	startup, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	pg, err := store.Open(startup, dsn, 7*24*time.Hour)
+	pg, err := store.Open(startup, dsn, o.historyRetention)
 	if err != nil {
 		return fmt.Errorf("database startup failed: %w", err)
 	}
@@ -152,6 +163,7 @@ func runLive(ctx context.Context, o options, logger *slog.Logger) error {
 		running.Wait()
 	}()
 	running.Go(func() { collector.RunManaged(workers, configuration, pg, logger) })
+	running.Go(func() { pg.RunPruning(workers, logger) })
 	running.Go(func() {
 		(renewal.Manager{Repository: configuration, Issuer: renewal.KubernetesIssuer{}, Logger: logger}).Run(workers)
 	})

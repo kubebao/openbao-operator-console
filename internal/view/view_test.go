@@ -75,7 +75,7 @@ func TestStoppedCollectorMakesLastKnownEvidenceStale(t *testing.T) {
 				Namespace:    "team",
 				Health:       fleet.HealthCritical,
 				Evidence:     fleet.Evidence{Collection: fleet.EvidenceCollectionCurrent, LastAttemptAt: old},
-				Issues:       []fleet.Issue{{ID: "sealed", Rule: fleet.RuleSealed}},
+				Issues:       []fleet.Issue{{ID: "sealed", Rule: fleet.RuleSealed, Severity: fleet.SeverityCritical}},
 			},
 		},
 		Connections: []fleet.Connection{

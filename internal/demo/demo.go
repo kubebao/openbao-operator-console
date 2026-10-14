@@ -15,6 +15,7 @@ import (
 type Repository struct {
 	snapshot fleet.Snapshot
 	history  map[string][]fleet.Observation
+	activity []fleet.Activity
 }
 
 func ptr[T any](value T) *T { return &value }
@@ -29,14 +30,22 @@ func New(now time.Time) *Repository {
 		Connections:   connections(now),
 		Deployments:   []fleet.Deployment{},
 		Relationships: relationships(now),
-		Activity:      activity(now),
+		Activity:      []fleet.Activity{},
 	}
 	for _, row := range fixtures {
 		snapshot.Deployments = append(snapshot.Deployments, deployment(row, now))
 	}
-	repository := &Repository{snapshot: snapshot, history: map[string][]fleet.Observation{}}
+	repository := &Repository{snapshot: snapshot, history: map[string][]fleet.Observation{}, activity: activity(now)}
 	for _, deployment := range snapshot.Deployments {
 		repository.history[deployment.ID] = history(deployment, now)
+	}
+	// Events carry the scope of their deployment, as stored events do.
+	for i := range repository.activity {
+		for _, deployment := range snapshot.Deployments {
+			if deployment.ID == repository.activity[i].DeploymentID {
+				repository.activity[i].ConnectionID, repository.activity[i].Namespace = deployment.ConnectionID, deployment.Namespace
+			}
+		}
 	}
 	return repository
 }
@@ -525,6 +534,18 @@ func (r *Repository) Viewer() config.User {
 		)
 	}
 	return viewer
+}
+
+// Activity returns the fixture events in the given scopes, newest first.
+func (r *Repository) Activity(_ context.Context, scopes []config.Scope) ([]fleet.Activity, error) {
+	viewer := config.User{Scopes: scopes}
+	result := []fleet.Activity{}
+	for _, event := range r.activity {
+		if viewer.CanView(event.ConnectionID, event.Namespace) {
+			result = append(result, event)
+		}
+	}
+	return result, nil
 }
 
 func (r *Repository) History(_ context.Context, id string) ([]fleet.Observation, error) {

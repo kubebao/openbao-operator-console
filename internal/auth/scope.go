@@ -8,7 +8,8 @@ import (
 )
 
 // Scope removes every resource the viewer may not see, including counts that would
-// reveal hidden namespaces, relationships to hidden deployments, and their activity.
+// reveal hidden namespaces, relationships to hidden deployments, and activity outside the
+// viewer's namespaces. Events of deleted deployments remain visible in scope.
 func Scope(snapshot fleet.Snapshot, user config.User) fleet.Snapshot {
 	visible := user.CanView
 	result := fleet.Snapshot{
@@ -58,7 +59,7 @@ func Scope(snapshot fleet.Snapshot, user config.User) fleet.Snapshot {
 		}
 	}
 	for _, activity := range snapshot.Activity {
-		if deployments[activity.DeploymentID] {
+		if visible(activity.ConnectionID, activity.Namespace) {
 			result.Activity = append(result.Activity, activity)
 		}
 	}

@@ -32,10 +32,12 @@ type Server struct {
 	Setup           *Setup
 }
 
-// Fleet provides the fleet as presented to viewers and its retained history.
+// Fleet provides the fleet as presented to viewers and its retained history. Activity
+// applies the viewer's scopes before its limit.
 type Fleet interface {
 	Snapshot(context.Context) (fleet.Snapshot, error)
 	History(context.Context, string) ([]fleet.Observation, error)
+	Activity(context.Context, []config.Scope) ([]fleet.Activity, error)
 }
 
 type Authentication interface {
@@ -132,6 +134,9 @@ func (s *Server) readSnapshot(w http.ResponseWriter, r *http.Request, user confi
 	defer cancel()
 	result, err := s.Fleet.Snapshot(ctx)
 	if err != nil {
+		return retryLater("Fleet evidence is temporarily unavailable.")
+	}
+	if result.Activity, err = s.Fleet.Activity(ctx, user.Scopes); err != nil {
 		return retryLater("Fleet evidence is temporarily unavailable.")
 	}
 	jsonResponse(w, http.StatusOK, snapshotContract(auth.Scope(result, user), user, s.Demo))

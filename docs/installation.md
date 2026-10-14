@@ -34,9 +34,10 @@ CREATE USER console WITH PASSWORD '<generated password>';
 CREATE DATABASE console OWNER console;
 ```
 
-The console creates its schema at startup under a transaction lock, so the user needs privileges to create tables in
-that database. A startup refuses a database whose schema version the binary does not support. Pre-release databases
-are not migrated; recreate them when a startup reports an unsupported version.
+The console creates and upgrades its schema at startup, so the user needs privileges to create and alter tables in that
+database. Startup applies each pending numbered migration in order, in one transaction under an advisory lock, and
+records it in `console_schema_migration`. A failed migration leaves the database unchanged. A startup refuses a database
+whose schema version is newer than the binary supports, because downgrades are not supported.
 
 Use a connection URL such as `postgres://console:<password>@db.example.com:5432/console?sslmode=verify-full`.
 Use TLS with certificate verification for any database outside the console's cluster network.
@@ -160,9 +161,12 @@ Then add clusters in **Settings → Clusters → Add cluster**. See [connect a K
 
 - **Replicas.** Run one replica. Sessions are held in process memory, and a restart requires users to sign in again.
 - **Backups.** Back up PostgreSQL and the encryption key. Both are required to restore configuration and history.
-- **Upgrades.** Back up the database before upgrading. A schema migration can make the database unreadable for older
-  versions, so rolling back the image may also require restoring the database. See [administration](administration.md).
-- **Retention.** Observations are kept for seven days.
+- **Upgrades.** Back up the database before upgrading. The new version migrates the schema at startup. An older version
+  refuses a migrated database, so rolling back the image also requires restoring the pre-upgrade backup. See
+  [administration](administration.md).
+- **Retention.** Observation history and activity are kept for seven days by default. Set `--history-retention` or
+  `CONSOLE_HISTORY_RETENTION` to change it. An hourly job deletes older rows. Current inventory is not history and is
+  kept while its connection is enrolled.
 - **Uninstall.** `helm uninstall` leaves PostgreSQL untouched. Remove reader Roles and RoleBindings that you applied in
   other clusters yourself; the console never removes Kubernetes permissions.
 
@@ -183,6 +187,7 @@ The same binary can run on a host behind an HTTPS reverse proxy:
 | `--check` | Check enrolled Kubernetes reads and exit. Needs no database or OIDC. |
 | `--print-rbac` | Print reader RBAC for a connection ID and exit. |
 | `--recover-identity` | Replace the stored identity provider and administrators, then exit. See [administration](administration.md). |
+| `--history-retention` | How long observation history and activity are kept, from `1h` to `8760h`. Default `168h` (seven days), or `CONSOLE_HISTORY_RETENTION` when set. |
 | `CONSOLE_DATABASE_URL` | PostgreSQL connection URL. |
 | `CONSOLE_CONFIG_KEY_FILE` | Path to the 32-byte encryption key. |
 | `CONSOLE_OIDC_REDIRECT_URL` | Public callback URL. |
@@ -190,3 +195,4 @@ The same binary can run on a host behind an HTTPS reverse proxy:
 | `CONSOLE_OIDC_CA_FILE` | PEM bundle for a private identity provider CA. |
 | `CONSOLE_BOOTSTRAP_ADMIN_SUBJECTS` | Comma-separated OIDC subjects for the first administrators. |
 | `CONSOLE_SETUP_TOKEN_FILE` | Setup token file for protected browser setup. |
+| `CONSOLE_HISTORY_RETENTION` | Default for `--history-retention`, as a Go duration such as `168h`. |

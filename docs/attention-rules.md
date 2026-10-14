@@ -25,10 +25,10 @@ The Fleet view sorts by state in that order: critical, attention, unknown, then 
 
 | Finding | Severity | Category | Triggered when | Evidence shown on |
 | --- | --- | --- | --- | --- |
-| Replicas need attention | Critical when 0 ready, otherwise high | Service availability | Ready replicas are below desired replicas after the startup grace period | Overview: ready / desired replicas |
+| Replicas need attention | Critical when 0 ready, otherwise high | Service availability | Ready replicas are below desired replicas after the startup grace period. The operator omits a zero ready count; it counts as zero once the operator has observed the current generation | Overview: ready / desired replicas |
 | OpenBao is sealed | Critical | Service availability | The operator reports `OpenBaoSealed=True` for the current resource generation | Conditions tab |
 | Upgrade requires investigation | High | Operations | The operator records an upgrade failure | Lifecycle tab |
-| Recovery requires investigation | High | Operations | A recovery request is failed or unknown, or its cleanup failed | Lifecycle tab |
+| Recovery requires investigation | High | Operations | A recovery request is failed or unknown, or its cleanup failed. A new request without a reported phase is pending during the startup grace period | Lifecycle tab |
 | Replica history conflict | Critical | Operations | A remote replica observation records conflicting histories | Lifecycle tab |
 | Backup failed | High | Backup protection | One or more consecutive backup attempts failed | Backups tab |
 | No successful backup observed | High | Backup protection | Backups are configured but no successful completion is recorded | Backups tab |
@@ -46,12 +46,12 @@ Administrators set two thresholds in **Settings → Policies**:
 | Policy | Default | Effect |
 | --- | --- | --- |
 | Maximum backup age | 24 hours | A configured backup older than this raises **Backup is overdue**. |
-| Startup grace | 10 minutes | Replica findings wait this long after a deployment is created. |
+| Startup grace | 10 minutes | Replica findings wait this long after a deployment is created. A recovery request without a reported phase counts as pending this long after it is created. |
 
 ## Collection and freshness
 
-The collector reads every enrolled cluster every 30 seconds. A connection without a completed collection for two minutes
-becomes stale. Stale and failed collections keep the last known deployments and findings, mark them as uncertain, and
+The collector reads every enrolled cluster on its own 30-second schedule. A connection without a completed collection for
+two minutes becomes stale. Stale and failed collections keep the last known deployments and findings, mark them as uncertain, and
 add **Collection is incomplete**.
 
 The Attention page also shows banners when a cluster cannot provide current evidence or an enrolled operator Deployment

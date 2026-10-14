@@ -87,7 +87,7 @@ func Project(cluster unstructured.Unstructured, connection config.Connection, na
 		ResourceVersion: cluster.GetResourceVersion(),
 		Version:         text(object, "status", "currentVersion"),
 		DesiredVersion:  text(object, "spec", "version"),
-		ReadyReplicas:   count(object, "status", "readyReplicas"),
+		ReadyReplicas:   readyReplicas(object, cluster.GetGeneration()),
 		DesiredReplicas: count(object, "spec", "replicas"),
 		Role:            projectRole(object),
 		Health:          fleet.HealthUnknown,
@@ -106,6 +106,24 @@ func Project(cluster unstructured.Unstructured, connection config.Connection, na
 		result.UpgradeFailure = &fleet.OperationFailure{Reason: reason, At: timestamp(object, "status", "upgrade", "failure", "at")}
 	}
 	return result
+}
+
+// readyReplicas reads status.readyReplicas. The operator API omits a zero count, so an
+// absent count is zero once the operator has reconciled the current generation and a
+// desired count exists. Before that observation, readiness remains unknown.
+func readyReplicas(object map[string]any, generation int64) *int32 {
+	if ready := count(object, "status", "readyReplicas"); ready != nil {
+		return ready
+	}
+	if _, found, err := unstructured.NestedFieldNoCopy(object, "status", "readyReplicas"); err != nil || found {
+		return nil
+	}
+	observed, found, err := unstructured.NestedInt64(object, "status", "observedGeneration")
+	if err != nil || !found || observed < generation || count(object, "spec", "replicas") == nil {
+		return nil
+	}
+	zero := int32(0)
+	return &zero
 }
 
 // A remote replica becomes a primary once the operator records its activation.
@@ -221,10 +239,22 @@ func appliedIndex(object map[string]any, fields ...string) *string {
 	return &value
 }
 
-func ProjectRecovery(request unstructured.Unstructured, mechanism fleet.RecoveryMechanism) *fleet.Recovery {
+// ProjectRecovery maps a restore or recovery request. A request without a reported phase
+// is pending until the startup grace after its creation ends, and unknown afterwards.
+func ProjectRecovery(
+	request unstructured.Unstructured,
+	mechanism fleet.RecoveryMechanism,
+	now time.Time,
+	grace time.Duration,
+) *fleet.Recovery {
 	object := request.Object
 	phase := fleet.RecoveryPhase(strings.ToLower(text(object, "status", "phase")))
-	if !phase.Valid() {
+	reported, found, err := unstructured.NestedFieldNoCopy(object, "status", "phase")
+	absent := err == nil && (!found || reported == nil || reported == "")
+	switch {
+	case absent && now.Sub(request.GetCreationTimestamp().Time) < grace:
+		phase = fleet.RecoveryPhasePending
+	case !phase.Valid():
 		phase = fleet.RecoveryPhaseUnknown
 	}
 	result := &fleet.Recovery{

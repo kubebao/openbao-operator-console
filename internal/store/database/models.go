@@ -9,9 +9,12 @@ import (
 )
 
 type ConsoleActivity struct {
-	ID         string
-	RecordedAt pgtype.Timestamptz
-	Projection []byte
+	ID           string
+	DeploymentID string
+	ConnectionID string
+	Namespace    string
+	RecordedAt   pgtype.Timestamptz
+	Projection   []byte
 }
 
 type ConsoleConfiguration struct {
@@ -41,6 +44,7 @@ type ConsoleDeployment struct {
 type ConsoleObservation struct {
 	ID           int64
 	DeploymentID string
+	ConnectionID string
 	RecordedAt   pgtype.Timestamptz
 	Projection   []byte
 }

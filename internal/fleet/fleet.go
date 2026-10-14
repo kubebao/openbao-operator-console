@@ -19,7 +19,8 @@ type Policy struct {
 	StartupGrace time.Duration
 }
 
-// Snapshot is a coherent view of the fleet at one time.
+// Snapshot is a coherent view of the fleet at one time. Activity is read separately for
+// the viewer's scope.
 type Snapshot struct {
 	CollectedAt   time.Time      `json:"collectedAt"`
 	Policy        Policy         `json:"-"`
@@ -190,10 +191,13 @@ type Relationship struct {
 	ObservedAt *time.Time       `json:"observedAt"`
 }
 
-// Activity records a visible state transition of one deployment.
+// Activity records a visible state transition of one deployment. The connection and
+// namespace authorize the event, including after its deployment is deleted.
 type Activity struct {
 	ID           string          `json:"id"`
 	DeploymentID string          `json:"deploymentId"`
+	ConnectionID string          `json:"connectionId"`
+	Namespace    string          `json:"namespace"`
 	At           time.Time       `json:"at"`
 	Title        string          `json:"title"`
 	Detail       string          `json:"detail"`

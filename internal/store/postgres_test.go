@@ -20,7 +20,7 @@ func TestPostgresRetainsFirstSeenAcrossRestartAndFailedCollection(t *testing.T) 
 		ResourceVersion: "1",
 		Health:          "critical",
 		Evidence:        fleet.Evidence{Collection: "current", CollectedAt: now},
-		Issues:          []fleet.Issue{{ID: id + ":sealed", Rule: "sealed", FirstSeenAt: now}},
+		Issues:          []fleet.Issue{{ID: id + ":sealed", Rule: "sealed", Severity: "critical", FirstSeenAt: now}},
 	}
 	batch := Batch{
 		Connection:  fleet.Connection{ID: id, Collection: "current", LastAttemptAt: now},

@@ -87,6 +87,7 @@ helm upgrade --install console charts/openbao-operator-console \
   --namespace console-system --values /private/live-values.yaml
 ```
 
-Collection runs every 30 seconds with at most four connections in flight. Rounds do not overlap. One broken kubeconfig
-does not prevent startup or collection from other connections. Evidence becomes stale after two minutes without a
-completed collection.
+Each connection is collected on its own 30-second schedule, with at most one collection in flight per connection and
+at most 16 across the fleet. A slow or unreachable connection does not delay the next collection of another connection.
+One broken kubeconfig does not prevent startup or collection from other connections. Evidence becomes stale after two
+minutes without a completed collection.
