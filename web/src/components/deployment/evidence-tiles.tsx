@@ -44,7 +44,6 @@ function EvidenceTile({
       onClick={() => {
         onSelect(tab)
       }}
-      aria-label={`${label}: open ${tabLabels[tab]}`}
     >
       <span className="tile-label">
         {icon}
@@ -53,6 +52,7 @@ function EvidenceTile({
       </span>
       <span className="tile-body">{children}</span>
       {footer && <span className="tile-footer">{footer}</span>}
+      <span className="sr-only">Open {tabLabels[tab]}</span>
     </button>
   )
 }

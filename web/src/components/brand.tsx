@@ -26,7 +26,7 @@ export function Brand({ className = 'brand-lockup' }: { className?: string }) {
     <span className={className}>
       <BrandLogo className="brand-mark" />
       <span className="brand-name">
-        OpenBao Operator<small>Console</small>
+        OpenBao Operator <small>Console</small>
       </span>
     </span>
   )
