@@ -24,9 +24,9 @@ function DeploymentNode({
     <button
       className={`relationship-node ${selected ? 'relationship-node-selected' : ''}`}
       onClick={onSelect}
-      aria-label={`Inspect ${deployment.namespace}/${deployment.name}`}
       aria-pressed={selected}
     >
+      <span className="sr-only">Inspect </span>
       <span className="path-role">{label}</span>
       <Database size={22} />
       <strong>
