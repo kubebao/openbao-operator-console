@@ -39,16 +39,17 @@ function RelationshipList({
           <button
             key={item.id}
             type="button"
-            aria-label={`Select ${item.id}`}
             aria-current={item.id === selected.id ? 'true' : undefined}
             className={item.id === selected.id ? 'selected' : ''}
             onClick={() => {
               onSelect(item.id)
             }}
           >
+            <span className="sr-only">Select </span>
             <strong>
               {from?.namespace}/{from?.name}
               <ArrowRight size={14} />
+              <span className="sr-only"> to </span>
               {to?.namespace}/{to?.name}
             </strong>
             <small>

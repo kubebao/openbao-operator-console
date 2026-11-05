@@ -12,13 +12,14 @@ function renderTiles(version: string, desiredVersion: string) {
       onSelect={() => undefined}
     />,
   )
-  return screen.getByRole('button', { name: 'Lifecycle: open Lifecycle' })
+  return screen.getByRole('button', { name: /^Lifecycle.*Open Lifecycle$/ })
 }
 
 describe('lifecycle tile', () => {
   it('reports an unknown upgrade state when the version is not observed', () => {
     const tile = renderTiles('', '2.7.0')
     expect(tile).toHaveTextContent('Version not observed')
+    expect(tile).toHaveAccessibleName(/Lifecycle.*Version not observed.*Open Lifecycle/)
     expect(tile).toHaveTextContent('Upgrade state unknown')
     expect(tile).not.toHaveTextContent('settled')
   })

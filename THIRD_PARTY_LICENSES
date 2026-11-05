@@ -4720,7 +4720,7 @@ SOFTWARE.
 
 --------------------------------------------------------------------------------
 
-@tanstack/query-core 5.104.5
+@tanstack/query-core 5.105.0
 License: MIT
 
 MIT License
@@ -4747,7 +4747,7 @@ SOFTWARE.
 
 --------------------------------------------------------------------------------
 
-@tanstack/react-query 5.104.5
+@tanstack/react-query 5.105.0
 License: MIT
 
 MIT License
@@ -4774,7 +4774,7 @@ SOFTWARE.
 
 --------------------------------------------------------------------------------
 
-@tanstack/react-router 1.170.45
+@tanstack/react-router 1.170.46
 License: MIT
 
 MIT License
@@ -4855,7 +4855,7 @@ SOFTWARE.
 
 --------------------------------------------------------------------------------
 
-@tanstack/router-core 1.171.38
+@tanstack/router-core 1.171.39
 License: MIT
 
 MIT License
@@ -5162,7 +5162,7 @@ For more information, please refer to <http://unlicense.org/>
 
 --------------------------------------------------------------------------------
 
-lucide-react 1.60.0
+lucide-react 1.62.0
 License: ISC
 
 ISC License
@@ -5407,7 +5407,7 @@ SOFTWARE.
 
 --------------------------------------------------------------------------------
 
-seroval 1.6.8
+seroval 1.7.7
 License: MIT
 
 MIT License Copyright (c) 2025 Alexis Munsayac <alexis.munsayac@gmail.com>

@@ -66,7 +66,7 @@ test('dialogs, menus, and charts render without policy violations', async ({ pag
   await page.goto('/deployments/payments?tab=history')
   await expect(page.getByRole('heading', { name: 'Recorded changes' })).toBeVisible()
   await page.goto('/topology')
-  await page.getByRole('button', { name: 'Inspect payments/payments-bao', exact: true }).click()
+  await page.getByRole('button', { name: /Inspect.*payments\/payments-bao/ }).click()
   await administrator(page)
   await page.goto('/settings?section=access')
   await page.getByRole('button', { name: 'Add user', exact: true }).click()

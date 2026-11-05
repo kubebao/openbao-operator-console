@@ -36,8 +36,8 @@ test('documentation screenshots', async ({ page }) => {
   await capture(page, 'history')
 
   await page.goto('/topology')
-  await page.getByRole('button', { name: 'Inspect payments/payments-bao', exact: true }).click()
-  await page.getByRole('button', { name: 'Select payments-recovery' }).click()
+  await page.getByRole('button', { name: /Inspect.*payments\/payments-bao/ }).click()
+  await page.getByRole('button', { name: /Select.*recovery\/payments-dr/ }).click()
   await expect(page.getByText('Snapshot storage', { exact: true })).toBeVisible()
   await capture(page, 'topology')
 
