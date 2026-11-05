@@ -1,10 +1,13 @@
 import { Link } from '@tanstack/react-router'
 import {
   createColumnHelper,
+  createSortedRowModel,
   flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
+  rowSortingFeature,
+  sortFn_alphanumeric,
+  sortFn_text,
+  tableFeatures,
+  useTable,
 } from '@tanstack/react-table'
 import type { SortDirection } from '@tanstack/react-table'
 import { ArrowDown, ArrowUp, ArrowUpDown, Boxes, ChevronRight } from 'lucide-react'
@@ -12,8 +15,13 @@ import type { Deployment } from '../../api/schema'
 import { environmentLabels, healthRank } from '../../lib/format'
 import { EvidenceBadge, HealthBadge, Timestamp } from '../status'
 
-const column = createColumnHelper<Deployment>()
-const columns = [
+const features = tableFeatures({
+  rowSortingFeature,
+  sortedRowModel: createSortedRowModel(),
+  sortFns: { alphanumeric: sortFn_alphanumeric, text: sortFn_text },
+})
+const column = createColumnHelper<typeof features, Deployment>()
+const columns = column.columns([
   column.accessor('name', {
     header: 'Deployment',
     cell: ({ row }) => (
@@ -52,7 +60,7 @@ const columns = [
     header: 'State',
     cell: ({ getValue }) => <HealthBadge health={getValue()} />,
     // Severity order, then name, keeps the triage order stable between refreshes.
-    sortingFn: (a, b) =>
+    sortFn: (a, b) =>
       healthRank[a.original.health] - healthRank[b.original.health] ||
       a.original.name.localeCompare(b.original.name),
   }),
@@ -90,7 +98,7 @@ const columns = [
       </Link>
     ),
   }),
-]
+])
 
 const ariaSort = { asc: 'ascending', desc: 'descending' } as const
 
@@ -101,13 +109,10 @@ function SortIcon({ direction }: { direction: SortDirection | false }) {
 }
 
 export function FleetTable({ deployments }: { deployments: Deployment[] }) {
-  // React Compiler is not enabled; TanStack owns its mutable table callbacks.
-  // oxlint-disable-next-line react/incompatible-library
-  const table = useReactTable({
+  const table = useTable({
+    features,
     data: deployments,
     columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     initialState: { sorting: [{ id: 'health', desc: false }] },
   })
   return (
@@ -137,7 +142,7 @@ export function FleetTable({ deployments }: { deployments: Deployment[] }) {
       <tbody>
         {table.getRowModel().rows.map((row) => (
           <tr key={row.original.id}>
-            {row.getVisibleCells().map((cell) => (
+            {row.getAllCells().map((cell) => (
               <td
                 key={cell.id}
                 data-label={
