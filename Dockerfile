@@ -1,6 +1,6 @@
 # Build stages run on the build platform and cross-compile for the target platform.
 
-FROM --platform=$BUILDPLATFORM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS web
+FROM --platform=$BUILDPLATFORM node:26-alpine@sha256:c6ad9e9c1d80f6eb607c26b4b0a132ff7a2344fad1c78ea3baa2a7d4c8de6d94 AS web
 # Node.js 26 no longer bundles Corepack. Install a pinned Corepack, which then provides the
 # pnpm version declared in the packageManager field of web/package.json.
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
@@ -12,7 +12,7 @@ COPY api /src/api
 COPY web ./
 RUN pnpm build
 
-FROM --platform=$BUILDPLATFORM golang:1.27.2-alpine@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS go
+FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS go
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -27,7 +27,7 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
     -ldflags="-s -w -X github.com/kubebao/openbao-operator-console/internal/buildinfo.Version=${VERSION} -X github.com/kubebao/openbao-operator-console/internal/buildinfo.Commit=${COMMIT}" \
     -o /console ./cmd/console
 
-FROM gcr.io/distroless/static-debian13:nonroot@sha256:d62067879de890a1def9da0e7766b7d20810a5e5555cef8506b752437d7a3e88
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:25ac8f0c3b2334a9eb05452266bd4697864a8c8ef0ef71e5e6480d7f92868329
 ARG VERSION=dev
 ARG COMMIT=""
 LABEL org.opencontainers.image.title="OpenBao Operator Console" \
