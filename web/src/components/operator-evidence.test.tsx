@@ -45,9 +45,8 @@ describe('operator health', () => {
         operator={undefined}
       />,
     )
-    expect(await screen.findByText(/Producer time not reported/)).toHaveTextContent(
-      'Producer time not reportedFreshness unknown',
-    )
+    expect(await screen.findByText('Producer time not reported')).toHaveClass('status-unknown')
+    expect(screen.queryByText('Freshness unknown')).not.toBeInTheDocument()
     expect(screen.getByText(/^Collected/)).toBeInTheDocument()
   })
 })

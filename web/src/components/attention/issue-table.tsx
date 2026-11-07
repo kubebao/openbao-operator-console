@@ -58,9 +58,6 @@ function IssueRow({ issue, snapshot }: { issue: Issue; snapshot: Snapshot }) {
       <td className="time-cell" data-label="First observed">
         <Timestamp value={issue.firstSeenAt} />
       </td>
-      <td className="time-cell" data-label="Last checked">
-        <Timestamp value={issue.lastCheckedAt} />
-      </td>
       <td>
         <Link {...target} aria-label={`Inspect ${issue.title}`}>
           <ChevronRight size={17} />
@@ -119,7 +116,6 @@ export function IssueTable({ snapshot }: { snapshot: Snapshot }) {
               <th>Affected deployment</th>
               <th>Category</th>
               <th>First observed</th>
-              <th>Last checked</th>
               <th>
                 <span className="sr-only">Details</span>
               </th>

@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { ArrowRight } from 'lucide-react'
 import type { Deployment, Snapshot } from '../../api/schema'
 import { environments } from '../../lib/connection'
-import { environmentLabels, healthLabels } from '../../lib/format'
+import { environmentLabels, healthLabels, plural } from '../../lib/format'
 
 const healthStates = ['healthy', 'attention', 'critical', 'unknown'] as const
 
@@ -18,8 +18,8 @@ export function FleetOverview({ snapshot }: { snapshot: Snapshot }) {
         <div>
           <h2>Fleet overview</h2>
           <p>
-            {snapshot.deployments.length} deployments across {snapshot.connections.length}{' '}
-            Kubernetes clusters
+            {plural(snapshot.deployments.length, 'deployment')} across{' '}
+            {plural(snapshot.connections.length, 'Kubernetes cluster')}
           </p>
         </div>
         <Link to="/fleet" className="text-link">
@@ -43,6 +43,8 @@ export function FleetOverview({ snapshot }: { snapshot: Snapshot }) {
           const deployments = snapshot.deployments.filter(
             (item) => item.environment === environment,
           )
+          // An environment without deployments adds an empty bar and no information.
+          if (deployments.length === 0) return null
           return (
             <div key={environment}>
               <span className="environment-label">{environmentLabels[environment]}</span>

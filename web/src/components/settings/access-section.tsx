@@ -2,6 +2,7 @@ import { Plus } from 'lucide-react'
 import type { Configuration } from '../../api/schema'
 import type { AccessGrant, GrantKind } from '../../lib/settings'
 import { scopedNamespaceCount } from '../../lib/settings'
+import { plural } from '../../lib/format'
 import { Button } from '../ui/button'
 
 interface Row {
@@ -29,7 +30,7 @@ function rows(configuration: Configuration): Row[] {
 }
 
 function reach(grant: AccessGrant): string {
-  return grant.admin ? 'Administrator' : `${String(scopedNamespaceCount(grant.scopes))} namespaces`
+  return grant.admin ? 'Administrator' : plural(scopedNamespaceCount(grant.scopes), 'namespace')
 }
 
 export function AccessSection({

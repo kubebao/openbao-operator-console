@@ -51,6 +51,11 @@ export function bytes(value: number | null): string {
   return `${(value / 1024 ** 3).toFixed(1)} GiB`
 }
 
+// plural writes a count with its noun, adding "s" for any count other than one.
+export function plural(count: number, noun: string): string {
+  return `${String(count)} ${noun}${count === 1 ? '' : 's'}`
+}
+
 // initials abbreviates the signed-in name, or its subject when no name is supplied.
 export function initials(viewer: Pick<Snapshot['viewer'], 'name' | 'subject'>): string {
   const words = (viewer.name.trim() || viewer.subject.trim()).split(/\s+/u)

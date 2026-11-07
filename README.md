@@ -50,8 +50,9 @@ an official OpenBao project.
   charts distinguish unloaded records from unrecorded time.
 - **Fleet inventory.** Search, filters you can share as URLs, and severity sorting across clusters, teams, and
   environments.
-- **Topology and recovery paths.** Declared replication and snapshot recovery relationships, bound to resource UIDs,
-  with the evidence available for each path.
+- **Topology and recovery paths.** A map of clusters, their enrolled operators, and the deployments each operator
+  manages, joined by declared replication and snapshot recovery relationships bound to resource UIDs. Zoom into a
+  cluster for its operators and API access, or into a relationship for the evidence available for that path.
 - **Multi-cluster collection.** Namespace-scoped readers per cluster, named operator Deployment observation, and opt-in
   automatic ServiceAccount token renewal for remote clusters.
 - **Guided onboarding.** Generated least-privilege reader RBAC, connection checks, and deployment previews before a
@@ -68,8 +69,10 @@ an official OpenBao project.
 | ![Fleet table sorted by severity](docs/images/fleet.png) | ![Deployment overview with evidence tiles and findings](docs/images/deployment.png) |
 | **Backup health** | **Change history** |
 | ![Backup age against policy, activity over seven days, and restore-test evidence](docs/images/backup-evidence.png) | ![State over seven days and a timeline of recorded changes](docs/images/history.png) |
-| **Recovery path** | **Cluster coverage** |
-| ![Topology view of a snapshot recovery path](docs/images/topology.png) | ![Cluster collection and operator status](docs/images/clusters.png) |
+| **Topology map** | **Cluster view** |
+| ![Clusters, operators, and deployments joined by declared relationships](docs/images/topology.png) | ![One cluster's operators, deployments, relationships, and API access](docs/images/clusters.png) |
+| **Recovery path** | |
+| ![Snapshot recovery path with recorded evidence and the latest restore test](docs/images/recovery-path.png) | |
 
 A [dark theme](docs/images/attention-dark.png) is included. The screenshots show the built-in demonstration data;
 regenerate them with `make screenshots`.

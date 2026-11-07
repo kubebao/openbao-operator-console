@@ -1,46 +1,14 @@
 import { Cable, Pause, Play, Plus } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
-import type { Configuration, CredentialStatus, ManagedConnection, Snapshot } from '../../api/schema'
-import { collectionLabels } from '../../lib/format'
+import type { Configuration, CredentialStatus, ManagedConnection } from '../../api/schema'
+import { plural } from '../../lib/format'
 import { CredentialStatusLabel } from '../credential-renewal'
 import { EmptyState } from '../page'
-import type { Tone } from '../../lib/tone'
-import { StatusBadge, Timestamp } from '../status'
+import { StatusBadge } from '../status'
 import { Button } from '../ui/button'
-
-type ObservedConnection = Snapshot['connections'][number]
-
-// collectionBadge describes what the console currently knows about an enrolled cluster.
-function collectionBadge(
-  connection: ManagedConnection,
-  observed: ObservedConnection | undefined,
-): { tone: Tone; label: string } {
-  if (connection.disabled) return { tone: 'unknown', label: 'Paused' }
-  const collection = observed?.collection ?? 'pending'
-  if (collection === 'current') return { tone: 'healthy', label: 'Connected' }
-  if (collection === 'pending') return { tone: 'unknown', label: collectionLabels.pending }
-  return { tone: 'attention', label: collectionLabels[collection] }
-}
-
-function CollectionDetail({
-  connection,
-  observed,
-}: {
-  connection: ManagedConnection
-  observed: ObservedConnection | undefined
-}) {
-  if (connection.disabled) return <small>Collection stopped</small>
-  if (!observed?.lastSuccessAt) return <small>No successful collection yet</small>
-  return (
-    <small>
-      Last collected <Timestamp value={observed.lastSuccessAt} />
-    </small>
-  )
-}
 
 export function ConnectionsSection({
   configuration,
-  snapshot,
   credentials,
   credentialsUnavailable,
   pending,
@@ -49,7 +17,6 @@ export function ConnectionsSection({
   onRemove,
 }: {
   configuration: Configuration
-  snapshot: Snapshot | undefined
   credentials: readonly CredentialStatus[]
   credentialsUnavailable: boolean
   pending: boolean
@@ -62,9 +29,7 @@ export function ConnectionsSection({
   return (
     <section>
       <div className="section-heading">
-        <h2>
-          {count} {count === 1 ? 'cluster' : 'clusters'}
-        </h2>
+        <h2>{plural(count, 'cluster')}</h2>
         <Button
           onClick={() => {
             void navigate({ to: '/settings/clusters/new' })
@@ -76,9 +41,7 @@ export function ConnectionsSection({
       </div>
       <div className="settings-list">
         {configuration.connections.map((item) => {
-          const observed = snapshot?.connections.find((connection) => connection.id === item.id)
           const credential = credentials.find((status) => status.connectionId === item.id)
-          const badge = collectionBadge(item, observed)
           return (
             <article key={item.id} className="settings-row">
               <div>
@@ -98,9 +61,9 @@ export function ConnectionsSection({
                   ))}
                 </div>
               </div>
+              {/* Collection status lives on the Clusters page; this row edits configuration. */}
               <div className="settings-row-state">
-                <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
-                <CollectionDetail connection={item} observed={observed} />
+                {item.disabled && <StatusBadge tone="unknown">Paused</StatusBadge>}
                 <CredentialStatusLabel status={credential} />
                 {item.renewal && credentialsUnavailable && (
                   <small>Renewal status unavailable</small>

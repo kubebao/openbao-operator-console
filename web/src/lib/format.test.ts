@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { age, initials, until } from './format'
+import { age, initials, plural, until } from './format'
 
 describe('evidence time labels', () => {
   const now = Date.parse('2026-10-06T12:00:00Z')
@@ -32,5 +32,13 @@ describe('viewer initials', () => {
     expect(initials({ name: 'Ada Lovelace King', subject: 'ada' })).toBe('AL')
     expect(initials({ name: '  ', subject: 'service-account' })).toBe('S')
     expect(initials({ name: '', subject: '' })).toBe('?')
+  })
+})
+
+describe('counted nouns', () => {
+  it('uses the singular only for one', () => {
+    expect(plural(0, 'Kubernetes cluster')).toBe('0 Kubernetes clusters')
+    expect(plural(1, 'affected deployment')).toBe('1 affected deployment')
+    expect(plural(2, 'namespace')).toBe('2 namespaces')
   })
 })

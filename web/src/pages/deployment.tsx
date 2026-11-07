@@ -127,7 +127,7 @@ function DeploymentDetails({ snapshot }: { snapshot: Snapshot }) {
           />
         </Tabs.Content>
         <Tabs.Content value="lifecycle">
-          <LifecycleTab deployment={deployment} operator={operator} />
+          <LifecycleTab deployment={deployment} />
         </Tabs.Content>
         <Tabs.Content value="backups">
           <BackupsTab

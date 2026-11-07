@@ -8,7 +8,7 @@ export function ActivityPage() {
   const activity = useActivity(Boolean(snapshot))
   let content = (
     <EmptyState title="No activity recorded">
-      Changes appear as the collector observes them. This is a bounded observation history.
+      Changes appear as the collector observes them.
     </EmptyState>
   )
   if (activity.isPending) content = <p className="muted">Loading recorded activity…</p>

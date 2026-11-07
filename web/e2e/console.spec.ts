@@ -54,21 +54,31 @@ test('fleet filters are shareable and sorting works', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'identity-bao identity', exact: true })).toBeVisible()
 })
 
-test('topology selection opens the recovery evidence path', async ({ page }) => {
+test('topology zooms from the map to a cluster and a relationship', async ({ page }) => {
   await page.goto('/topology')
   await expect(page.getByRole('heading', { name: 'Topology', exact: true })).toBeVisible()
-  await expect(page.getByText('Replication', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: /Inspect.*payments\/payments-read/ }).click()
-  await expect(page.getByText('9007199254741007', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: /Inspect.*payments\/payments-bao/ }).click()
-  await page.getByRole('button', { name: /Select.*recovery\/payments-dr/ }).click()
+  // Each declared relationship is drawn between its deployments on a wide screen.
+  await expect(page.locator('.map-edge')).toHaveCount(2)
+  await expect(page.getByText('operator-prod-eu-1', { exact: true })).toBeVisible()
   await page.screenshot({ path: '../.local/screenshots/topology-light.png', fullPage: true })
-  await page.reload()
-  await expect(page.getByText('Snapshot storage', { exact: true })).toBeVisible()
-  await page.getByRole('link', { name: 'Inspect recovery path' }).click()
+  await page.getByRole('link', { name: /payments\/payments-bao → payments\/payments-read/ }).click()
+  await expect(page.getByRole('heading', { name: 'Read replica', exact: true })).toBeVisible()
+  await expect(page.getByText('9007199254741007', { exact: true })).toBeVisible()
+  const breadcrumb = page.getByRole('navigation', { name: 'Breadcrumb' })
+  await breadcrumb.getByRole('link', { name: 'prod-eu-1', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'prod-eu-1', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'operator-prod-eu-1' })).toBeVisible()
+  await page.getByRole('link', { name: 'Recovers to recovery/payments-dr (dr-eu-1)' }).click()
   await expect(page.getByRole('heading', { name: 'Recovery path', exact: true })).toBeVisible()
   await expect(page.getByText('Measured RPO', { exact: true })).toBeVisible()
-  await expect(page.getByText('Current readability unknown', { exact: true })).toBeVisible()
+  await expect(page.getByText('Readability unknown', { exact: true })).toBeVisible()
+  await expect(page.getByText('Snapshot repository', { exact: true })).toBeVisible()
+  await page
+    .getByRole('navigation', { name: 'Breadcrumb' })
+    .getByRole('link', { name: 'Topology' })
+    .click()
+  await page.getByRole('link', { name: /^prod-eu-2/ }).click()
+  await expect(page.getByRole('heading', { name: 'prod-eu-2', exact: true })).toBeVisible()
 })
 
 test('dark mode persists and global search is keyboard accessible', async ({ page }) => {
@@ -183,34 +193,25 @@ test('a denied first collection remains visible without deployment inventory', a
   await expect(page.getByText('0 deployments observed')).toBeVisible()
 })
 
-test('clusters explain API access and enrolled controller evidence', async ({ page }) => {
-  await page.goto('/clusters')
-  await expect(page.getByRole('heading', { name: 'Clusters', exact: true })).toBeVisible()
-  // Clusters with collection gaps start expanded; healthy clusters stay collapsed.
-  await expect(page.getByRole('button', { name: /^edge-dc-1/ })).toHaveAttribute(
-    'aria-expanded',
-    'true',
-  )
-  const toggle = page.getByRole('button', { name: /^prod-eu-1/ })
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-  await toggle.click()
-  const details = page.locator('#cluster-prod-eu-1')
+test('cluster views explain API access and enrolled controller evidence', async ({ page }) => {
+  await page.goto('/topology')
+  // An uncollected cluster says so on the map and keeps its last known states.
+  await expect(page.getByText('States are last known.')).toBeVisible()
+  await page.getByRole('link', { name: /^edge-dc-1/ }).click()
+  await expect(page.getByRole('heading', { name: 'edge-dc-1', exact: true })).toBeVisible()
+  await expect(page.getByText(/cannot collect from this cluster/)).toBeVisible()
+  // One row covers every API that fails the same way in the same namespaces.
+  await expect(page.getByRole('cell', { name: 'Unreachable', exact: true })).toHaveCount(1)
+  await page.goto('/topology/clusters/prod-eu-1')
+  await expect(page.getByRole('cell', { name: 'API absent', exact: true })).toBeVisible()
+  await page.getByText('Controller details', { exact: true }).click()
   await expect(
-    details.getByRole('heading', { name: 'operator-prod-eu-1', exact: true }),
+    page.getByText('example.invalid/openbao-operator:development', { exact: true }),
   ).toBeVisible()
-  await expect(details.getByText('API absent', { exact: true }).first()).toBeVisible()
-  await expect(
-    details.getByText('example.invalid/openbao-operator:development', { exact: true }),
-  ).toBeVisible()
-  await page
-    .getByRole('row', { name: /prod-eu-1/ })
-    .getByRole('link', { name: '4' })
-    .click()
-  await expect(page).toHaveURL(/cluster=prod-eu-1/)
-  await expect(page.getByText('Showing 4 of 12 deployments')).toBeVisible()
-  // A healthy operator is context on the deployment page; its details stay on Clusters.
+  // A healthy operator is context on the deployment page; its details stay on the cluster view.
   await page.goto('/deployments/payments')
-  await expect(page.getByRole('link', { name: 'operator-prod-eu-1', exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'operator-prod-eu-1', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'prod-eu-1', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Operator needs attention' })).toHaveCount(0)
   // An operator without current evidence explains why the deployment's evidence is suspect.
   await page.goto('/deployments/edge')
@@ -365,10 +366,7 @@ test('fleet lists the most severe deployments first', async ({ page }) => {
   )
   await page.getByRole('combobox', { name: 'Filter by collection' }).selectOption('gaps')
   await expect(page.getByText('Showing 1 of 12 deployments')).toBeVisible()
-  await expect(page.getByRole('button', { name: /Collection gaps/ })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  )
+  await expect(page).toHaveURL(/collection=gaps/)
 })
 
 test('settings require an administrator', async ({ page }) => {
@@ -376,18 +374,18 @@ test('settings require an administrator', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Administrator access required' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Settings', exact: true })).toHaveCount(0)
   await page.getByRole('link', { name: 'View cluster coverage' }).click()
-  await expect(page.getByRole('heading', { name: 'Clusters', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Topology', exact: true })).toBeVisible()
 })
 
 test('mobile navigation shows every destination and tables fit as cards', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/fleet')
   const navigation = page.getByRole('navigation', { name: 'Main navigation' })
-  for (const name of ['Attention', 'Fleet', 'Topology', 'Activity', 'Clusters'])
+  for (const name of ['Attention', 'Fleet', 'Topology', 'Activity'])
     await expect(navigation.getByRole('link', { name: new RegExp(`^${name}`) })).toBeInViewport()
   await expect(page.getByRole('link', { name: 'identity-bao identity', exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-  for (const path of ['/', '/clusters']) {
+  for (const path of ['/', '/topology', '/topology/clusters/prod-eu-1']) {
     await page.goto(path)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   }

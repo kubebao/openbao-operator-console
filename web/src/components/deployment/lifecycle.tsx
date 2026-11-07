@@ -1,4 +1,3 @@
-import { Link } from '@tanstack/react-router'
 import {
   Check,
   CircleDashed,
@@ -8,16 +7,9 @@ import {
   Workflow,
   X,
 } from 'lucide-react'
-import type { Deployment, Operator } from '../../api/schema'
+import type { Deployment } from '../../api/schema'
 import { fieldSeverity } from '../../lib/findings'
-import {
-  cleanupStates,
-  operatorHealthText,
-  producerFreshness,
-  producerFreshnessLabels,
-  recoveryPhases,
-  roleLabels,
-} from '../../lib/format'
+import { cleanupStates, recoveryPhases, roleLabels } from '../../lib/format'
 import { observedGeneration, replicaLag, upgradeLabels, upgradeState } from '../../lib/lifecycle'
 import { DetailRows } from '../page'
 import { Timestamp } from '../status'
@@ -107,13 +99,7 @@ function VersionSection({ deployment }: { deployment: Deployment }) {
   )
 }
 
-function ReconciliationSection({
-  deployment,
-  operator,
-}: {
-  deployment: Deployment
-  operator: Operator | undefined
-}) {
+function ReconciliationSection({ deployment }: { deployment: Deployment }) {
   return (
     <section className="detail-section">
       <SectionTitle
@@ -130,34 +116,7 @@ function ReconciliationSection({
             label: 'Reported by operator',
             value: generationLabel(observedGeneration(deployment), deployment.generation),
           },
-          {
-            label: 'Managed by',
-            value: operator ? (
-              <Link to="/clusters" className="text-link">
-                {operator.id} · {operatorHealthText(operator)}
-              </Link>
-            ) : (
-              (deployment.operatorId ?? 'No operator declared')
-            ),
-          },
           { label: 'Operator version label', value: deployment.operatorVersion ?? 'Not observed' },
-          {
-            label: 'Producer reported',
-            value: (
-              <Timestamp
-                value={deployment.evidence.producerObservedAt}
-                missing="Not reported (freshness unknown)"
-              />
-            ),
-          },
-          {
-            label: 'Producer freshness',
-            value: producerFreshnessLabels[producerFreshness(deployment.evidence)],
-          },
-          {
-            label: 'Collected by the console',
-            value: <Timestamp value={deployment.evidence.collectedAt} />,
-          },
         ]}
       />
     </section>
@@ -222,7 +181,13 @@ function lagLabel(lag: bigint | null): string {
   return `${lag.toLocaleString()} ${lag === 1n ? 'entry' : 'entries'}`
 }
 
-function ReplicationSection({ deployment, replica }: { deployment: Deployment; replica: Replica }) {
+export function ReplicationSection({
+  deployment,
+  replica,
+}: {
+  deployment: Deployment
+  replica: Replica
+}) {
   return (
     <section className="detail-section">
       <SectionTitle
@@ -250,17 +215,11 @@ function ReplicationSection({ deployment, replica }: { deployment: Deployment; r
   )
 }
 
-export function LifecycleTab({
-  deployment,
-  operator,
-}: {
-  deployment: Deployment
-  operator: Operator | undefined
-}) {
+export function LifecycleTab({ deployment }: { deployment: Deployment }) {
   return (
     <div className="lifecycle-grid">
       <VersionSection deployment={deployment} />
-      <ReconciliationSection deployment={deployment} operator={operator} />
+      <ReconciliationSection deployment={deployment} />
       <RecoverySection deployment={deployment} />
       {deployment.replica && (
         <ReplicationSection deployment={deployment} replica={deployment.replica} />
