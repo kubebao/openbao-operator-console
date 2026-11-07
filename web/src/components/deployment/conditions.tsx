@@ -83,7 +83,8 @@ export function ConditionsTab({
                   </>
                 ) : (
                   <>
-                    <span>Last transition</span>
+                    {/* Every row shows the same kind of time; only assistive technology needs the label. */}
+                    <span className="sr-only">Last transition</span>
                     <Timestamp value={condition.lastTransitionAt} missing="Not reported" />
                   </>
                 )}

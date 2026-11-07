@@ -134,9 +134,13 @@ export function ConnectedSummary({
             </Link>
           </Button>
           <Button asChild variant={paused ? 'default' : 'outline'}>
-            <Link to={paused ? '/settings' : '/clusters'}>
-              {paused ? 'Open cluster settings' : 'View cluster'}
-            </Link>
+            {paused ? (
+              <Link to="/settings">Open cluster settings</Link>
+            ) : (
+              <Link to="/topology/clusters/$clusterId" params={{ clusterId: id }}>
+                View cluster
+              </Link>
+            )}
           </Button>
           {!paused && (
             <Button asChild variant="default">

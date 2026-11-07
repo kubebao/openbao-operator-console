@@ -10,10 +10,10 @@ import { AttentionPage } from './pages/attention'
 import { FleetPage } from './pages/fleet'
 import { DeploymentPage } from './pages/deployment'
 import { ActivityPage } from './pages/activity'
-import { ClustersPage } from './pages/clusters'
 import { SettingsPage } from './pages/settings'
 import { TopologyPage } from './pages/topology'
-import { RecoveryPage } from './pages/recovery'
+import { TopologyClusterPage } from './pages/topology-cluster'
+import { TopologyRelationshipPage } from './pages/topology-relationship'
 import { SetupPage } from './pages/setup'
 import { ClusterOnboardingPage } from './pages/cluster-onboarding'
 import { RouteError, RouteNotFound } from './components/route-states'
@@ -70,11 +70,6 @@ const activity = createRoute({
   path: '/activity',
   component: ActivityPage,
 })
-const clusters = createRoute({
-  getParentRoute: () => root,
-  path: '/clusters',
-  component: ClustersPage,
-})
 const settings = createRoute({
   getParentRoute: () => root,
   path: '/settings',
@@ -91,22 +86,17 @@ const settings = createRoute({
 const topology = createRoute({
   getParentRoute: () => root,
   path: '/topology',
-  validateSearch: (
-    search: SearchSchemaInput & { relationship?: string; deployment?: string; kind?: string },
-  ) =>
-    z
-      .object({
-        relationship: z.string().catch(''),
-        deployment: z.string().catch(''),
-        kind: z.enum(['all', 'replication', 'snapshotRecovery']).catch('all'),
-      })
-      .parse(search),
   component: TopologyPage,
 })
-const recovery = createRoute({
+const topologyCluster = createRoute({
   getParentRoute: () => root,
-  path: '/recovery/$relationshipId',
-  component: RecoveryPage,
+  path: '/topology/clusters/$clusterId',
+  component: TopologyClusterPage,
+})
+const topologyRelationship = createRoute({
+  getParentRoute: () => root,
+  path: '/topology/relationships/$relationshipId',
+  component: TopologyRelationshipPage,
 })
 
 export const router = createRouter({
@@ -117,10 +107,10 @@ export const router = createRouter({
     fleet,
     deployment,
     activity,
-    clusters,
     settings,
     topology,
-    recovery,
+    topologyCluster,
+    topologyRelationship,
   ]),
   defaultPreload: 'intent',
   scrollRestoration: true,

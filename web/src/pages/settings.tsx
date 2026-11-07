@@ -73,7 +73,7 @@ export function SettingsPage() {
         <PageHeading title="Settings" />
         <EmptyState title="Administrator access required" icon={Lock}>
           Console administrators manage clusters, access, and policies.{' '}
-          <Link to="/clusters" className="text-link">
+          <Link to="/topology" className="text-link">
             View cluster coverage
           </Link>
         </EmptyState>
@@ -204,7 +204,6 @@ function SettingsWorkspace({
       {section === 'connections' && (
         <ConnectionsSection
           configuration={configuration}
-          snapshot={snapshot}
           credentials={credentials.data?.credentials ?? []}
           credentialsUnavailable={credentials.isError}
           pending={save.isPending}

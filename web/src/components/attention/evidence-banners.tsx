@@ -1,10 +1,27 @@
 import { Link } from '@tanstack/react-router'
 import { AlertCircle, ArrowRight } from 'lucide-react'
 import type { Snapshot } from '../../api/schema'
+import { plural } from '../../lib/format'
 import { operatorNeedsAttention } from '../../lib/tone'
 
-function plural(count: number, noun: string): string {
-  return `${String(count)} ${noun}${count === 1 ? '' : 's'}`
+// ClusterLink opens the one affected cluster directly, or the topology map for several.
+function ClusterLink({
+  clusters,
+  children,
+}: {
+  clusters: readonly Snapshot['connections'][number][]
+  children: string
+}) {
+  const [only, ...others] = clusters
+  return only && others.length === 0 ? (
+    <Link to="/topology/clusters/$clusterId" params={{ clusterId: only.id }}>
+      {children} <ArrowRight size={14} />
+    </Link>
+  ) : (
+    <Link to="/topology">
+      {children} <ArrowRight size={14} />
+    </Link>
+  )
 }
 
 // EvidenceBanners warn that findings are incomplete when clusters or controllers lack
@@ -13,9 +30,12 @@ export function EvidenceBanners({ snapshot }: { snapshot: Snapshot }) {
   const incomplete = snapshot.connections.filter(
     (connection) => connection.collection !== 'current',
   )
-  const operators = snapshot.connections
-    .flatMap((connection) => connection.operators)
-    .filter(operatorNeedsAttention)
+  const operatorClusters = snapshot.connections.filter((connection) =>
+    connection.operators.some(operatorNeedsAttention),
+  )
+  const operators = operatorClusters.flatMap((connection) =>
+    connection.operators.filter(operatorNeedsAttention),
+  )
   return (
     <>
       {incomplete.length > 0 && (
@@ -26,9 +46,7 @@ export function EvidenceBanners({ snapshot }: { snapshot: Snapshot }) {
             {plural(incomplete.length, 'Kubernetes cluster')} cannot provide current evidence.
             Undiscovered deployments cannot be assessed.
           </span>
-          <Link to="/clusters">
-            Inspect clusters <ArrowRight size={14} />
-          </Link>
+          <ClusterLink clusters={incomplete}>Inspect clusters</ClusterLink>
         </div>
       )}
       {operators.length > 0 && (
@@ -39,9 +57,7 @@ export function EvidenceBanners({ snapshot }: { snapshot: Snapshot }) {
             {plural(operators.length, 'enrolled operator')} unavailable, progressing, or without
             current evidence.
           </span>
-          <Link to="/clusters">
-            Inspect operators <ArrowRight size={14} />
-          </Link>
+          <ClusterLink clusters={operatorClusters}>Inspect operators</ClusterLink>
         </div>
       )}
     </>

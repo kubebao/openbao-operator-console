@@ -117,9 +117,9 @@ function RecentChanges({
           <ArrowRight size={14} />
         </button>
       </div>
-      {recent === null ? (
-        <p className="muted">Loading recorded changes…</p>
-      ) : (
+      {recent === null && <p className="muted">Loading recorded changes…</p>}
+      {recent?.length === 0 && <p className="muted">No changes recorded.</p>}
+      {recent && recent.length > 0 && (
         <ol className="recent-changes">
           {recent.map((entry) => {
             const [first, ...rest] = entry.changes
@@ -166,8 +166,8 @@ function RelationshipsLine({
           return (
             <li key={relationship.id}>
               <Link
-                to="/topology"
-                search={{ relationship: relationship.id, deployment: '', kind: 'all' }}
+                to="/topology/relationships/$relationshipId"
+                params={{ relationshipId: relationship.id }}
                 className="text-link"
               >
                 {relationshipLabel(relationship, deployment, other)}

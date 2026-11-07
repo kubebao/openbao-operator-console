@@ -1,10 +1,3 @@
-.fleet-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 156px;
-  gap: 20px;
-  align-items: start;
-}
-
 .fleet-filters {
   display: flex;
   flex-wrap: wrap;
@@ -98,56 +91,6 @@
   background: var(--amber-soft);
   padding: 2px 6px;
   border-radius: 4px;
-}
-
-.saved-views {
-  padding: 15px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-panel);
-}
-
-.saved-views h2 {
-  font-size: var(--text-base);
-  display: flex;
-  gap: 7px;
-  align-items: center;
-  margin-bottom: 13px;
-}
-
-.saved-views button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  font-size: var(--text-xs);
-  padding: 9px 7px;
-  background: transparent;
-  border: 0;
-  border-radius: 4px;
-  color: var(--muted-foreground);
-}
-
-.saved-views button.selected {
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.saved-views p {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-  color: var(--muted-foreground);
-  font-size: var(--text-xs);
-}
-
-@media (max-width: 1250px) {
-  .fleet-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .saved-views {
-    display: none;
-  }
 }
 
 @media (max-width: 720px) {

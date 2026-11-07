@@ -42,7 +42,7 @@ export function Topbar({
       </button>
       <div className="topbar-right">
         <Link
-          to="/clusters"
+          to="/topology"
           className="collection-summary"
           title={collectionTitle(failedConnections)}
         >

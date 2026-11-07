@@ -15,7 +15,11 @@ The collector and reader RBAC target the operator's `openbao.org/v1alpha1` API g
 ## Interface principles
 
 - **Attention first.** The initial workspace lists findings. Fleet provides inventory, deployment pages explain
-  evidence, Topology shows declared replication and recovery relationships, and Activity lists observed changes.
+  evidence, Topology maps clusters, enrolled operators, and their deployments with declared replication and
+  recovery relationships, and Activity lists observed changes.
+- **Zoom by level.** Topology opens on the fleet map. A cluster view shows its operators, deployments, outgoing
+  relationships, and API access. A relationship view shows the evidence its kind depends on. Each level has its own
+  URL.
 - **Readable density.** Quiet blue accents, fine dividers, and generous spacing keep dense operational evidence legible.
 - **Traceable evidence.** A finding points to the tab and rows that produced it. Unknown evidence is labeled unknown.
 - **Calm interaction.** Fast filter transitions and restrained motion support investigation. Reduced motion is

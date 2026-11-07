@@ -7,7 +7,6 @@ import {
   emptyFilter,
   filterDeployments,
   matchesQuery,
-  sameFilter,
 } from './filters'
 
 const payments = deploymentFixture({
@@ -67,11 +66,5 @@ describe('fleet filters', () => {
     expect(
       filterDeployments(deployments, { ...emptyFilter, collection: collectionGaps }, clusters),
     ).toEqual([staging])
-  })
-  it('compares a filter with a view whose unset fields are empty', () => {
-    expect(sameFilter({ ...emptyFilter, health: 'critical' }, { health: 'critical' })).toBe(true)
-    expect(
-      sameFilter({ ...emptyFilter, health: 'critical', team: 'A' }, { health: 'critical' }),
-    ).toBe(false)
   })
 })

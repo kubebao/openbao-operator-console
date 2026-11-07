@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { ArrowRight, RefreshCw } from 'lucide-react'
 import { useActivity, useSnapshot } from '../api/client'
 import type { Snapshot } from '../api/schema'
+import { plural } from '../lib/format'
 import { EvidenceBanners } from '../components/attention/evidence-banners'
 import { FleetOverview } from '../components/attention/fleet-overview'
 import { IssueTable } from '../components/attention/issue-table'
@@ -60,10 +61,10 @@ export function AttentionPage() {
       <div className="summary-line">
         <span className="summary-number">
           <span className="dot-critical" />
-          {findings.length} {findings.length === 1 ? 'finding' : 'findings'}
+          {plural(findings.length, 'finding')}
         </span>
-        <span>{affected} affected deployments</span>
-        <span>{snapshot.deployments.length} deployments observed</span>
+        <span>{plural(affected, 'affected deployment')}</span>
+        <span>{plural(snapshot.deployments.length, 'deployment')} observed</span>
       </div>
       <EvidenceBanners snapshot={snapshot} />
       <IssueTable snapshot={snapshot} />

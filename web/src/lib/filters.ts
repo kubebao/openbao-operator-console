@@ -9,15 +9,6 @@ export interface FleetFilter {
   collection: string
 }
 
-const filterKeys: readonly (keyof FleetFilter)[] = [
-  'query',
-  'environment',
-  'team',
-  'cluster',
-  'health',
-  'collection',
-]
-
 // collectionGaps selects every deployment without current evidence.
 export const collectionGaps = 'gaps'
 
@@ -31,12 +22,6 @@ export const collectionFilters = [
   'denied',
   'unsupported',
 ] as const
-
-// sameFilter reports whether a filter equals a view with unset fields left empty.
-export function sameFilter(filter: FleetFilter, view: Partial<FleetFilter>): boolean {
-  const target: FleetFilter = { ...emptyFilter, ...view }
-  return filterKeys.every((key) => filter[key] === target[key])
-}
 
 export const emptyFilter: FleetFilter = {
   query: '',

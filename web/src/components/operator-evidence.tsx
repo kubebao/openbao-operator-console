@@ -1,5 +1,6 @@
 import { Cpu } from 'lucide-react'
 import type { Operator } from '../api/schema'
+import type { DetailRow } from './page'
 import { DetailRows } from './page'
 import { InfoTip } from './info-tip'
 import { operatorHealthLabels } from '../lib/format'
@@ -21,29 +22,33 @@ export function OperatorEvidence({ operator }: { operator: Operator }) {
           verify the binary.
         </InfoTip>
       </div>
-      <DetailRows
-        rows={[
-          { label: 'Controller Deployment', value: `${operator.namespace} / ${operator.name}` },
-          { label: 'Declared responsibility', value: operator.namespaces.join(', ') },
-          ...(operator.collection === 'current'
-            ? []
-            : [{ label: 'Last reported health', value: operatorHealthLabels[operator.health] }]),
-          { label: 'Version label', value: operator.version ?? 'Not supplied' },
-          { label: 'Container image', value: <code>{operator.image ?? 'Not observed'}</code> },
-          {
-            label: 'Ready / desired replicas',
-            value: `${String(operator.readyReplicas ?? '—')} / ${String(operator.desiredReplicas ?? '—')}`,
-          },
-          {
-            label: 'Observed / requested generation',
-            value: `${String(operator.observedGeneration ?? '—')} / ${String(operator.generation)}`,
-          },
-          {
-            label: 'Last successful observation',
-            value: <Timestamp value={operator.lastSuccessAt} />,
-          },
-        ]}
-      />
+      <OperatorRows operator={operator} />
     </section>
   )
+}
+
+// OperatorRows lists the controller facts collected from the enrolled Deployment.
+export function OperatorRows({ operator }: { operator: Operator }) {
+  const rows: DetailRow[] = [
+    { label: 'Controller Deployment', value: `${operator.namespace} / ${operator.name}` },
+    { label: 'Declared responsibility', value: operator.namespaces.join(', ') },
+    ...(operator.collection === 'current'
+      ? []
+      : [{ label: 'Last reported health', value: operatorHealthLabels[operator.health] }]),
+    { label: 'Version label', value: operator.version ?? 'Not supplied' },
+    { label: 'Container image', value: <code>{operator.image ?? 'Not observed'}</code> },
+    {
+      label: 'Ready / desired replicas',
+      value: `${String(operator.readyReplicas ?? '—')} / ${String(operator.desiredReplicas ?? '—')}`,
+    },
+    {
+      label: 'Observed / requested generation',
+      value: `${String(operator.observedGeneration ?? '—')} / ${String(operator.generation)}`,
+    },
+    {
+      label: 'Last successful observation',
+      value: <Timestamp value={operator.lastSuccessAt} />,
+    },
+  ]
+  return <DetailRows rows={rows} />
 }

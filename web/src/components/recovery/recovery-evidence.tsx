@@ -2,11 +2,11 @@ import { useId } from 'react'
 import { Link } from '@tanstack/react-router'
 import { ArrowRight, Database, HardDrive } from 'lucide-react'
 import type { Deployment, Relationship, Snapshot } from '../../api/schema'
-import { provenanceLabels } from '../../lib/format'
+import { provenanceLabels, recoveryPhases, restoreOutcomes } from '../../lib/format'
 import { DetailRows } from '../page'
 import { HealthBadge, Timestamp } from '../status'
 
-function PathDeployment({
+export function PathDeployment({
   role,
   deployment,
   snapshot,
@@ -48,7 +48,7 @@ export function RecoveryDiagram({
         <HardDrive size={27} />
         <h3>Snapshot repository</h3>
         <code>{route.repository ?? 'Configured storage'}</code>
-        <small>Current readability unknown</small>
+        <small>Readability unknown</small>
       </div>
       <ArrowRight className="path-arrow dashed" size={25} />
       <PathDeployment role="Restore target" deployment={target} snapshot={snapshot} />
@@ -100,7 +100,7 @@ export function RestoreTestEvidence({ source }: { source: Deployment }) {
       <h2>Latest restore test</h2>
       <DetailRows
         rows={[
-          { label: 'Result', value: test?.outcome ?? 'Not observed' },
+          { label: 'Result', value: test ? restoreOutcomes[test.outcome] : 'Not observed' },
           { label: 'Finished', value: <Timestamp value={test?.finishedAt ?? null} /> },
           {
             label: 'Last successful test',
@@ -120,15 +120,7 @@ export function RestoreTestEvidence({ source }: { source: Deployment }) {
   )
 }
 
-export function PathEvidence({
-  route,
-  source,
-  target,
-}: {
-  route: Relationship
-  source: Deployment
-  target: Deployment
-}) {
+export function PathEvidence({ route, target }: { route: Relationship; target: Deployment }) {
   const recovery = target.recovery
   const heading = useId()
   return (
@@ -137,19 +129,10 @@ export function PathEvidence({
       <DetailRows
         rows={[
           { label: 'Relationship', value: provenanceLabels[route.provenance] },
-          {
-            label: 'Backup completion age',
-            value: <Timestamp value={source.backup?.lastSuccessAt ?? null} />,
-          },
           { label: 'Measured RPO', value: 'Not supplied' },
           {
-            label: 'Latest restore-test pass',
-            value: <Timestamp value={source.backup?.restoreTest?.lastSuccessAt ?? null} />,
-          },
-          { label: 'Target request phase', value: recovery?.phase ?? 'Not observed' },
-          {
-            label: 'Application receipt',
-            value: <Timestamp value={recovery?.applicationConfirmedAt ?? null} />,
+            label: 'Target request phase',
+            value: recovery ? recoveryPhases[recovery.phase] : 'Not observed',
           },
           {
             label: 'Source exclusion',

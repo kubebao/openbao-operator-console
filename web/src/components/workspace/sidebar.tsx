@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Activity, Bell, Boxes, Cable, GitBranch, Settings2 } from 'lucide-react'
+import { Activity, Bell, Boxes, GitBranch, Settings2 } from 'lucide-react'
 import type { Snapshot } from '../../api/schema'
 import { initials } from '../../lib/format'
 import { Brand } from '../brand'
@@ -31,17 +31,13 @@ export function Sidebar({
         <Link to="/topology" activeProps={{ className: 'nav-active' }}>
           <GitBranch size={18} />
           <span>Topology</span>
+          {failedConnections > 0 && (
+            <span className="nav-warning" aria-label="Clusters need attention" />
+          )}
         </Link>
         <Link to="/activity" activeProps={{ className: 'nav-active' }}>
           <Activity size={18} />
           <span>Activity</span>
-        </Link>
-        <Link to="/clusters" activeProps={{ className: 'nav-active' }}>
-          <Cable size={18} />
-          <span>Clusters</span>
-          {failedConnections > 0 && (
-            <span className="nav-warning" aria-label="Clusters need attention" />
-          )}
         </Link>
         {snapshot?.viewer.admin && (
           <Link to="/settings" activeProps={{ className: 'nav-active' }}>
@@ -55,7 +51,8 @@ export function Sidebar({
           <Profile viewer={snapshot.viewer} live={snapshot.mode === 'live'} />
           <p className="build-version">
             <span>Console {snapshot.build.version}</span>
-            {snapshot.build.commit && (
+            {/* A development build uses the short commit as its version; show it once. */}
+            {snapshot.build.commit && !snapshot.build.commit.startsWith(snapshot.build.version) && (
               <code title={`Commit ${snapshot.build.commit}`}>
                 {snapshot.build.commit.slice(0, 12)}
               </code>

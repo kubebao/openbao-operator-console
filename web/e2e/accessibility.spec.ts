@@ -24,15 +24,18 @@ const pages = [
   { path: '/fleet', heading: 'Fleet' },
   { path: '/topology', heading: 'Topology' },
   { path: '/activity', heading: 'Activity' },
-  { path: '/clusters', heading: 'Clusters' },
+  { path: '/topology/clusters/prod-eu-1', heading: 'prod-eu-1' },
+  { path: '/topology/clusters/edge', heading: 'edge-dc-1' },
   { path: '/deployments/payments', heading: 'payments-bao' },
   { path: '/deployments/identity?tab=history', heading: 'identity-bao' },
-  { path: '/recovery/payments-recovery', heading: 'Recovery path' },
+  { path: '/topology/relationships/payments-recovery', heading: 'Recovery path' },
+  { path: '/topology/relationships/payments-replication', heading: 'Read replica' },
   // The demonstration viewer is not an administrator.
   { path: '/settings', heading: 'Settings' },
   { path: '/settings/clusters/new', heading: 'Add cluster' },
   { path: '/deployments/missing', heading: 'Deployment not found' },
-  { path: '/recovery/missing', heading: 'Recovery path unavailable' },
+  { path: '/topology/clusters/missing', heading: 'Cluster unavailable' },
+  { path: '/topology/relationships/missing', heading: 'Relationship unavailable' },
   { path: '/missing', heading: 'Page not found' },
 ]
 
@@ -87,7 +90,7 @@ test('navigation focuses the heading of pages without content', async ({ page })
   await page.goto('/settings')
   await expect(page.getByRole('heading', { name: 'Administrator access required' })).toBeVisible()
   await page.getByRole('link', { name: 'View cluster coverage' }).click()
-  await expect(page.getByRole('heading', { name: 'Clusters', level: 1 })).toBeFocused()
+  await expect(page.getByRole('heading', { name: 'Topology', level: 1 })).toBeFocused()
   await page.goBack()
   await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeFocused()
   await page.goto('/deployments/missing')

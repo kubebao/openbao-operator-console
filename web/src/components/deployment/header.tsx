@@ -60,7 +60,11 @@ export function DeploymentHeader({
           <Cpu size={14} aria-hidden="true" />
           Managed by{' '}
           {operator ? (
-            <Link to="/clusters" className="text-link">
+            <Link
+              to="/topology/clusters/$clusterId"
+              params={{ clusterId: deployment.connectionId }}
+              className="text-link"
+            >
               {operator.id}
             </Link>
           ) : (
@@ -89,18 +93,21 @@ export function DeploymentHeader({
 }
 
 // ProducerEvidence shows when the operator last reported status, separately from when the
-// console collected it. Without a reported time, freshness stays unknown.
+// console collected it. Without a reported time, freshness is unknown, and the missing time
+// says so on its own.
 function ProducerEvidence({ evidence }: { evidence: Deployment['evidence'] }) {
   const freshness = producerFreshness(evidence)
+  if (evidence.producerObservedAt === null)
+    return (
+      <span>
+        <StatusBadge tone={producerFreshnessTone[freshness]}>
+          Producer time not reported
+        </StatusBadge>
+      </span>
+    )
   return (
     <span>
-      {evidence.producerObservedAt === null ? (
-        'Producer time not reported'
-      ) : (
-        <>
-          Producer reported <Timestamp value={evidence.producerObservedAt} />
-        </>
-      )}
+      Producer reported <Timestamp value={evidence.producerObservedAt} />
       <StatusBadge tone={producerFreshnessTone[freshness]}>
         {producerFreshnessLabels[freshness]}
       </StatusBadge>

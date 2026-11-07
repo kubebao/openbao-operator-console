@@ -2,24 +2,24 @@
   /* Tables become cards on narrow screens. */
   .attention-table,
   .fleet-table,
-  .clusters-table {
+  .cluster-deployments table {
     display: block;
     width: 100%;
     min-width: 0;
   }
   .attention-table thead,
   .fleet-table thead,
-  .clusters-table thead {
+  .cluster-deployments table thead {
     display: none;
   }
   .attention-table tbody,
   .fleet-table tbody,
-  .clusters-table tbody {
+  .cluster-deployments table tbody {
     display: block;
   }
   .attention-table tr,
   .fleet-table tr,
-  .clusters-table tr {
+  .cluster-deployments table tr {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -29,12 +29,12 @@
   }
   .attention-table tbody tr:last-child,
   .fleet-table tbody tr:last-child,
-  .clusters-table tbody tr:last-child {
+  .cluster-deployments table tbody tr:last-child {
     border-bottom: 0;
   }
   .attention-table td,
   .fleet-table td,
-  .clusters-table td {
+  .cluster-deployments table td {
     display: block;
     height: auto;
     padding: 0;
@@ -43,7 +43,7 @@
   }
   .attention-table td[data-label]::before,
   .fleet-table td[data-label]::before,
-  .clusters-table td[data-label]::before {
+  .cluster-deployments table td[data-label]::before {
     content: attr(data-label) ' ';
     color: var(--muted-foreground);
     font-size: var(--text-xs);
@@ -61,7 +61,7 @@
   }
   .attention-table td:nth-child(4),
   .attention-table td:nth-child(5),
-  .attention-table td:nth-child(7) {
+  .attention-table td:nth-child(6) {
     display: none;
   }
   .attention-table td:nth-child(3)::before {
@@ -83,7 +83,7 @@
   .fleet-table td:nth-child(2),
   .fleet-table td:nth-child(3),
   .fleet-table td:nth-child(5),
-  .fleet-table td:nth-child(10) {
+  .fleet-table td:nth-child(9) {
     display: none;
   }
   .fleet-table td:nth-child(4) strong {
@@ -92,22 +92,11 @@
   .fleet-table td:nth-child(4) small {
     display: none;
   }
-  .clusters-table td:first-child {
-    flex-basis: 100%;
-  }
-  .clusters-table td:last-child:empty {
+  .cluster-deployments table td:first-child:empty {
     display: none;
   }
-  .clusters-table .cluster-detail-row > td {
-    flex-basis: 100%;
-    min-width: 0;
-    padding: 0;
-  }
-  .clusters-table td {
+  .cluster-deployments table td {
     min-width: 0;
     overflow-wrap: anywhere;
-  }
-  .clusters-table .cluster-detail-row > td::before {
-    content: none;
   }
 }

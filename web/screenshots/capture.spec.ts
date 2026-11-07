@@ -36,12 +36,14 @@ test('documentation screenshots', async ({ page }) => {
   await capture(page, 'history')
 
   await page.goto('/topology')
-  await page.getByRole('button', { name: /Inspect.*payments\/payments-bao/ }).click()
-  await page.getByRole('button', { name: /Select.*recovery\/payments-dr/ }).click()
-  await expect(page.getByText('Snapshot storage', { exact: true })).toBeVisible()
+  await expect(page.locator('.map-edge')).toHaveCount(2)
   await capture(page, 'topology')
 
-  await page.goto('/clusters')
-  await expect(page.getByRole('heading', { name: 'Clusters', exact: true })).toBeVisible()
+  await page.goto('/topology/clusters/prod-eu-1')
+  await expect(page.getByRole('heading', { name: 'prod-eu-1', exact: true })).toBeVisible()
   await capture(page, 'clusters')
+
+  await page.goto('/topology/relationships/payments-recovery')
+  await expect(page.getByText('Snapshot repository', { exact: true })).toBeVisible()
+  await capture(page, 'recovery-path')
 })

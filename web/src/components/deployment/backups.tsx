@@ -138,16 +138,20 @@ export function BackupsTab({
           >
             Latest backup
           </SectionTitle>
-          <DetailRows
-            rows={[
-              { label: 'Object key', value: <code>{backup.key ?? 'Not reported'}</code> },
-              { label: 'Size', value: bytes(backup.sizeBytes) },
-              {
-                label: 'Digest',
-                value: backup.digest ? <Digest value={backup.digest} /> : 'Not reported',
-              },
-            ]}
-          />
+          {backup.key === null && backup.sizeBytes === null && backup.digest === null ? (
+            <p className="muted">No backup object is reported.</p>
+          ) : (
+            <DetailRows
+              rows={[
+                { label: 'Object key', value: <code>{backup.key ?? 'Not reported'}</code> },
+                { label: 'Size', value: bytes(backup.sizeBytes) },
+                {
+                  label: 'Digest',
+                  value: backup.digest ? <Digest value={backup.digest} /> : 'Not reported',
+                },
+              ]}
+            />
+          )}
           {sizes.length >= 2 && (
             <div className="trend">
               <h3>Size across retained backups</h3>
