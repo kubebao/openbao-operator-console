@@ -10,6 +10,11 @@ function span(seconds: number): string {
   return `${String(Math.floor(days / 365))}y`
 }
 
+// duration writes a length of time in the console's short form, such as 23h or 5m.
+export function duration(milliseconds: number): string {
+  return milliseconds < 60_000 ? 'under 1m' : span(milliseconds / 1000)
+}
+
 // Observation times describe the past. A future observation is a clock problem, not freshness.
 export function age(value: string | null, now = Date.now()): string {
   if (value === null) return 'Not observed'

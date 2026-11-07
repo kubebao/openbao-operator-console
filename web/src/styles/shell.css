@@ -113,12 +113,15 @@
 }
 
 .nav-count {
+  display: inline-grid;
+  place-items: center;
   margin-left: auto;
   border-radius: var(--radius-pill);
   min-width: 21px;
   height: 21px;
-  padding: 1px 6px;
-  text-align: center;
+  padding: 0 6px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
   background: var(--red);
   color: var(--surface);
   font-size: var(--text-sm);

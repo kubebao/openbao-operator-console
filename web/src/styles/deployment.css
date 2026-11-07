@@ -351,7 +351,7 @@
 
 .backup-summary {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr;
   gap: 12px;
   margin-bottom: 10px;
 }
@@ -390,17 +390,6 @@
 .summary-stat.finding-critical {
   border-color: color-mix(in srgb, var(--red) 45%, var(--border));
   box-shadow: inset 3px 0 0 var(--red);
-}
-
-.trend {
-  margin-top: 18px;
-}
-
-.trend h3 {
-  margin: 0 0 8px;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  letter-spacing: 0;
 }
 
 .condition-list {

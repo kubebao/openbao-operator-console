@@ -134,6 +134,7 @@ function DeploymentDetails({ snapshot }: { snapshot: Snapshot }) {
             deployment={deployment}
             maxBackupAgeHours={snapshot.policy.maxBackupAgeHours}
             observations={observations}
+            earlierUnloaded={history.hasNextPage}
             now={Date.parse(snapshot.generatedAt)}
           />
         </Tabs.Content>

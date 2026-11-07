@@ -1,12 +1,10 @@
 /* Time-based charts share one axis style. */
 .state-band,
-.backup-strip,
-.sparkline {
+.backup-week {
   margin: 0;
 }
 
-.state-band-track,
-.backup-strip-track {
+.state-band-track {
   position: relative;
   height: 22px;
 }
@@ -59,34 +57,6 @@
   background: repeating-linear-gradient(90deg, var(--muted) 0 4px, var(--background) 4px 8px);
 }
 
-.backup-strip-track::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  border-top: 1px solid var(--border);
-}
-
-.backup-marker {
-  position: absolute;
-  top: 50%;
-  width: 12px;
-  height: 12px;
-  margin: -6px 0 0 -6px;
-  box-shadow: 0 0 0 2px var(--background);
-}
-
-.marker-success {
-  border-radius: 50%;
-  background: var(--green);
-}
-
-.marker-failure {
-  background: var(--red);
-  transform: rotate(45deg) scale(0.85);
-}
-
 .time-axis {
   position: relative;
   height: 18px;
@@ -125,51 +95,137 @@
   border-radius: 2px;
 }
 
-.legend-swatch.marker-success {
-  border-radius: 50%;
+/* Backup week: one cell per hour, seven day rows. */
+.backup-week-grid {
+  display: grid;
+  grid-template-columns: 52px repeat(24, minmax(0, 1fr));
+  gap: 3px;
+  align-items: center;
 }
 
-.legend-swatch.marker-failure {
-  transform: rotate(45deg) scale(0.8);
+.backup-week-hour {
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
 }
 
-.sparkline {
+.backup-week-day {
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.backup-hour {
+  height: 14px;
+  border-radius: 2px;
+}
+
+.hour-completed {
+  background: var(--green);
+}
+
+.hour-failed {
+  background: var(--red);
+}
+
+.hour-none {
+  background: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.hour-unrecorded {
+  background: repeating-linear-gradient(135deg, var(--muted) 0 2px, transparent 2px 5px);
+}
+
+.hour-unloaded {
+  background: repeating-linear-gradient(90deg, var(--muted) 0 2px, transparent 2px 5px);
+}
+
+.hour-future {
+  background: transparent;
+}
+
+/* Backup timing: from the last success to the policy limit. */
+.backup-timeline {
+  display: grid;
+  gap: 5px;
+}
+
+.backup-timeline-track {
   position: relative;
-  max-width: 320px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--muted);
 }
 
-.sparkline svg {
-  display: block;
-  width: 100%;
-  height: 48px;
-}
-
-.sparkline-line {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.sparkline-dot {
+.backup-timeline-fill {
   position: absolute;
-  width: 9px;
-  height: 9px;
-  margin: -4.5px 0 0 -4.5px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 2px var(--background);
+  inset: 0 auto 0 0;
+  min-width: 6px;
+  border-radius: 3px;
+  background: var(--green);
 }
 
-.sparkline figcaption {
+.fill-near .backup-timeline-fill {
+  background: var(--amber-fill);
+}
+
+.fill-over .backup-timeline-fill {
+  background: var(--red);
+}
+
+.backup-timeline-next {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 14px;
+  margin: -7px 0 0 -1px;
+  border-radius: 1px;
+  background: var(--heading);
+}
+
+.backup-timeline-scale {
   display: flex;
   justify-content: space-between;
   font-size: var(--text-xs);
   color: var(--muted-foreground);
 }
 
-.sparkline figcaption strong {
-  color: var(--foreground);
-  font-weight: 600;
+.timeline-over > small {
+  color: var(--red);
+}
+
+.timeline-near > small {
+  color: var(--amber);
+}
+
+/* Backup size: the value with an inline trend when it varied. */
+.backup-size {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.backup-size small {
+  display: inline;
+  font-size: inherit;
+}
+
+.sparkline {
+  display: block;
+  width: 120px;
+  height: 24px;
+  overflow: visible;
+}
+
+.sparkline-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sparkline-dot {
+  fill: var(--accent);
 }
