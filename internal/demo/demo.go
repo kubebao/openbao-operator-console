@@ -214,7 +214,8 @@ func deployment(row fixture, now time.Time) fleet.Deployment {
 			LastSuccessAt: ptr(
 				now.Add(-14 * time.Minute),
 			),
-			NextAt:    ptr(now.Add(24 * time.Hour)),
+			// A daily schedule runs again at the same time of day.
+			NextAt:    ptr(now.Add(24*time.Hour - 14*time.Minute)),
 			Key:       ptr(row.namespace + "/" + now.Format("2006-01-02") + ".snapshot"),
 			Digest:    ptr("sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
 			SizeBytes: ptr(int64(1288490188)),
