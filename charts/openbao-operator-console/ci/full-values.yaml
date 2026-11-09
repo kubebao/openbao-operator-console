@@ -12,6 +12,7 @@ database:
 historyRetention: 336h
 setup:
   tokenSecret: console-setup
+  tokenKey: setup-token
 bootstrapAdminSubjects: [first-administrator]
 oidcCA:
   configMap: identity-ca

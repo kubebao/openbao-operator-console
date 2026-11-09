@@ -4,26 +4,25 @@ An empty database supports either seeded identity configuration or protected bro
 always loads its stored configuration. Changing bootstrap environment variables or mounting a setup token cannot reopen
 setup.
 
-The deployment must provide PostgreSQL, a persistent 32-byte encryption key, and an HTTPS callback URL ending in
-`/auth/callback`. Back up both PostgreSQL and the matching key. Store the key separately from database backups. The key
+The deployment must provide PostgreSQL, a persistent encryption key, and the public HTTPS address of the console. The
+callback URL is that address followed by `/auth/callback`. Back up both PostgreSQL and the matching key. Store the key separately from database backups. The key
 is required to read a restored configuration.
 
 ## Browser setup
 
-1. Create the runtime Secret with `DATABASE_URL`, `CONFIG_KEY`, and `OIDC_REDIRECT_URL`. The callback URL must match the
-   public console address, for example `https://console.example.com/auth/callback`.
-2. Generate a private setup token with 32 random bytes. Store the encoded token in a separate Kubernetes Secret. The
-   following commands keep it out of shell arguments and terminal output:
+1. Generate a private setup token with 32 random bytes. The following command keeps it out of shell arguments and
+   terminal output:
 
    ```sh
    umask 077
    openssl rand -hex 32 > console-setup-token
-   kubectl --context=your-console-context --namespace console-system create secret generic console-setup \
-     --from-file=setup-token=console-setup-token
    ```
 
-3. Set `setup.tokenSecret: console-setup` in the Helm values. The chart mounts the token and sets
-   `CONSOLE_SETUP_TOKEN_FILE`. When running the binary directly, set that variable to the token file path.
+2. Add the token to the runtime Secret as `SETUP_TOKEN`, next to `DATABASE_URL` and `CONFIG_KEY`, with
+   `--from-file=SETUP_TOKEN=console-setup-token`. The chart mounts it and sets `CONSOLE_SETUP_TOKEN_FILE`. To keep the
+   token in a separate Secret, set `setup.tokenSecret` and `setup.tokenKey`. When running the binary directly, set
+   `CONSOLE_SETUP_TOKEN_FILE` to the token file path.
+3. Set `publicURL` in the Helm values, or enable the Ingress with its host. The chart derives the callback URL from it.
 4. Open the public console address. The console redirects to `/setup`. Enter the token through the password field. Use a
    private local method to read the token file; do not place it in a URL or a shared command transcript.
 5. Register the displayed callback URL in an OpenID Connect client. Configure client authentication and the
@@ -40,8 +39,16 @@ Configuration initialization uses a database revision compare-and-swap, so a sec
 first one.
 
 The successful callback creates the normal console session and opens guided cluster onboarding. The collector accepts
-subsequent enrollment without a restart. Remove `setup.tokenSecret` from the Helm values, delete the setup Secret, and
-remove the private token file after verifying administrator access. Keep the configuration encryption key.
+subsequent enrollment without a restart. After verifying administrator access, remove the token from the
+runtime Secret and delete the private token file. No Helm upgrade is required:
+
+```sh
+kubectl --namespace console-system patch secret console-runtime --type=json \
+  --patch='[{"op":"remove","path":"/data/SETUP_TOKEN"}]'
+```
+
+An initialized database ignores the token, so removing it is cleanup rather than a security boundary. Keep the
+configuration encryption key.
 
 ### Keycloak
 
@@ -62,8 +69,8 @@ trials.
 
 If login fails or its link expires, return to `/setup` and start a new login. Unfinished candidate credentials remain in
 bounded process memory; an expired login cannot activate them. Failed candidates are not written to PostgreSQL. If the
-browser ticket expires, enter the setup token again. If the one-hour window expires, generate a new token and restart
-the console while the database is still uninitialized.
+browser ticket expires, enter the setup token again. If the one-hour window expires, replace `SETUP_TOKEN` with a new
+token and restart the console while the database is still uninitialized.
 
 Requests are limited to five attempts per direct network peer per minute and 64 attempts globally per minute. The
 console does not trust forwarded address headers for this limit. A shared ingress can cause browsers to share a peer

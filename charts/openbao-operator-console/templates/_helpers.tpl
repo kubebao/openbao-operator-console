@@ -70,3 +70,24 @@ Container image reference. A digest takes precedence over the tag; the tag defau
 {{- printf "%s:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) -}}
 {{- end -}}
 {{- end -}}
+
+
+{{/*
+Public HTTPS origin of the console, without a trailing slash. Defaults to the Ingress host.
+*/}}
+{{- define "console.publicURL" -}}
+{{- if .Values.publicURL -}}
+{{- .Values.publicURL | trimSuffix "/" -}}
+{{- else if and .Values.ingress.enabled .Values.ingress.host -}}
+{{- printf "https://%s" .Values.ingress.host -}}
+{{- else -}}
+{{- fail "publicURL is required unless ingress.enabled is true and ingress.host is set" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Secret that holds the optional setup token. Defaults to the runtime Secret.
+*/}}
+{{- define "console.setupTokenSecret" -}}
+{{- default .Values.existingSecret .Values.setup.tokenSecret -}}
+{{- end -}}

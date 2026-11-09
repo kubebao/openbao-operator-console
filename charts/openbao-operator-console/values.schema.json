@@ -55,7 +55,12 @@
     },
     "existingSecret": {
       "type": "string",
-      "description": "Required. Secret with OIDC_REDIRECT_URL, CONFIG_KEY, and DATABASE_URL unless database.urlSecret is set."
+      "description": "Required. Secret with CONFIG_KEY, DATABASE_URL unless database.urlSecret is set, and optional SETUP_TOKEN and OIDC_* keys."
+    },
+    "publicURL": {
+      "type": "string",
+      "pattern": "^(https://[^/?#@\\s]+/?)?$",
+      "description": "Public HTTPS address of the console without a path. Defaults to https://<ingress.host> when the Ingress is enabled."
     },
     "database": {
       "type": "object",
@@ -97,7 +102,7 @@
       "properties": {
         "tokenSecret": {
           "type": "string",
-          "description": "Secret with the setup token for protected browser setup. Remove after setup."
+          "description": "Secret with the setup token for protected browser setup. Defaults to existingSecret."
         },
         "tokenKey": {
           "type": "string",

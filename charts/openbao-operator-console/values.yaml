@@ -16,12 +16,21 @@ image:
 imagePullSecrets: []
 # - name: registry-credentials
 
-# Must contain OIDC_REDIRECT_URL and CONFIG_KEY (32 raw random bytes), and
-# DATABASE_URL unless database.urlSecret is set.
-# Optional OIDC_ISSUER, OIDC_CLIENT_ID, and OIDC_CLIENT_SECRET seed first-start SSO.
-# The database key must survive upgrades and be backed up separately.
-# OIDC settings seed the first start; OIDC_REDIRECT_URL remains a deployment setting.
+# Runtime Secret. Required keys:
+#   CONFIG_KEY    32 random bytes, raw or encoded as hexadecimal or base64 text, for
+#                 example from `openssl rand -hex 32`. Keep it across upgrades and back
+#                 it up separately from PostgreSQL.
+#   DATABASE_URL  PostgreSQL connection URL, unless database.urlSecret is set.
+# Optional keys:
+#   SETUP_TOKEN   Unlocks browser setup on an empty database. Remove it after setup.
+#   OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET
+#                 Seed the identity provider on the first start instead of browser setup.
 existingSecret: ""
+
+# Public HTTPS address of the console, such as https://console.example.com, without a
+# path. The OIDC callback is this address followed by /auth/callback. Defaults to
+# https://<ingress.host> when the Ingress is enabled.
+publicURL: ""
 
 # PostgreSQL connection. By default, the URL is read from existingSecret.
 # Reference a Secret managed by the database provider so that the console reads
@@ -43,13 +52,14 @@ database:
 # Empty uses the console default of 168h (seven days).
 historyRetention: ""
 
-# Required for browser setup on an empty database without seeded SSO.
-# The referenced key contains 32 random bytes encoded as hexadecimal or URL-safe
-# base64 text. It is never generated or printed by the application or chart.
-# Remove this Secret mount after setup completes.
+# Setup token for browser setup on an empty database without seeded SSO. The token is
+# 32 random bytes encoded as hexadecimal or URL-safe base64 text, for example from
+# `openssl rand -hex 32`. It is never generated or printed by the application or chart.
+# The mount is optional; remove the key after setup.
 setup:
+  # Secret that holds the token. Defaults to existingSecret.
   tokenSecret: ""
-  tokenKey: setup-token
+  tokenKey: SETUP_TOKEN
 
 # OIDC subjects granted administrator access during the first database import.
 # Subsequent access changes use Settings in the console.

@@ -180,8 +180,7 @@ spec:
               valueFrom:
                 secretKeyRef: {name: console-runtime, key: DATABASE_URL}
             - name: CONSOLE_OIDC_REDIRECT_URL
-              valueFrom:
-                secretKeyRef: {name: console-runtime, key: OIDC_REDIRECT_URL}
+              value: https://console.example.com/auth/callback
             - name: CONSOLE_OIDC_ISSUER
               valueFrom:
                 secretKeyRef: {name: console-recovery, key: OIDC_ISSUER}

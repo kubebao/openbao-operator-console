@@ -80,6 +80,17 @@ helm-check:
 	@if helm template openbao-operator-console $(CHART) > /dev/null 2>&1; then \
 		echo "the chart rendered without existingSecret" >&2; exit 1; \
 	fi
+	@if helm template openbao-operator-console $(CHART) --set existingSecret=console-runtime > /dev/null 2>&1; then \
+		echo "the chart rendered without publicURL or an Ingress host" >&2; exit 1; \
+	fi
+	@if helm template openbao-operator-console $(CHART) --values $(CHART)/ci/default-values.yaml \
+		--set publicURL=http://console.example.com > /dev/null 2>&1; then \
+		echo "values.schema.json accepted a publicURL without HTTPS" >&2; exit 1; \
+	fi
+	@if helm template openbao-operator-console $(CHART) --values $(CHART)/ci/default-values.yaml \
+		--set publicURL=https://console.example.com/console > /dev/null 2>&1; then \
+		echo "values.schema.json accepted a publicURL with a path" >&2; exit 1; \
+	fi
 
 screenshots: build
 	pnpm --dir web exec playwright test --config playwright.screenshots.config.ts

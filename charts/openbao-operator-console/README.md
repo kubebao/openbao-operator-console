@@ -43,15 +43,16 @@ the release name `openbao-operator-console`, the Deployment, Service, and Servic
 | `image.digest` | `""` | Image digest, such as `sha256:<hex>`. Takes precedence over `image.tag`. |
 | `image.pullPolicy` | `IfNotPresent` | Image pull policy. |
 | `imagePullSecrets` | `[]` | Secrets for pulling the image from a private registry. |
-| `existingSecret` | `""` | **Required.** Secret with `OIDC_REDIRECT_URL` and `CONFIG_KEY`, `DATABASE_URL` unless `database.urlSecret` is set, plus optional `OIDC_ISSUER`, `OIDC_CLIENT_ID`, and `OIDC_CLIENT_SECRET`. |
+| `existingSecret` | `""` | **Required.** Secret with `CONFIG_KEY`, `DATABASE_URL` unless `database.urlSecret` is set, and optional `SETUP_TOKEN`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, and `OIDC_CLIENT_SECRET`. |
+| `publicURL` | `""` | Public HTTPS address without a path, such as `https://console.example.com`. The OIDC callback is this address followed by `/auth/callback`. Defaults to `https://<ingress.host>` when the Ingress is enabled; required otherwise. |
 | `database.urlSecret` | `""` | Secret with the PostgreSQL connection URL, for example a CloudNativePG `<cluster>-app` Secret. Defaults to `existingSecret`. |
 | `database.urlKey` | `DATABASE_URL` | Key of the connection URL. Use `uri` for CloudNativePG. |
 | `database.sslMode` | `verify-full` | Default TLS mode, exported as `PGSSLMODE`. An `sslmode` parameter in the URL takes precedence. `""` uses the driver default, `prefer`, which does not verify the server. |
 | `database.caSecret` | `""` | Secret with the PostgreSQL server CA certificate, exported as `PGSSLROOTCERT`. Without it, verification uses the system CA bundle in the image. |
 | `database.caKey` | `ca.crt` | Key of the CA certificate in `database.caSecret`. |
 | `historyRetention` | `""` | How long observation history and activity are kept, as a Go duration from `1h` to `8760h`. Empty uses the console default of `168h`. Exported as `CONSOLE_HISTORY_RETENTION`. |
-| `setup.tokenSecret` | `""` | Secret with a setup token for protected browser setup on an empty database. Remove after setup. |
-| `setup.tokenKey` | `setup-token` | Key of the setup token in `setup.tokenSecret`. |
+| `setup.tokenSecret` | `""` | Secret with the setup token for protected browser setup on an empty database. Defaults to `existingSecret`. The mount is optional. |
+| `setup.tokenKey` | `SETUP_TOKEN` | Key of the setup token. Remove the key after setup. |
 | `bootstrapAdminSubjects` | `[]` | OIDC subjects granted administrator access on the first start. |
 | `oidcCA.configMap` | `""` | ConfigMap with a private CA bundle for the identity provider. |
 | `oidcCA.key` | `ca.crt` | Key of the CA bundle in `oidcCA.configMap`. |

@@ -59,10 +59,9 @@ spec:
           env:
             - name: CONSOLE_CONFIG_KEY_FILE
               value: /etc/console/key/config-key
-            {{- if .Values.setup.tokenSecret }}
+            # Read only while the database is uninitialized and no identity is seeded.
             - name: CONSOLE_SETUP_TOKEN_FILE
               value: /etc/console/setup/token
-            {{- end }}
             {{- if .Values.bootstrapAdminSubjects }}
             - name: CONSOLE_BOOTSTRAP_ADMIN_SUBJECTS
               value: {{ join "," .Values.bootstrapAdminSubjects | quote }}
@@ -86,10 +85,7 @@ spec:
               value: /etc/console/database/ca.crt
             {{- end }}
             - name: CONSOLE_OIDC_REDIRECT_URL
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $secret }}
-                  key: OIDC_REDIRECT_URL
+              value: {{ printf "%s/auth/callback" (include "console.publicURL" .) | quote }}
             {{- range $key := list "OIDC_ISSUER" "OIDC_CLIENT_ID" "OIDC_CLIENT_SECRET" }}
             - name: CONSOLE_{{ $key }}
               valueFrom:
@@ -122,11 +118,9 @@ spec:
             - name: configuration-key
               mountPath: /etc/console/key
               readOnly: true
-            {{- if .Values.setup.tokenSecret }}
             - name: setup-token
               mountPath: /etc/console/setup
               readOnly: true
-            {{- end }}
             - name: enrollment
               mountPath: /etc/console/enrollment.yaml
               subPath: enrollment.yaml
@@ -157,15 +151,16 @@ spec:
         - name: enrollment
           configMap:
             name: {{ include "console.fullname" . }}-enrollment
-        {{- if .Values.setup.tokenSecret }}
+        # Optional: the console needs the token only for browser setup. Remove the key
+        # after setup; the kubelet then removes the file.
         - name: setup-token
           secret:
-            secretName: {{ .Values.setup.tokenSecret }}
+            secretName: {{ include "console.setupTokenSecret" . }}
             defaultMode: 0440
+            optional: true
             items:
               - key: {{ .Values.setup.tokenKey }}
                 path: token
-        {{- end }}
         {{- if .Values.oidcCA.configMap }}
         - name: oidc-ca
           configMap:

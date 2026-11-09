@@ -22,8 +22,9 @@ The issuer is `https://keycloak.example/realms/<realm>`. The console discovers a
 endpoints from the realm's discovery document. See
 [Keycloak's OIDC endpoint documentation](https://www.keycloak.org/securing-apps/oidc-layers).
 
-Set `CONSOLE_OIDC_ISSUER`, `CONSOLE_OIDC_CLIENT_ID`, `CONSOLE_OIDC_CLIENT_SECRET`, and `CONSOLE_OIDC_REDIRECT_URL`
-through your runtime secret mechanism. The client secret stays on the server. Browser sessions use an opaque cookie.
+For automated bootstrap, put `OIDC_ISSUER`, `OIDC_CLIENT_ID`, and `OIDC_CLIENT_SECRET` in the runtime Secret. The chart
+derives the callback URL from `publicURL`. When running the binary, set the matching `CONSOLE_OIDC_*` variables and
+`CONSOLE_OIDC_REDIRECT_URL`. The client secret stays on the server. Browser sessions use an opaque cookie.
 
 If Keycloak uses a private certificate authority, set `CONSOLE_OIDC_CA_FILE` to its PEM certificate bundle. The console
 adds that bundle to system roots for OIDC discovery, code exchange, and key retrieval. It keeps TLS verification

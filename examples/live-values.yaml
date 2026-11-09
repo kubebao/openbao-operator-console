@@ -1,5 +1,6 @@
 # Adapt names, namespaces, image, and subject before installation.
 existingSecret: console-runtime
+publicURL: https://console.example.com
 readerNamespaces: [console-sample]
 operatorReaders:
   - namespace: console-system
