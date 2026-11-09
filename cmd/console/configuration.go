@@ -77,7 +77,10 @@ func printable(data []byte) bool {
 func readSetupToken(path string) ([]byte, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, errors.New("CONSOLE_SETUP_TOKEN_FILE must reference a readable private setup token")
+		return nil, errors.New(
+			"CONSOLE_SETUP_TOKEN_FILE must reference a readable private setup token: an empty database needs one " +
+				"for browser setup (the chart's SETUP_TOKEN key), or a bootstrap identity",
+		)
 	}
 	defer func() { _ = file.Close() }()
 	info, err := file.Stat()

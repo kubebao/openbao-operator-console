@@ -89,7 +89,7 @@ These checks apply only to an empty database without a seeded identity provider.
 
 | Message contains | Cause and fix |
 | --- | --- |
-| `CONSOLE_SETUP_TOKEN_FILE must reference a readable private setup token` | The runtime Secret has no `SETUP_TOKEN` key. Add it, or supply the `OIDC_*` keys for automated bootstrap. The kubelet updates the mounted file within a minute or two; then restart the console. |
+| `CONSOLE_SETUP_TOKEN_FILE must reference a readable private setup token` | The database is empty and the runtime Secret has no `SETUP_TOKEN` key. Add it, or supply the `OIDC_*` keys for automated bootstrap. The kubelet updates the mounted file within a minute or two; then restart the console. |
 | `setup token file must be a regular file without permissions for other users` | The file is readable by other users. The chart mounts it with mode `0440`; for a binary, use `chmod 600`. |
 | `setup token file must contain at most 256 bytes` | The file contains more than the token. |
 | `setup token must contain 32 random bytes encoded as 64 hexadecimal or 43 URL-safe base64 characters` | Generate the token with `openssl rand -hex 32`. Surrounding whitespace is ignored. |
