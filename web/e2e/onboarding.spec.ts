@@ -73,6 +73,29 @@ test('first use offers cluster onboarding instead of an empty healthy fleet', as
   await expect(page.getByRole('heading', { name: 'Add cluster', exact: true })).toBeVisible()
 })
 
+test('operator observation starts from the operator chart defaults', async ({ page }) => {
+  await administrator(page)
+  await page.goto('/settings/clusters/new')
+  await page.getByRole('textbox', { name: 'Cluster name', exact: true }).fill('Production EU')
+  await page.getByRole('combobox', { name: 'Connection', exact: true }).selectOption('local')
+  await page.getByRole('button', { name: 'Continue', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Namespace 1', exact: true }).fill('team-a')
+  await page.getByRole('checkbox', { name: 'Observe the operator for these namespaces' }).check()
+  await expect(page.getByRole('textbox', { name: 'Operator namespace', exact: true })).toHaveValue(
+    'openbao-operator-system',
+  )
+  await expect(page.getByRole('textbox', { name: 'Operator Deployment', exact: true })).toHaveValue(
+    'openbao-operator-controller',
+  )
+  await expect(
+    page.getByRole('textbox', { name: 'Controller container', exact: true }),
+  ).toHaveValue('manager')
+  await page.getByRole('button', { name: 'Continue', exact: true }).click()
+  await expect(
+    page.getByText('readerNamespaces and operatorReaders already grant', { exact: false }),
+  ).toBeVisible()
+})
+
 test('reader preparation precedes credentials and optional APIs do not block preview', async ({
   page,
 }) => {

@@ -12,9 +12,9 @@ connections:
         environment: development
         location: Local
     operators:
-      - id: console-operator
-        namespace: console-system
-        deployment: console-operator-openbao-operator-controller
+      - id: openbao-operator
+        namespace: openbao-operator-system
+        deployment: openbao-operator-controller
         container: manager
         namespaces: [console-sample]
 users:

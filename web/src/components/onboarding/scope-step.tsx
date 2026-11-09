@@ -3,6 +3,7 @@ import type { ManagedConnection } from '../../api/schema'
 import type { ManagedOperator } from '../../lib/connection'
 import {
   addNamespace,
+  defaultOperatorLocation,
   namespacePattern,
   removeNamespace,
   updateNamespace,
@@ -83,21 +84,19 @@ export function ScopeStep({
             onChange({
               ...connection,
               operators: event.target.checked
-                ? [
-                    {
-                      id: operatorID,
-                      namespace: '',
-                      deployment: '',
-                      container: 'manager',
-                      namespaces: [],
-                    },
-                  ]
+                ? [{ id: operatorID, ...defaultOperatorLocation, namespaces: [] }]
                 : [],
             })
           }}
         />
         Observe the operator for these namespaces
       </label>
+      {connection.operators.length > 0 && (
+        <p className="onboarding-help">
+          Prefilled with the OpenBao Operator chart defaults for the release openbao-operator.
+          Change them to match your installation; verification checks the Deployment.
+        </p>
+      )}
       {connection.operators.map((operator, index) => (
         <div key={operator.id} className="form-grid">
           {operatorFields.map(({ field, label }) => (

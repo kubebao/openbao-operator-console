@@ -134,7 +134,8 @@ kind create cluster --name console-dev --image kindest/node:v1.36.1 --kubeconfig
 ```
 
 Install the [OpenBao Operator](https://github.com/kubebao/openbao-operator) in single-tenant mode with `console-sample`
-as the target namespace. Use an operator image and chart from the same version so admission policies match. Then apply
+as the target namespace, as the Helm release `console-operator` in `console-system`. `examples/reader-rbac.yaml` and the
+integration tests expect that controller Deployment name. Use an operator image and chart from the same version so admission policies match. Then apply
 `examples/kind-cluster.yaml`, which creates one disposable development OpenBao deployment with a 1 GiB volume.
 
 Apply `examples/reader-rbac.yaml` and issue a short-lived reader credential:

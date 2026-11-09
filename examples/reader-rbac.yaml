@@ -1,3 +1,6 @@
+# Reader RBAC for the development kind environment in docs/development.md, where the
+# operator runs as the release console-operator in console-system. Generate RBAC for
+# your own clusters with the onboarding wizard or --print-rbac.
 apiVersion: v1
 kind: ServiceAccount
 metadata:

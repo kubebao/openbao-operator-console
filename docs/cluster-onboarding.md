@@ -8,12 +8,14 @@ ServiceAccount tokens can then use [automatic renewal](credential-renewal.md).
 
 1. Enter a cluster name. Select a remote cluster or the cluster that hosts the console. The console generates a stable
    identifier; use **Advanced** to set your own identifier before enrollment.
-2. Enter each namespace to observe. If you want controller health, select **Observe the operator for these namespaces**
-   and enter the exact operator namespace, Deployment, and container. For unattended remote collection, select **Renew
+2. Enter each namespace to observe. If you want controller health, select **Observe the operator for these namespaces**.
+   The fields start with the OpenBao Operator chart defaults for the release `openbao-operator`:
+   `openbao-operator-system`, `openbao-operator-controller`, and `manager`. Change them to match your installation. For unattended remote collection, select **Renew
    ServiceAccount tokens automatically** and enter the reader's namespace and ServiceAccount. The console does not
    discover controller ownership.
 3. Download the reader RBAC. Enter the target `kubectl` context and run the displayed commands in your terminal. Check
-   the namespace before creating it or applying RBAC.
+   the namespace before creating it or applying RBAC. For the hosting cluster, skip this step when the Helm values
+   `readerNamespaces` and `operatorReaders` already grant the same access; verification checks it.
 4. For a remote cluster, import a scoped reader kubeconfig or supply an embedded token or client certificate. For the
    hosting cluster, the console uses its mounted ServiceAccount token.
 5. Select **Verify connection**. Review namespace permissions, optional API checks, and the deployment preview. Select

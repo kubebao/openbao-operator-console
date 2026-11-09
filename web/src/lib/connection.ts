@@ -12,6 +12,15 @@ export const environments = [
 ] as const satisfies readonly Environment[]
 
 // Matches the server's connection identifier rule.
+// Controller location for an OpenBao Operator chart installed as the release
+// `openbao-operator` in `openbao-operator-system`, as the operator documentation does.
+// Onboarding offers it as an editable starting point; verification checks the Deployment.
+export const defaultOperatorLocation = {
+  namespace: 'openbao-operator-system',
+  deployment: 'openbao-operator-controller',
+  container: 'manager',
+} as const
+
 export const connectionIDPattern = '[a-zA-Z0-9_-]{1,100}'
 export const namespacePattern = '[a-z0-9]([-a-z0-9]*[a-z0-9])?'
 

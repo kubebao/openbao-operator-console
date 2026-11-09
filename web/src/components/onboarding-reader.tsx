@@ -77,6 +77,12 @@ export function OnboardingReader({
       <p className="onboarding-help">
         Run these commands in a terminal with administrator access to the selected cluster.
       </p>
+      {local && (
+        <p className="onboarding-help">
+          If the Helm values readerNamespaces and operatorReaders already grant these namespaces and
+          the operator Deployment, skip the commands and continue. Verification checks the access.
+        </p>
+      )}
       {access ? (
         <>
           <Field
