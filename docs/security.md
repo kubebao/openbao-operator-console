@@ -107,8 +107,9 @@ connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'
 
 ## Demo mode
 
-Demo mode serves fixture data without authentication. It refuses to listen on a non-loopback address and labels every
-page as demonstration data. Do not expose it.
+Demo mode serves fixture data without authentication and labels every page as demonstration data. It refuses to listen
+on a non-loopback address unless `--demo-allow-external` is set. Use that flag only inside a container whose published
+port is bound to the host's loopback interface. Do not expose demo mode.
 
 ## Operational guidance
 

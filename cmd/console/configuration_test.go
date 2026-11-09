@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"strings"
@@ -148,5 +151,46 @@ func TestRecoveryAppliesTheIssuerChangeRules(t *testing.T) {
 	}
 	if _, allowed := removed.Resolve(config.Principal{Issuer: recovery, Subject: "42"}); allowed {
 		t.Fatal("removed binding matched the recovery issuer")
+	}
+}
+
+func TestDecodeConfigKeyAcceptsRawAndEncodedForms(t *testing.T) {
+	raw := make([]byte, 32)
+	for i := range raw {
+		raw[i] = byte(i * 7)
+	}
+	forms := map[string][]byte{
+		"raw":                raw,
+		"hexadecimal":        []byte(hex.EncodeToString(raw) + "\n"),
+		"base64":             []byte(base64.StdEncoding.EncodeToString(raw) + "\n"),
+		"unpadded base64":    []byte(base64.RawStdEncoding.EncodeToString(raw)),
+		"URL-safe base64":    []byte(base64.URLEncoding.EncodeToString(raw)),
+		"surrounding spaces": []byte("  " + hex.EncodeToString(raw) + "\r\n"),
+	}
+	for name, data := range forms {
+		key, err := decodeConfigKey(data)
+		if err != nil || !bytes.Equal(key, raw) {
+			t.Fatalf("%s key was not decoded", name)
+		}
+	}
+	for name, data := range map[string][]byte{
+		"empty":           nil,
+		"short raw":       raw[:31],
+		"raw and newline": append(append([]byte{}, raw...), '\n'),
+		"short hex":       []byte(hex.EncodeToString(raw[:16])),
+		"printable text":  []byte(strings.Repeat("p", 32)),
+		"invalid hex":     []byte(strings.Repeat("z", 64)),
+		"long base64":     []byte(base64.StdEncoding.EncodeToString(append(raw, 1))),
+	} {
+		if _, err := decodeConfigKey(data); err == nil {
+			t.Fatalf("%s key was accepted", name)
+		}
+	}
+}
+
+func TestEnvironmentRemovesSurroundingWhitespace(t *testing.T) {
+	t.Setenv("CONSOLE_OIDC_REDIRECT_URL", "https://console.example/auth/callback\n")
+	if got := environment("CONSOLE_OIDC_REDIRECT_URL"); got != "https://console.example/auth/callback" {
+		t.Fatalf("environment = %q", got)
 	}
 }

@@ -8,14 +8,15 @@ renewal starts named ServiceAccount TokenRequests. Settings do not change worklo
 
 Provide the database URL, public HTTPS callback URL, and configuration encryption key through the deployment secret
 mechanism. Choose [protected browser setup or automated identity bootstrap](bootstrap.md). `CONSOLE_CONFIG_KEY_FILE`
-must reference exactly 32 raw random bytes. Generate a key in a private directory:
+must reference 32 random bytes, stored raw or encoded as hexadecimal or base64 text. Generate a key in a private
+directory:
 
 ```sh
 umask 077
-openssl rand 32 > /private/console-config-key
+openssl rand -hex 32 > /private/console-config-key
 ```
 
-For Helm, put those bytes in the runtime Secret's `CONFIG_KEY` key. Keep the key across upgrades. Back it up separately
+For Helm, put the key in the runtime Secret's `CONFIG_KEY` key. Keep the key across upgrades. Back it up separately
 from PostgreSQL; a database backup cannot restore configuration without the matching key.
 
 For automated identity bootstrap, provide a confidential OIDC client and enroll at least one administrator. Set

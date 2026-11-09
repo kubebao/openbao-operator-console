@@ -29,7 +29,7 @@ The collector and reader RBAC target the operator's `openbao.org/v1alpha1` API g
 
 One Go executable serves the compiled React application and a versioned JSON API. It runs scoped Kubernetes collectors.
 PostgreSQL stores projected observations, findings, encrypted configuration, and the configuration change log. A fixture
-mode runs on loopback for local UI work.
+mode serves demonstration data without login for evaluation and local UI work.
 
 ```mermaid
 flowchart LR

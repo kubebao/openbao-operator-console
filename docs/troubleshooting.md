@@ -79,8 +79,8 @@ URL and CA at startup, so restart it after either changes.
 
 | Message contains | Cause and fix |
 | --- | --- |
-| `CONSOLE_CONFIG_KEY_FILE must reference a readable 32-byte key` | The key file is missing or unreadable. Check the `CONFIG_KEY` key in the runtime Secret. |
-| `configuration key must contain 32 bytes` | The file is not exactly 32 bytes. Generate it with `openssl rand 32`, not as hexadecimal or base64 text, and without a trailing newline. |
+| `CONSOLE_CONFIG_KEY_FILE must reference a readable configuration key` | The key file is missing or unreadable. Check the `CONFIG_KEY` key in the runtime Secret. |
+| `configuration key must contain 32 bytes` | The key is not 32 random bytes in a supported form. Generate it with `openssl rand -hex 32`. Raw bytes, hexadecimal, and base64 are accepted; surrounding whitespace is ignored. A 32-character password is rejected. |
 | `configuration cannot be decrypted with the supplied key` | The key does not match the database. Use the key that belongs to this database or backup. A new key cannot read existing configuration. |
 
 ### Browser setup and the setup token

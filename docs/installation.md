@@ -110,8 +110,10 @@ directory:
 
 ```sh
 umask 077
-openssl rand 32 > console-config-key
+openssl rand -hex 32 > console-config-key
 ```
+
+The console also accepts the key as 32 raw bytes or as base64 text.
 
 Keep this key for the lifetime of the database. Back it up separately from PostgreSQL backups: a restored database
 cannot be read without the matching key.
@@ -135,13 +137,13 @@ kubectl --namespace console-system create secret generic console-runtime \
   --from-file=CONFIG_KEY=console-config-key
 ```
 
-Each file contains only the value, without a trailing newline.
+Each file contains only the value. The console ignores surrounding whitespace, including a trailing newline.
 
 | Key | Required | Description |
 | --- | --- | --- |
 | `DATABASE_URL` | Unless `database.urlSecret` is set | PostgreSQL connection URL. |
 | `OIDC_REDIRECT_URL` | Yes | Public HTTPS callback URL ending in `/auth/callback`. |
-| `CONFIG_KEY` | Yes | The 32 raw bytes from step 3. |
+| `CONFIG_KEY` | Yes | The key from step 3. |
 | `OIDC_ISSUER` | For automated bootstrap | HTTPS issuer URL. |
 | `OIDC_CLIENT_ID` | For automated bootstrap | Client ID. |
 | `OIDC_CLIENT_SECRET` | For automated bootstrap | Client secret. |
@@ -264,7 +266,8 @@ The Helm chart sets it for you.
 
 | Setting | Description |
 | --- | --- |
-| `--mode` | `demo` (default, loopback only, fixture data) or `live`. |
+| `--mode` | `demo` (default, fixture data, no login) or `live`. |
+| `--demo-allow-external` | Let demo mode listen on a non-loopback address, such as in a container. |
 | `--listen` | Listen address. Default `127.0.0.1:8090`. |
 | `--config` | Optional first-start enrollment YAML. Ignored once the database is initialized. |
 | `--tls-cert`, `--tls-key` | Serve HTTPS directly. |
@@ -275,7 +278,7 @@ The Helm chart sets it for you.
 | `--history-retention` | How long observation history and activity are kept, from `1h` to `8760h`. Default `168h` (seven days), or `CONSOLE_HISTORY_RETENTION` when set. |
 | `--version` | Print the version and commit, then exit. The startup log also records both. |
 | `CONSOLE_DATABASE_URL` | PostgreSQL connection URL. |
-| `CONSOLE_CONFIG_KEY_FILE` | Path to the 32-byte encryption key. |
+| `CONSOLE_CONFIG_KEY_FILE` | Path to the encryption key: 32 bytes, raw or encoded as hexadecimal or base64 text. |
 | `CONSOLE_OIDC_REDIRECT_URL` | Public callback URL. |
 | `CONSOLE_OIDC_ISSUER`, `CONSOLE_OIDC_CLIENT_ID`, `CONSOLE_OIDC_CLIENT_SECRET` | Automated bootstrap identity. |
 | `CONSOLE_OIDC_CA_FILE` | PEM bundle for a private identity provider CA. |

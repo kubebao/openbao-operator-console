@@ -36,6 +36,7 @@ type options struct {
 	tlsCertificate, tlsKey      string
 	printRBAC                   string
 	check, recoverIdentity      bool
+	demoAllowExternal           bool
 	historyRetention            time.Duration
 	version                     bool
 	recoverAccessRules          string
@@ -49,6 +50,12 @@ func parseOptions() (options, error) {
 	}
 	flag.StringVar(&o.mode, "mode", "demo", "demo or live")
 	flag.StringVar(&o.address, "listen", "127.0.0.1:8090", "HTTP listen address")
+	flag.BoolVar(
+		&o.demoAllowExternal,
+		"demo-allow-external",
+		false,
+		"let demo mode listen on a non-loopback address, such as inside a container; demo mode has no login",
+	)
 	flag.StringVar(&o.configPath, "config", "", "optional first-start enrollment YAML file")
 	flag.BoolVar(
 		&o.recoverIdentity,
@@ -78,6 +85,9 @@ func parseOptions() (options, error) {
 	flag.Parse()
 	if (o.tlsCertificate == "") != (o.tlsKey == "") {
 		return o, errors.New("tls-cert and tls-key must be supplied together")
+	}
+	if o.demoAllowExternal && o.mode != "demo" {
+		return o, errors.New("demo-allow-external requires demo mode")
 	}
 	if o.recoverAccessRules != "" && !o.recoverIdentity {
 		return o, errors.New("recover-access-rules requires recover-identity")
@@ -137,14 +147,19 @@ func runCheck(ctx context.Context, o options) error {
 	return errors.New("connection is not enrolled")
 }
 
-// demoServer serves fictional fixtures on a loopback address only.
+// demoServer serves fictional fixtures without a login. It listens on a loopback address
+// unless the operator explicitly allows another address, such as in a container whose
+// published port stays on the host's loopback interface.
 func demoServer(o options) (*httpapi.Server, error) {
 	if o.recoverIdentity {
 		return nil, errors.New("recover-identity requires live mode")
 	}
 	host, _, err := net.SplitHostPort(o.address)
-	if err != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
-		return nil, errors.New("demo mode must listen on a loopback IP")
+	if err != nil {
+		return nil, errors.New("listen must be a host and port")
+	}
+	if !o.demoAllowExternal && (net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback()) {
+		return nil, errors.New("demo mode must listen on a loopback IP; set --demo-allow-external to override")
 	}
 	fixtures := demo.New(time.Now().UTC())
 	return &httpapi.Server{
@@ -158,7 +173,7 @@ func demoServer(o options) (*httpapi.Server, error) {
 
 // runLive serves live mode. Collection and renewal stop before the database closes.
 func runLive(ctx context.Context, o options, logger *slog.Logger) error {
-	dsn := os.Getenv("CONSOLE_DATABASE_URL")
+	dsn := environment("CONSOLE_DATABASE_URL")
 	if dsn == "" {
 		return errors.New("CONSOLE_DATABASE_URL is required in live mode")
 	}
@@ -197,9 +212,9 @@ func runLive(ctx context.Context, o options, logger *slog.Logger) error {
 // openSettings opens stored configuration. An empty database is seeded from the
 // enrollment file and bootstrap environment; without an identity it waits for browser setup.
 func openSettings(ctx context.Context, pg *store.Postgres, o options) (*settings.Service, config.Config, error) {
-	key, err := os.ReadFile(os.Getenv("CONSOLE_CONFIG_KEY_FILE"))
+	key, err := readConfigKey(os.Getenv("CONSOLE_CONFIG_KEY_FILE"))
 	if err != nil {
-		return nil, config.Config{}, errors.New("CONSOLE_CONFIG_KEY_FILE must reference a readable 32-byte key")
+		return nil, config.Config{}, err
 	}
 	var enrollment config.Config
 	_, loadErr := pg.LoadSettings(ctx)
@@ -233,7 +248,7 @@ func liveServer(
 	enrollment config.Config,
 	logger *slog.Logger,
 ) (*httpapi.Server, error) {
-	callback := os.Getenv("CONSOLE_OIDC_REDIRECT_URL")
+	callback := environment("CONSOLE_OIDC_REDIRECT_URL")
 	parsed, err := url.Parse(callback)
 	if err != nil {
 		return nil, err
