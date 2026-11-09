@@ -1,4 +1,4 @@
-.PHONY: install dev generate check check-generated build e2e integration helm-check e2e-production screenshots lint lint-fix \
+.PHONY: install dev generate check check-generated build dist e2e integration helm-check e2e-production screenshots lint lint-fix \
 	image vulncheck audit licenses check-licenses
 
 GOLANGCI_LINT = go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
@@ -45,6 +45,12 @@ build:
 	cp -R web/dist/. internal/httpapi/assets/
 	mkdir -p bin
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/console ./cmd/console
+
+# Release archives of the static binary for the CLI commands and running without Kubernetes.
+DIST_PLATFORMS ?= linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
+
+dist:
+	./scripts/dist.sh $(VERSION) $(COMMIT) $(DIST_PLATFORMS)
 
 image:
 	docker build --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) -t $(IMAGE) .

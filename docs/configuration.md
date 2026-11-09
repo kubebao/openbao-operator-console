@@ -5,10 +5,14 @@ directly or need to know what the chart configures.
 
 ## Run without Kubernetes
 
+Releases publish archives for Linux and macOS on `amd64` and `arm64`. Each contains the static `console` binary with the
+web application embedded; see [verify a release](releasing.md#verify-a-release). `make build` writes the same binary to
+`bin/console`.
+
 The binary can run on a host behind an HTTPS reverse proxy:
 
 ```sh
-./bin/console --mode=live --listen=127.0.0.1:8090 --config=/etc/console/enrollment.yaml
+./console --mode=live --listen=127.0.0.1:8090 --config=/etc/console/enrollment.yaml
 ```
 
 `--mode` defaults to `demo`, which serves fixture data. Pass `--mode=live` for every manual run against real clusters.

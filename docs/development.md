@@ -59,6 +59,7 @@ Open <http://127.0.0.1:8090>.
 | `make helm-check` | Strict Helm lint and rendering with each `charts/openbao-operator-console/ci/*-values.yaml` file, and values schema rejection checks |
 | `make screenshots` | Regenerates the README screenshots in `docs/images` from demo data |
 | `make build` | Web assets and `bin/console`, with the version from `git describe` and the commit embedded |
+| `make dist` | Release archives in `dist/` for Linux and macOS; set `DIST_PLATFORMS` to choose platforms |
 | `make image` | Container image for the local platform; set `IMAGE` to choose the tag |
 | `make licenses` | Regenerates `THIRD_PARTY_LICENSES` from Go and production web dependencies |
 | `make check-licenses` | Fails when `THIRD_PARTY_LICENSES` is out of date |

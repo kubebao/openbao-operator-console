@@ -34,13 +34,28 @@ Refactoring, tests, build, CI, and chores are omitted.
    - signs the image with keyless [cosign](https://docs.sigstore.dev/) through the workflow's OIDC identity;
    - packages the chart, pushes it to `oci://ghcr.io/kubebao/charts/openbao-operator-console`, records its provenance,
      and signs it;
-   - uploads the SBOMs, the chart package, `THIRD_PARTY_LICENSES`, and a signed `checksums.txt` to the GitHub release;
+   - builds static binary archives for Linux and macOS on `amd64` and `arm64` with `make dist` and records their
+     provenance;
+   - uploads the SBOMs, the chart package, the binary archives, `THIRD_PARTY_LICENSES`, and a signed `checksums.txt` to
+     the GitHub release;
    - publishes the draft release.
 
 Only the jobs that sign or attest receive `id-token: write`, and only the jobs that push receive `packages: write`.
 
 If a publication step fails, fix the cause and run the **Release** workflow manually with the existing tag. It replaces
 the release assets and republishes the same version. Do not move a published tag; release a new patch version instead.
+
+### First release
+
+The documentation describes the pre-release state in a few places. In the release pull request for `0.1.0`, remove:
+
+- the **Early development** warning in `README.md`, and the "Before the first release" note in its quick start;
+- the pre-release note at the top of `docs/installation.md` and its **Build the image before the first release**
+  section;
+- the "Until the first release" sentence in `charts/openbao-operator-console/README.md`;
+- the "no release yet" sentence at the top of this page.
+
+Search for them with `git grep -n -i "first release\|no release"`.
 
 ### Repository setup
 
@@ -115,6 +130,7 @@ Verify downloaded release assets:
 cosign verify-blob checksums.txt --bundle checksums.txt.sigstore.json \
   --certificate-identity-regexp "$IDENTITY" --certificate-oidc-issuer "$ISSUER"
 sha256sum --check --ignore-missing checksums.txt
+gh attestation verify openbao-operator-console_${VERSION}_linux_amd64.tar.gz --repo kubebao/openbao-operator-console
 ```
 
 Install by digest to make sure the cluster runs the image you verified. Set `image.digest` in the chart values.

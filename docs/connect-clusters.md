@@ -24,10 +24,12 @@ unknown. Workload readiness does not establish successful reconciliation or Open
 
 ## Grant reader access
 
-Build the executable with `make build`. Generate RBAC for one enrolled connection:
+Download the archive for your platform from a [release](https://github.com/kubebao/openbao-operator-console/releases)
+and [verify it](releasing.md#verify-a-release), or build `bin/console` from a checkout with `make build`. Generate RBAC
+for one enrolled connection:
 
 ```sh
-./bin/console --config=/private/enrollment.yaml --print-rbac=local \
+./console --config=/private/enrollment.yaml --print-rbac=local \
   --reader-name=console-reader --reader-namespace=console-system > /private/reader-rbac.yaml
 ```
 
@@ -53,7 +55,7 @@ expiry. Kubeconfig import rejects authentication plugins. Keep reader kubeconfig
 ## Check the connection
 
 ```sh
-./bin/console --config=/private/enrollment.yaml --check
+./console --config=/private/enrollment.yaml --check
 ```
 
 This command needs neither PostgreSQL nor OIDC. It prints approved connection, API, controller, and deployment
