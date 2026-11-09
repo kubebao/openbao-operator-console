@@ -79,22 +79,29 @@ regenerate them with `make screenshots`.
 
 ## Quick start
 
-Try the console locally with demonstration data. No Kubernetes cluster, database, or identity provider is required.
-
-Requirements: Go 1.27, Node.js 26, and pnpm 11.
+Try the console with demonstration data. No Kubernetes cluster, database, or identity provider is required.
 
 ```sh
-git clone https://github.com/kubebao/openbao-operator-console.git
-cd openbao-operator-console
-make install
-make build
-./bin/console --mode=demo
+docker run --rm -p 127.0.0.1:8090:8090 ghcr.io/kubebao/openbao-operator-console:<version> \
+  --mode=demo --listen=0.0.0.0:8090 --demo-allow-external
 ```
 
-Open <http://127.0.0.1:8090>. Demo mode listens on loopback only, needs no login, and labels every page as demonstration
-data.
+Open <http://127.0.0.1:8090>. Demo mode needs no login and labels every page as demonstration data, so publish its port
+on `127.0.0.1` only.
 
-To run the console against real clusters, follow the [installation guide](docs/installation.md).
+> [!NOTE]
+> Before the first release, build the image from a checkout with `make image` and run `openbao-operator-console:local`
+> instead. Or build the binary (Go 1.27, Node.js 26, pnpm 11) and run it directly:
+>
+> ```sh
+> git clone https://github.com/kubebao/openbao-operator-console.git
+> cd openbao-operator-console
+> make install build
+> ./bin/console --mode=demo
+> ```
+
+To run the console against real clusters, follow the [installation guide](docs/installation.md): PostgreSQL, one
+Secret, the Helm chart, and a guided first sign-in.
 
 ## How it works
 
@@ -119,7 +126,7 @@ encrypted configuration in PostgreSQL. See [architecture](docs/architecture.md) 
 | OpenBao Operator | Clusters managed by the [OpenBao Operator](https://github.com/kubebao/openbao-operator) (`openbao.org/v1alpha1` APIs) |
 | Kubernetes | 1.33 or later for the Helm chart; a namespace-scoped reader per cluster; the hosting cluster can use the console's ServiceAccount |
 | PostgreSQL | An external database; CI tests PostgreSQL 18 |
-| Identity provider | An OpenID Connect provider with authorization code flow and PKCE, such as Keycloak |
+| Identity provider | An OpenID Connect provider with authorization code flow and PKCE, such as Keycloak; the client is registered during setup |
 | Network | HTTPS in front of the console, through an ingress, a gateway, or direct TLS |
 
 A compatibility matrix with operator releases will be published with the first console release.
@@ -137,6 +144,7 @@ A compatibility matrix with operator releases will be published with the first c
 | [Troubleshooting](docs/troubleshooting.md) | Startup failures, health checks, sign-in problems, logs, and collection states |
 | [Keycloak](docs/keycloak.md) | Configure Keycloak as the OpenID Connect provider |
 | [Enrollment files and CLI](docs/connect-clusters.md) | First-start enrollment YAML, `--print-rbac`, and `--check` diagnostics |
+| [Command-line and environment](docs/configuration.md) | Flags, environment variables, and running without Kubernetes |
 | [Attention rules](docs/attention-rules.md) | What each finding means and what it does not prove |
 | [Security model](docs/security.md) | Permissions, stored data, sessions, and encryption |
 | [Architecture](docs/architecture.md) | Components, evidence handling, and design boundaries |
