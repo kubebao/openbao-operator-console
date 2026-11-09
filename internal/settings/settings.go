@@ -252,6 +252,11 @@ func hasAdmin(c config.Config) bool {
 			return true
 		}
 	}
+	for _, account := range c.LocalAccounts {
+		if account.Admin {
+			return true
+		}
+	}
 	return false
 }
 
@@ -281,6 +286,10 @@ func clone(c config.Config) config.Config {
 	result.Groups = slices.Clone(c.Groups)
 	for i := range result.Groups {
 		result.Groups[i].Scopes = cloneScopes(result.Groups[i].Scopes)
+	}
+	result.LocalAccounts = slices.Clone(c.LocalAccounts)
+	for i := range result.LocalAccounts {
+		result.LocalAccounts[i].Scopes = cloneScopes(result.LocalAccounts[i].Scopes)
 	}
 	result.Relationships = slices.Clone(c.Relationships)
 	if c.Identity != nil {
@@ -448,6 +457,9 @@ func Summary(previous, next config.Config) string {
 	}
 	if !reflect.DeepEqual(previous.Users, next.Users) || !reflect.DeepEqual(previous.Groups, next.Groups) {
 		areas = append(areas, "access")
+	}
+	if !reflect.DeepEqual(previous.LocalAccounts, next.LocalAccounts) {
+		areas = append(areas, "local accounts")
 	}
 	if !reflect.DeepEqual(previous.Relationships, next.Relationships) {
 		areas = append(areas, "relationships")

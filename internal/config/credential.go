@@ -100,7 +100,23 @@ func ImportKubeconfig(data []byte, context string) (Credential, error) {
 
 // Resolve maps a verified principal to its current access. User and group bindings
 // belong to AccessIssuer, so a principal from any other issuer matches none of them.
+// Local principals match only local accounts.
 func (c Config) Resolve(principal Principal) (User, bool) {
+	var result User
+	var enrolled bool
+	if principal.Issuer == LocalIssuer {
+		result, enrolled = c.resolveLocal(principal.Subject)
+	} else {
+		result, enrolled = c.resolveFederated(principal)
+	}
+	if !enrolled {
+		return result, false
+	}
+	return c.effectiveAccess(result), true
+}
+
+// resolveFederated matches an OIDC principal against user and group bindings.
+func (c Config) resolveFederated(principal Principal) (User, bool) {
 	subject, memberships := principal.Subject, principal.Groups
 	result := User{Subject: subject, Name: subject, Scopes: []Scope{}}
 	if principal.Issuer == "" || principal.Issuer != c.AccessIssuer {
@@ -125,6 +141,15 @@ func (c Config) Resolve(principal Principal) (User, bool) {
 			}
 		}
 	}
+	if result.Name == "" {
+		result.Name = subject
+	}
+	return result, enrolled
+}
+
+// effectiveAccess gives administrators every enrolled namespace and intersects other
+// scopes with current enrollment.
+func (c Config) effectiveAccess(result User) User {
 	if result.Admin {
 		result.Scopes = []Scope{}
 		for _, connection := range c.Connections {
@@ -156,8 +181,5 @@ func (c Config) Resolve(principal Principal) (User, bool) {
 		}
 	}
 	result.Scopes = scopes
-	if result.Name == "" {
-		result.Name = subject
-	}
-	return result, enrolled
+	return result
 }

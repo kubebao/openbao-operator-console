@@ -108,3 +108,15 @@ DELETE FROM console_reader_credential WHERE NOT (connection_id = ANY($1::text[])
 
 -- name: LockSettingsRevision :one
 SELECT revision FROM console_configuration WHERE id = true FOR SHARE;
+
+-- name: GetLocalCredential :one
+SELECT account_id, revision, ciphertext FROM console_local_credential WHERE account_id = $1;
+
+-- name: CreateLocalCredential :execrows
+INSERT INTO console_local_credential(account_id, revision, ciphertext) VALUES ($1, 1, $2) ON CONFLICT DO NOTHING;
+
+-- name: UpdateLocalCredential :execrows
+UPDATE console_local_credential SET revision = revision + 1, ciphertext = $1 WHERE account_id = $2 AND revision = $3;
+
+-- name: DeleteRemovedLocalCredentials :exec
+DELETE FROM console_local_credential WHERE NOT (account_id = ANY($1::text[]));

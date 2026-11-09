@@ -113,6 +113,9 @@ type Config struct {
 	StartupGraceMinutes int            `json:"startupGraceMinutes"`
 	Groups              []Group        `json:"groups,omitempty"`
 	Identity            *Identity      `json:"identity,omitempty"`
+	// LocalAccounts sign in with a password and TOTP. They do not belong to AccessIssuer
+	// and stay when the identity provider changes.
+	LocalAccounts []LocalAccount `json:"localAccounts,omitempty"`
 	// AccessIssuer is the OIDC issuer that Users and Groups belong to. It equals the
 	// active identity provider's issuer; an issuer change requires a decision about
 	// existing bindings.

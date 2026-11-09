@@ -22,12 +22,16 @@ var baseline string
 //go:embed migrations/0002_pagination_indexes.sql
 var paginationIndexes string
 
+//go:embed migrations/0003_local_credentials.sql
+var localCredentials string
+
 // migrations are applied in order. Versions start at 1 and increase by one. Append new
 // migrations as files in migrations/ so that sqlc reads the same schema. Never change a
 // released migration.
 var migrations = []migration{
 	{version: 1, statements: baseline},
 	{version: 2, statements: paginationIndexes},
+	{version: 3, statements: localCredentials},
 }
 
 // migrationLock serializes concurrent starts against one database.

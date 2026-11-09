@@ -49,7 +49,7 @@ func TestFreshDatabaseAppliesEveryMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer p.Close()
-	if versions := appliedVersions(t, p); !equalVersions(versions, 1, 2) || len(migrations) != 2 {
+	if versions := appliedVersions(t, p); !equalVersions(versions, 1, 2, 3) || len(migrations) != 3 {
 		t.Fatalf("applied versions = %v", versions)
 	}
 	// A restart applies nothing twice.
@@ -58,7 +58,7 @@ func TestFreshDatabaseAppliesEveryMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	again.Close()
-	if versions := appliedVersions(t, p); !equalVersions(versions, 1, 2) {
+	if versions := appliedVersions(t, p); !equalVersions(versions, 1, 2, 3) {
 		t.Fatalf("restart changed applied versions to %v", versions)
 	}
 }

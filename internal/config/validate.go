@@ -30,6 +30,9 @@ func (c Config) Validate() error {
 	issuer := ""
 	if c.Identity != nil {
 		issuer = c.Identity.Issuer
+		if issuer == LocalIssuer {
+			return errors.New("the identity provider issuer is reserved for local accounts")
+		}
 	}
 	if c.AccessIssuer != issuer {
 		return errors.New("user and group access must belong to the active identity provider's issuer")
@@ -49,6 +52,9 @@ func (c Config) Validate() error {
 		return err
 	}
 	if err := validateGroups(c.Groups, enrolled); err != nil {
+		return err
+	}
+	if err := validateLocalAccounts(c.LocalAccounts, enrolled); err != nil {
 		return err
 	}
 	return validateRelationships(c.Relationships, enrolled)

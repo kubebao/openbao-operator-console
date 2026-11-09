@@ -41,6 +41,12 @@ type ConsoleDeployment struct {
 	Projection   []byte
 }
 
+type ConsoleLocalCredential struct {
+	AccountID  string
+	Revision   int64
+	Ciphertext []byte
+}
+
 type ConsoleObservation struct {
 	ID           int64
 	DeploymentID string

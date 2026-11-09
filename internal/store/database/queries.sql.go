@@ -11,6 +11,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createLocalCredential = `-- name: CreateLocalCredential :execrows
+INSERT INTO console_local_credential(account_id, revision, ciphertext) VALUES ($1, 1, $2) ON CONFLICT DO NOTHING
+`
+
+type CreateLocalCredentialParams struct {
+	AccountID  string
+	Ciphertext []byte
+}
+
+func (q *Queries) CreateLocalCredential(ctx context.Context, arg CreateLocalCredentialParams) (int64, error) {
+	result, err := q.db.Exec(ctx, createLocalCredential, arg.AccountID, arg.Ciphertext)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const createReaderCredential = `-- name: CreateReaderCredential :execrows
 INSERT INTO console_reader_credential(connection_id, revision, ciphertext) VALUES ($1, 1, $2) ON CONFLICT DO NOTHING
 `
@@ -96,6 +113,15 @@ DELETE FROM console_reader_credential WHERE NOT (connection_id = ANY($1::text[])
 
 func (q *Queries) DeleteRemovedCredentials(ctx context.Context, dollar_1 []string) error {
 	_, err := q.db.Exec(ctx, deleteRemovedCredentials, dollar_1)
+	return err
+}
+
+const deleteRemovedLocalCredentials = `-- name: DeleteRemovedLocalCredentials :exec
+DELETE FROM console_local_credential WHERE NOT (account_id = ANY($1::text[]))
+`
+
+func (q *Queries) DeleteRemovedLocalCredentials(ctx context.Context, dollar_1 []string) error {
+	_, err := q.db.Exec(ctx, deleteRemovedLocalCredentials, dollar_1)
 	return err
 }
 
@@ -208,6 +234,17 @@ func (q *Queries) GetHistoryBaseline(ctx context.Context, arg GetHistoryBaseline
 	row := q.db.QueryRow(ctx, getHistoryBaseline, arg.DeploymentID, arg.Before)
 	var i GetHistoryBaselineRow
 	err := row.Scan(&i.ID, &i.RecordedAt, &i.Projection)
+	return i, err
+}
+
+const getLocalCredential = `-- name: GetLocalCredential :one
+SELECT account_id, revision, ciphertext FROM console_local_credential WHERE account_id = $1
+`
+
+func (q *Queries) GetLocalCredential(ctx context.Context, accountID string) (ConsoleLocalCredential, error) {
+	row := q.db.QueryRow(ctx, getLocalCredential, accountID)
+	var i ConsoleLocalCredential
+	err := row.Scan(&i.AccountID, &i.Revision, &i.Ciphertext)
 	return i, err
 }
 
@@ -495,6 +532,24 @@ DELETE FROM console_observation WHERE recorded_at < $1
 func (q *Queries) PruneObservations(ctx context.Context, recordedAt pgtype.Timestamptz) error {
 	_, err := q.db.Exec(ctx, pruneObservations, recordedAt)
 	return err
+}
+
+const updateLocalCredential = `-- name: UpdateLocalCredential :execrows
+UPDATE console_local_credential SET revision = revision + 1, ciphertext = $1 WHERE account_id = $2 AND revision = $3
+`
+
+type UpdateLocalCredentialParams struct {
+	Ciphertext []byte
+	AccountID  string
+	Revision   int64
+}
+
+func (q *Queries) UpdateLocalCredential(ctx context.Context, arg UpdateLocalCredentialParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateLocalCredential, arg.Ciphertext, arg.AccountID, arg.Revision)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateReaderCredential = `-- name: UpdateReaderCredential :execrows
