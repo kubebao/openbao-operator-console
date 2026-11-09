@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kubebao/openbao-operator-console/internal/auth"
+	"github.com/kubebao/openbao-operator-console/internal/clientip"
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/contract"
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
@@ -30,6 +31,8 @@ type Server struct {
 	ReaderName      string
 	ReaderNamespace string
 	Setup           *Setup
+	// ClientIP resolves client addresses behind trusted proxies for rate limits and logs.
+	ClientIP clientip.Resolver
 }
 
 // Fleet provides the fleet and pages of retained history and activity. Activity applies
@@ -88,7 +91,7 @@ func (s *Server) Handler() http.Handler {
 		problem(w, http.StatusNotFound, "not_found", "Endpoint not found.")
 	})
 	mux.HandleFunc("GET /", frontend(embeddedAssets()))
-	return s.secure(mux)
+	return s.ClientIP.Middleware(s.secure(mux))
 }
 
 // secure sets response headers for every route and holds the API until setup completes.

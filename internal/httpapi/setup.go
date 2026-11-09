@@ -9,13 +9,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"log/slog"
-	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/kubebao/openbao-operator-console/internal/auth"
+	"github.com/kubebao/openbao-operator-console/internal/clientip"
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/contract"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
@@ -172,17 +172,13 @@ func (s *Setup) rateAllowed(peer string, now time.Time) bool {
 // logFailure records a rejected setup attempt without the submitted token.
 func (s *Setup) logFailure(request *http.Request, reason string) {
 	if s.Logger != nil {
-		s.Logger.Warn("Setup unlock rejected", "reason", reason, "remote", request.RemoteAddr)
+		s.Logger.Warn("Setup unlock rejected", "reason", reason, "remote", clientip.From(request))
 	}
 }
 
-func setupPeer(request *http.Request) string {
-	peer, _, err := net.SplitHostPort(request.RemoteAddr)
-	if err != nil {
-		return request.RemoteAddr
-	}
-	return peer
-}
+// setupPeer is the client address for rate limits. Behind trusted proxies, it is the
+// forwarded client; otherwise the direct peer.
+func setupPeer(request *http.Request) string { return clientip.From(request) }
 
 func setupSessionCookie(w http.ResponseWriter, value string, age int) {
 	http.SetCookie(

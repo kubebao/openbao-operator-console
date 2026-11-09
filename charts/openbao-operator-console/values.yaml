@@ -129,6 +129,13 @@ ingress:
   host: ""
   tlsSecret: ""
 
+# Reverse proxies, such as the ingress controller Pods, whose X-Forwarded-For header
+# identifies the client for sign-in rate limits and security logs. Use addresses or CIDR
+# prefixes; prefixes that match every address are refused. Pair this with
+# networkPolicy.ingressFrom, so that only these proxies can reach the console.
+trustedProxies: []
+# - 10.42.0.0/16
+
 # Restrict traffic to the console Pod. Requires a CNI plugin that enforces NetworkPolicy.
 networkPolicy:
   enabled: false

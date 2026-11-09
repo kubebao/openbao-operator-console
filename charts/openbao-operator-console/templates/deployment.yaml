@@ -66,6 +66,10 @@ spec:
             - name: CONSOLE_BOOTSTRAP_ADMIN_SUBJECTS
               value: {{ join "," .Values.bootstrapAdminSubjects | quote }}
             {{- end }}
+            {{- with .Values.trustedProxies }}
+            - name: CONSOLE_TRUSTED_PROXIES
+              value: {{ join "," . | quote }}
+            {{- end }}
             {{- if .Values.historyRetention }}
             - name: CONSOLE_HISTORY_RETENTION
               value: {{ .Values.historyRetention | quote }}

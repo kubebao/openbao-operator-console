@@ -19,6 +19,7 @@ import (
 
 	"github.com/kubebao/openbao-operator-console/internal/auth"
 	"github.com/kubebao/openbao-operator-console/internal/buildinfo"
+	"github.com/kubebao/openbao-operator-console/internal/clientip"
 	"github.com/kubebao/openbao-operator-console/internal/collector"
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/demo"
@@ -40,6 +41,8 @@ type options struct {
 	historyRetention            time.Duration
 	version                     bool
 	recoverAccessRules          string
+	trustedProxies              string
+	clientIP                    clientip.Resolver
 }
 
 func parseOptions() (options, error) {
@@ -81,6 +84,12 @@ func parseOptions() (options, error) {
 		retention,
 		"how long observation history and activity are kept, from 1h to 8760h; default from CONSOLE_HISTORY_RETENTION or 168h",
 	)
+	flag.StringVar(
+		&o.trustedProxies,
+		"trusted-proxies",
+		environment("CONSOLE_TRUSTED_PROXIES"),
+		"comma-separated proxy addresses or CIDR prefixes whose X-Forwarded-For is used for rate limits and logs",
+	)
 	flag.BoolVar(&o.version, "version", false, "print the version and commit, then exit")
 	flag.Parse()
 	if (o.tlsCertificate == "") != (o.tlsKey == "") {
@@ -94,6 +103,9 @@ func parseOptions() (options, error) {
 	}
 	if rules := config.AccessRules(o.recoverAccessRules); !rules.Valid() {
 		return o, errors.New("recover-access-rules must be carryOver or remove")
+	}
+	if o.clientIP, err = clientip.Parse(strings.Split(o.trustedProxies, ",")); err != nil {
+		return o, err
 	}
 	return o, validHistoryRetention(o.historyRetention)
 }
@@ -271,6 +283,7 @@ func liveServer(
 		Origin:          parsed.Scheme + "://" + parsed.Host,
 		ReaderName:      o.readerName,
 		ReaderNamespace: o.readerNamespace,
+		ClientIP:        o.clientIP,
 	}, nil
 }
 

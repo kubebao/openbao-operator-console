@@ -56,6 +56,7 @@ ingress:
     nginx.ingress.kubernetes.io/proxy-body-size: 1m
   host: console.example.com
   tlsSecret: console-tls
+trustedProxies: [10.42.0.0/16, 192.0.2.10]
 networkPolicy:
   enabled: true
   ingressFrom:

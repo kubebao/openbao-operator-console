@@ -72,9 +72,9 @@ bounded process memory; an expired login cannot activate them. Failed candidates
 browser ticket expires, enter the setup token again. If the one-hour window expires, replace `SETUP_TOKEN` with a new
 token and restart the console while the database is still uninitialized.
 
-Requests are limited to five attempts per direct network peer per minute and 64 attempts globally per minute. The
-console does not trust forwarded address headers for this limit. A shared ingress can cause browsers to share a peer
-limit. Wait one minute after a rate-limit response.
+Requests are limited to five attempts per client per minute and 64 attempts globally per minute. The client is the
+direct network peer, unless the chart's `trustedProxies` lists that peer; then it is the address the proxy forwards.
+Without `trustedProxies`, browsers behind one ingress share a limit. Wait one minute after a rate-limit response.
 
 All setup changes require the exact public request origin. Setup tokens are accepted only in JSON POST bodies. The
 console retains their digest, never logs them, and does not put them in browser storage. The token authorizes the

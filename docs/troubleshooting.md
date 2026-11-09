@@ -100,9 +100,9 @@ During setup, the browser shows these responses:
 
 - **The setup window expired.** The window lasts one hour from process start. Create a new token, update the Secret, and
   restart the console while the database is still uninitialized.
-- **Too many setup attempts. Retry in one minute.** Setup accepts five attempts per direct network peer and 64 attempts
-  in total per minute. The console does not trust forwarded address headers, so all browsers behind one ingress share a
-  peer limit.
+- **Too many setup attempts. Retry in one minute.** Setup accepts five attempts per client and 64 attempts in total per
+  minute. Without `trustedProxies`, all browsers behind one ingress count as one client; see
+  [trusted proxies](../charts/openbao-operator-console/README.md#trusted-proxies).
 - **Setup is already open in several browsers.** At most eight unlocked setup sessions can exist. Wait up to 15 minutes
   for them to expire, or restart the console.
 

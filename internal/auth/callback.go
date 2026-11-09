@@ -11,6 +11,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 
+	"github.com/kubebao/openbao-operator-console/internal/clientip"
 	"github.com/kubebao/openbao-operator-console/internal/config"
 )
 
@@ -239,7 +240,7 @@ func (a *Authenticator) logFailure(request *http.Request, reason string, trial, 
 	if a.Logger == nil {
 		return
 	}
-	attributes := []any{"reason", reason, "remote", request.RemoteAddr, "trial", trial, "setup", setup}
+	attributes := []any{"reason", reason, "remote", clientip.From(request), "trial", trial, "setup", setup}
 	if subject != "" {
 		attributes = append(attributes, "subject", subject)
 	}

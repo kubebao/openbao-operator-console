@@ -260,6 +260,16 @@
         }
       }
     },
+    "trustedProxies": {
+      "type": "array",
+      "maxItems": 64,
+      "description": "Proxy addresses or CIDR prefixes whose X-Forwarded-For identifies the client for rate limits and logs.",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "not": { "enum": ["0.0.0.0/0", "::/0"] }
+      }
+    },
     "networkPolicy": {
       "type": "object",
       "additionalProperties": false,

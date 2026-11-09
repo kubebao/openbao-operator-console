@@ -90,6 +90,10 @@ helm-check:
 		echo "the chart rendered without publicURL or an Ingress host" >&2; exit 1; \
 	fi
 	@if helm template openbao-operator-console $(CHART) --values $(CHART)/ci/default-values.yaml \
+		--set 'trustedProxies={0.0.0.0/0}' > /dev/null 2>&1; then \
+		echo "values.schema.json accepted a catch-all trusted proxy" >&2; exit 1; \
+	fi
+	@if helm template openbao-operator-console $(CHART) --values $(CHART)/ci/default-values.yaml \
 		--set publicURL=http://console.example.com > /dev/null 2>&1; then \
 		echo "values.schema.json accepted a publicURL without HTTPS" >&2; exit 1; \
 	fi

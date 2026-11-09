@@ -77,6 +77,7 @@ the release name `openbao-operator-console`, the Deployment, Service, and Servic
 | `ingress.annotations` | `{}` | Ingress annotations. |
 | `ingress.host` | `""` | Public host name. Required when the Ingress is enabled. |
 | `ingress.tlsSecret` | `""` | TLS Secret for the host. Required when the Ingress is enabled. |
+| `trustedProxies` | `[]` | Proxy addresses or CIDR prefixes whose `X-Forwarded-For` identifies the client for sign-in rate limits and security logs. Catch-all prefixes are refused. See [trusted proxies](#trusted-proxies). |
 | `networkPolicy.enabled` | `false` | Create a NetworkPolicy for the console Pod. |
 | `networkPolicy.ingressFrom` | `[]` | NetworkPolicy peers allowed to reach the console port. Empty allows every source on that port only. |
 | `networkPolicy.egress` | `[]` | NetworkPolicy egress rules. Empty leaves egress unrestricted. |
@@ -107,6 +108,30 @@ networkPolicy:
 
 Egress stays unrestricted unless `networkPolicy.egress` contains rules. Restricted egress must allow DNS, PostgreSQL,
 the identity provider, and the API server of every enrolled Kubernetes cluster, including the hosting cluster.
+
+## Trusted proxies
+
+Behind an ingress controller or Gateway, every request arrives from the proxy's address. Rate limits for setup and
+sign-in then treat all browsers as one client, and security logs show the proxy. List the proxy addresses in
+`trustedProxies` to use the client address from `X-Forwarded-For` instead:
+
+```yaml
+trustedProxies: [10.42.0.0/16]
+networkPolicy:
+  enabled: true
+  ingressFrom:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+```
+
+The console reads the header from right to left and uses the first address that is not a trusted proxy, so entries a
+client adds itself are ignored. The address is used for rate limits and logs only, never for access decisions.
+
+- Only list networks whose every address is a proxy you operate. Any Pod in a trusted range could otherwise send a
+  forged header. Limit ingress to those proxies with `networkPolicy.ingressFrom`.
+- The proxy must see the real client address. With a cloud load balancer, set `externalTrafficPolicy: Local` on the
+  ingress controller Service or enable the PROXY protocol; otherwise the header carries node addresses.
 
 ## Created resources
 

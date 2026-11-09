@@ -211,10 +211,12 @@ operatorReaders:
 it with `enrollment`; see [enrollment files](connect-clusters.md). When these values already grant access, skip the
 RBAC commands in the onboarding wizard.
 
-### Network policy
+### Network policy and trusted proxies
 
 Set `networkPolicy.enabled` to limit ingress to the console port; see the
-[chart README](../charts/openbao-operator-console/README.md#network-policy). The chart's
+[chart README](../charts/openbao-operator-console/README.md#network-policy). Behind an ingress controller, list its
+addresses in `trustedProxies` so that rate limits and security logs use the client address; see
+[trusted proxies](../charts/openbao-operator-console/README.md#trusted-proxies). The chart's
 [values file](../charts/openbao-operator-console/values.yaml) documents every option.
 
 ### Build the image before the first release
