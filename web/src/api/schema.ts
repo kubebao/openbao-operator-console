@@ -1,5 +1,9 @@
 import { z } from 'zod'
 import { activityObject } from './activity'
+import { localAccountObject } from './sign-in'
+
+export type { SetupStatus } from './sign-in'
+export { loginRedirectSchema, setupStatusSchema } from './sign-in'
 import type { components } from './generated'
 
 export type Snapshot = components['schemas']['Snapshot']
@@ -171,6 +175,7 @@ const snapshotObject = z.object({
     subject: z.string(),
     connectionIds: z.array(z.string()),
     admin: z.boolean(),
+    localAccount: z.boolean(),
   }),
   policy: z.object({
     maxBackupAgeHours: z.number().int().positive(),
@@ -205,7 +210,6 @@ export type IdentityTrial = components['schemas']['IdentityTrial']
 export type AccessRules = NonNullable<IdentityTrial['accessRules']>
 export type ConnectionCheck = components['schemas']['ConnectionCheck']
 export type ConnectionCheckResult = components['schemas']['ConnectionCheckResult']
-export type SetupStatus = components['schemas']['SetupStatus']
 export type SetupUnlock = components['schemas']['SetupUnlock']
 export type ReaderAccessResult = components['schemas']['ReaderAccessResult']
 export type CredentialStatus = components['schemas']['CredentialStatus']
@@ -272,6 +276,8 @@ const configurationObject = z.object({
 })
 const settingsObject = z.object({
   revision: z.number().int().positive(),
+  localSignIn: z.boolean(),
+  localAccounts: z.array(localAccountObject),
   configuration: configurationObject,
   identity: z.object({
     issuer: z.string(),
@@ -306,18 +312,10 @@ const connectionCheckObject = z.object({
   }),
 })
 
-const setupStatusObject = z.object({
-  state: z.enum(['required', 'unlocked', 'complete', 'expired']),
-  callbackUrl: z.string(),
-  sessionExpiresAt: timestamp.nullable(),
-})
 const readerAccessObject = z.object({
   rbac: z.string(),
   serviceAccount: z.string(),
   serviceAccountNamespace: z.string(),
-})
-const loginRedirectObject = z.object({
-  url: z.url().refine((value) => value.startsWith('https://'), 'Login URL must use HTTPS.'),
 })
 
 const settingsUpdateObject = z.object({
@@ -390,10 +388,7 @@ export const activityPageSchema: z.ZodType<components['schemas']['ActivityPage']
 export const managedConnectionSchema: z.ZodType<ManagedConnection> = managedConnectionObject
 export const settingsSchema: z.ZodType<Settings> = settingsObject
 export const connectionCheckSchema: z.ZodType<ConnectionCheckResult> = connectionCheckObject
-export const setupStatusSchema: z.ZodType<SetupStatus> = setupStatusObject
 export const readerAccessSchema: z.ZodType<ReaderAccessResult> = readerAccessObject
-export const loginRedirectSchema: z.ZodType<components['schemas']['LoginRedirect']> =
-  loginRedirectObject
 export const settingsUpdateSchema: z.ZodType<components['schemas']['SettingsUpdate']> =
   settingsUpdateObject
 export const identityTrialSchema: z.ZodType<IdentityTrial> = identityTrialObject
@@ -409,9 +404,7 @@ const contractSchemas = {
   activityPage: activityPageObject,
   settings: settingsObject,
   connectionCheck: connectionCheckObject,
-  setupStatus: setupStatusObject,
   readerAccess: readerAccessObject,
-  loginRedirect: loginRedirectObject,
   settingsUpdate: settingsUpdateObject,
   identityTrial: identityTrialObject,
   credentialStatuses: credentialStatusesObject,

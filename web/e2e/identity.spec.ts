@@ -27,6 +27,8 @@ const settings: Settings = {
     secretConfigured: true,
   },
   changes: [],
+  localSignIn: true,
+  localAccounts: [],
 }
 
 async function identityBackend(page: Page) {

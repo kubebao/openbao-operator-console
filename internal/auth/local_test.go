@@ -46,3 +46,33 @@ func TestOpenSessionAcceptsOnlyLocalPrincipalsAndRotatesTheSession(t *testing.T)
 		t.Fatal("demo mode opened a session")
 	}
 }
+
+func TestEndLocalSessionsKeepsOnlyTheRequestedSession(t *testing.T) {
+	a := NewLocal(func(_ context.Context, principal config.Principal) (config.User, bool) {
+		return config.User{Subject: principal.Subject}, true
+	})
+	open := func(subject string) *http.Cookie {
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodPost, "https://console.example/", nil)
+		if err := a.OpenSession(response, request, config.Principal{Issuer: config.LocalIssuer, Subject: subject}); err != nil {
+			t.Fatal(err)
+		}
+		return response.Result().Cookies()[0]
+	}
+	first, second, other := open("alice"), open("alice"), open("bob")
+	request := httptest.NewRequest(http.MethodPost, "https://console.example/", nil)
+	request.AddCookie(second)
+	a.EndOtherLocalSessions(request, "alice")
+	for cookie, want := range map[*http.Cookie]bool{first: false, second: true, other: true} {
+		if _, active := a.logins.lookup(cookie.Value); active != want {
+			t.Fatalf("session active = %v, want %v", active, want)
+		}
+	}
+	a.EndLocalSessions("alice")
+	if _, active := a.logins.lookup(second.Value); active {
+		t.Fatal("a session survived EndLocalSessions")
+	}
+	if _, active := a.logins.lookup(other.Value); !active {
+		t.Fatal("another account's session ended")
+	}
+}

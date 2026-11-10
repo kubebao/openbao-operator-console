@@ -67,6 +67,8 @@ async function settingsBackend(page: Page) {
       secretConfigured: true,
     },
     changes: [],
+    localSignIn: true,
+    localAccounts: [],
   })
   await page.route('**/api/v1/snapshot', async (route) => {
     const response = await route.fetch()

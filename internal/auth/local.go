@@ -43,3 +43,24 @@ func (a *Authenticator) OpenSession(w http.ResponseWriter, request *http.Request
 
 // SingleSignOn reports whether an identity provider is active.
 func (a *Authenticator) SingleSignOn() bool { return a.demo == nil && a.activeProvider() != nil }
+
+// EndLocalSessions ends every session of a local account, such as after a reset or
+// removal.
+func (a *Authenticator) EndLocalSessions(accountID string) {
+	if a.logins != nil {
+		a.logins.endPrincipal(config.LocalIssuer, accountID, "")
+	}
+}
+
+// EndOtherLocalSessions ends the sessions of a local account except the one request
+// carries, such as after a password change.
+func (a *Authenticator) EndOtherLocalSessions(request *http.Request, accountID string) {
+	if a.logins == nil {
+		return
+	}
+	keep := ""
+	if cookie, err := request.Cookie(sessionCookie); err == nil {
+		keep = cookie.Value
+	}
+	a.logins.endPrincipal(config.LocalIssuer, accountID, keep)
+}

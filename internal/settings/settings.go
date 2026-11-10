@@ -253,7 +253,8 @@ func hasAdmin(c config.Config) bool {
 		}
 	}
 	for _, account := range c.LocalAccounts {
-		if account.Admin {
+		// Local administrators cannot sign in while local sign-in is disabled.
+		if account.Admin && !c.LocalSignInDisabled {
 			return true
 		}
 	}
@@ -460,6 +461,9 @@ func Summary(previous, next config.Config) string {
 	}
 	if !reflect.DeepEqual(previous.LocalAccounts, next.LocalAccounts) {
 		areas = append(areas, "local accounts")
+	}
+	if previous.LocalSignInDisabled != next.LocalSignInDisabled {
+		areas = append(areas, "local sign-in")
 	}
 	if !reflect.DeepEqual(previous.Relationships, next.Relationships) {
 		areas = append(areas, "relationships")

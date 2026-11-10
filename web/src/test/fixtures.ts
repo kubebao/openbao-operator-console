@@ -82,7 +82,13 @@ export function snapshotFixture(overrides: Partial<Snapshot> = {}): Snapshot {
       },
     ],
     relationships: [],
-    viewer: { name: 'Fixture Viewer', subject: 'fixture-viewer', connectionIds: [], admin: true },
+    viewer: {
+      name: 'Fixture Viewer',
+      subject: 'fixture-viewer',
+      connectionIds: [],
+      admin: true,
+      localAccount: false,
+    },
     policy: { maxBackupAgeHours: 24, startupGraceMinutes: 10 },
     ...overrides,
   }
@@ -123,5 +129,7 @@ export function settingsFixture(overrides: Partial<Settings['configuration']> = 
       secretConfigured: true,
     },
     changes: [],
+    localSignIn: true,
+    localAccounts: [],
   }
 }

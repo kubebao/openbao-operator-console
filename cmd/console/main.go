@@ -43,6 +43,7 @@ type options struct {
 	version                     bool
 	recoverAccessRules          string
 	trustedProxies              string
+	recoverLocal                string
 	clientIP                    clientip.Resolver
 }
 
@@ -66,6 +67,12 @@ func parseOptions() (options, error) {
 		"recover-identity",
 		false,
 		"replace stored identity and enroll administrators from bootstrap environment; exit without serving",
+	)
+	flag.StringVar(
+		&o.recoverLocal,
+		"recover-local-administrator",
+		"",
+		"create or reset this local administrator, enable local sign-in, print a one-time enrollment link, and exit",
 	)
 	flag.StringVar(
 		&o.recoverAccessRules,
@@ -98,6 +105,9 @@ func parseOptions() (options, error) {
 	}
 	if o.demoAllowExternal && o.mode != "demo" {
 		return o, errors.New("demo-allow-external requires demo mode")
+	}
+	if o.recoverLocal != "" && (o.recoverIdentity || o.mode != "live") {
+		return o, errors.New("recover-local-administrator requires live mode and excludes recover-identity")
 	}
 	if o.recoverAccessRules != "" && !o.recoverIdentity {
 		return o, errors.New("recover-access-rules requires recover-identity")
@@ -212,6 +222,9 @@ func runLive(ctx context.Context, o options, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	if o.recoverLocal != "" {
+		return recoverLocalAdministrator(startup, configuration, local, o.recoverLocal, os.Stdout)
+	}
 	server, err := liveServer(startup, o, pg, configuration, enrollment, local, logger)
 	if err != nil {
 		return err
@@ -238,8 +251,8 @@ func openSettings(ctx context.Context, pg *store.Postgres, key []byte, o options
 	_, loadErr := pg.LoadSettings(ctx)
 	switch {
 	case errors.Is(loadErr, settings.ErrMissing):
-		if o.recoverIdentity {
-			return nil, enrollment, errors.New("identity recovery requires stored configuration")
+		if o.recoverIdentity || o.recoverLocal != "" {
+			return nil, enrollment, errors.New("recovery requires stored configuration")
 		}
 		if enrollment, err = bootstrapSeed(o.configPath); err != nil {
 			return nil, enrollment, err

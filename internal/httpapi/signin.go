@@ -85,7 +85,7 @@ func (s *Server) signInOptions(w http.ResponseWriter, _ *http.Request) {
 	}
 	if s.Local != nil && s.Settings != nil {
 		configuration, _ := s.Settings.Current()
-		result.LocalAccounts = len(configuration.LocalAccounts) > 0
+		result.LocalAccounts = len(configuration.LocalAccounts) > 0 && !configuration.LocalSignInDisabled
 	}
 	jsonResponse(w, http.StatusOK, result)
 }
@@ -122,6 +122,10 @@ func (s *Server) signInLocal(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 	configuration, _ := s.Settings.Current()
+	if configuration.LocalSignInDisabled {
+		problem(w, http.StatusForbidden, "forbidden", "Local sign-in is disabled. Sign in with single sign-on.")
+		return
+	}
 	account, found := configuration.FindLocalAccount(input.Username)
 	attempt := localauth.Attempt{Username: input.Username, Password: input.Password, Code: input.Code}
 	if found {

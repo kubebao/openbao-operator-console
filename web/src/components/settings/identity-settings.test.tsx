@@ -28,6 +28,8 @@ const settings: Settings = {
     secretConfigured: true,
   },
   changes: [],
+  localSignIn: true,
+  localAccounts: [],
 }
 
 function renderSettings() {

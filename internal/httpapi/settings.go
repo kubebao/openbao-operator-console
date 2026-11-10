@@ -256,7 +256,17 @@ func editInput(input contract.SettingsUpdate) (settings.Edit, error) {
 
 func (s *Server) settingsView(ctx context.Context) (contract.Settings, error) {
 	configuration, revision := s.Settings.Current()
-	result := contract.Settings{Revision: revision, Configuration: configurationView(configuration), Changes: []contract.SettingsChange{}}
+	result := contract.Settings{
+		Revision:      revision,
+		Configuration: configurationView(configuration),
+		Changes:       []contract.SettingsChange{},
+		LocalSignIn:   !configuration.LocalSignInDisabled,
+	}
+	accounts, err := s.localAccountViews(ctx, configuration.LocalAccounts)
+	if err != nil {
+		return result, err
+	}
+	result.LocalAccounts = accounts
 	if identity := configuration.Identity; identity != nil {
 		result.Identity = contract.IdentitySummary{
 			Issuer:           identity.Issuer,

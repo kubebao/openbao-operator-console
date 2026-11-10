@@ -73,8 +73,8 @@ func (a *Authenticator) Authenticate(ctx context.Context, attempt Attempt) (Resu
 		return Result{}, ErrRejected
 	}
 	stored, err := a.Store.Load(ctx, attempt.AccountID)
-	if errors.Is(err, ErrNotFound) {
-		// An enrolled account without a credential has not completed enrollment.
+	if errors.Is(err, ErrNotFound) || err == nil && stored.Credential.Pending() {
+		// An account without an active credential has not completed enrollment.
 		a.Hasher.VerifyAbsent(ctx, attempt.Password)
 		a.Throttle.Failure(key)
 		return Result{}, ErrRejected

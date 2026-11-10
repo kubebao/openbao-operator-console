@@ -125,6 +125,8 @@ async function fulfillSettings(route: Route, state: BackendState) {
       revision: state.revision,
       configuration: state.configuration,
       identity,
+      localSignIn: true,
+      localAccounts: [],
       changes: [],
     },
   })

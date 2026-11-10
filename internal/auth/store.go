@@ -175,3 +175,14 @@ func (s *store) reset() {
 	s.trials = map[string]trial{}
 	s.trialOrder = nil
 }
+
+// endPrincipal ends every session of principal except the session named keep.
+func (s *store) endPrincipal(issuer, subject, keep string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for id, active := range s.sessions {
+		if id != keep && active.principal.Issuer == issuer && active.principal.Subject == subject {
+			delete(s.sessions, id)
+		}
+	}
+}

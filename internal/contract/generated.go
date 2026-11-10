@@ -634,6 +634,27 @@ func (e IssueSeverity) Valid() bool {
 	}
 }
 
+// Defines values for LocalAccountState.
+const (
+	Active            LocalAccountState = "active"
+	EnrollmentExpired LocalAccountState = "enrollmentExpired"
+	EnrollmentPending LocalAccountState = "enrollmentPending"
+)
+
+// Valid indicates whether the value is a known member of the LocalAccountState enum.
+func (e LocalAccountState) Valid() bool {
+	switch e {
+	case Active:
+		return true
+	case EnrollmentExpired:
+		return true
+	case EnrollmentPending:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ManagedConnectionAuthentication.
 const (
 	ManagedConnectionAuthenticationLocal  ManagedConnectionAuthentication = "local"
@@ -994,6 +1015,19 @@ func (e SnapshotMode) Valid() bool {
 	}
 }
 
+// AccountPasswordInput defines model for AccountPasswordInput.
+type AccountPasswordInput struct {
+	Code            string `json:"code"`
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
+// AccountVerification defines model for AccountVerification.
+type AccountVerification struct {
+	Code     string `json:"code"`
+	Password string `json:"password"`
+}
+
 // Activity One observed state transition of a deployment. The change object matching kind is set and the others are null. Legacy events have no structured change details and all change objects are null. Clients render the text.
 type Activity struct {
 	Collection   *CollectionChange `json:"collection"`
@@ -1245,6 +1279,26 @@ type DeploymentHealth string
 // DeploymentRole defines model for Deployment.Role.
 type DeploymentRole string
 
+// EnrollmentInput defines model for EnrollmentInput.
+type EnrollmentInput struct {
+	Code     string `json:"code"`
+	Password string `json:"password"`
+	Token    string `json:"token"`
+}
+
+// EnrollmentStart defines model for EnrollmentStart.
+type EnrollmentStart struct {
+	Authenticator AuthenticatorEnrollment `json:"authenticator"`
+	ExpiresAt     time.Time               `json:"expiresAt"`
+	Name          string                  `json:"name"`
+	Username      string                  `json:"username"`
+}
+
+// EnrollmentToken defines model for EnrollmentToken.
+type EnrollmentToken struct {
+	Token string `json:"token"`
+}
+
 // Evidence defines model for Evidence.
 type Evidence struct {
 	CollectedAt        time.Time                 `json:"collectedAt"`
@@ -1353,6 +1407,46 @@ type IssueCategory string
 // IssueSeverity defines model for Issue.Severity.
 type IssueSeverity string
 
+// LocalAccount defines model for LocalAccount.
+type LocalAccount struct {
+	Admin               bool              `json:"admin"`
+	EnrollmentExpiresAt *time.Time        `json:"enrollmentExpiresAt"`
+	Id                  string            `json:"id"`
+	Name                string            `json:"name"`
+	Scopes              []Scope           `json:"scopes"`
+	State               LocalAccountState `json:"state"`
+	Username            string            `json:"username"`
+}
+
+// LocalAccountState defines model for LocalAccount.State.
+type LocalAccountState string
+
+// LocalAccountEnrollment defines model for LocalAccountEnrollment.
+type LocalAccountEnrollment struct {
+	AccountId string `json:"accountId"`
+
+	// EnrollmentUrl One-time link. The token is in the URL fragment, so it never reaches server logs.
+	EnrollmentUrl string    `json:"enrollmentUrl"`
+	ExpiresAt     time.Time `json:"expiresAt"`
+}
+
+// LocalAccountInput defines model for LocalAccountInput.
+type LocalAccountInput struct {
+	Admin    bool    `json:"admin"`
+	Name     string  `json:"name"`
+	Revision int64   `json:"revision"`
+	Scopes   []Scope `json:"scopes"`
+	Username string  `json:"username"`
+}
+
+// LocalAccountUpdate defines model for LocalAccountUpdate.
+type LocalAccountUpdate struct {
+	Admin    bool    `json:"admin"`
+	Name     string  `json:"name"`
+	Revision int64   `json:"revision"`
+	Scopes   []Scope `json:"scopes"`
+}
+
 // LocalAdministratorInput defines model for LocalAdministratorInput.
 type LocalAdministratorInput struct {
 	Code     string `json:"code"`
@@ -1378,6 +1472,12 @@ type LocalSignInInput struct {
 type LocalSignInResult struct {
 	RecoveryCodeUsed  bool `json:"recoveryCodeUsed"`
 	RecoveryCodesLeft int  `json:"recoveryCodesLeft"`
+}
+
+// LocalSignInUpdate defines model for LocalSignInUpdate.
+type LocalSignInUpdate struct {
+	Enabled  bool  `json:"enabled"`
+	Revision int64 `json:"revision"`
 }
 
 // LoginRedirect defines model for LoginRedirect.
@@ -1592,6 +1692,8 @@ type Settings struct {
 	Changes       []SettingsChange `json:"changes"`
 	Configuration Configuration    `json:"configuration"`
 	Identity      IdentitySummary  `json:"identity"`
+	LocalAccounts []LocalAccount   `json:"localAccounts"`
+	LocalSignIn   bool             `json:"localSignIn"`
 	Revision      int64            `json:"revision"`
 }
 
@@ -1660,8 +1762,11 @@ type TokenRenewal struct {
 type Viewer struct {
 	Admin         bool     `json:"admin"`
 	ConnectionIds []string `json:"connectionIds"`
-	Name          string   `json:"name"`
-	Subject       string   `json:"subject"`
+
+	// LocalAccount The viewer signed in with a local account.
+	LocalAccount bool   `json:"localAccount"`
+	Name         string `json:"name"`
+	Subject      string `json:"subject"`
 }
 
 // Cursor defines model for Cursor.
@@ -1715,6 +1820,23 @@ type GetDeploymentHistoryParams struct {
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// DeleteLocalAccountParams defines parameters for DeleteLocalAccount.
+type DeleteLocalAccountParams struct {
+	Revision int64 `form:"revision" json:"revision"`
+}
+
+// ChangeAccountPasswordJSONRequestBody defines body for ChangeAccountPassword for application/json ContentType.
+type ChangeAccountPasswordJSONRequestBody = AccountPasswordInput
+
+// ReplaceRecoveryCodesJSONRequestBody defines body for ReplaceRecoveryCodes for application/json ContentType.
+type ReplaceRecoveryCodesJSONRequestBody = AccountVerification
+
+// OpenEnrollmentJSONRequestBody defines body for OpenEnrollment for application/json ContentType.
+type OpenEnrollmentJSONRequestBody = EnrollmentToken
+
+// CompleteEnrollmentJSONRequestBody defines body for CompleteEnrollment for application/json ContentType.
+type CompleteEnrollmentJSONRequestBody = EnrollmentInput
+
 // UpdateSettingsJSONRequestBody defines body for UpdateSettings for application/json ContentType.
 type UpdateSettingsJSONRequestBody = SettingsUpdate
 
@@ -1726,6 +1848,15 @@ type GenerateReaderAccessJSONRequestBody = ReaderAccessInput
 
 // TestIdentityJSONRequestBody defines body for TestIdentity for application/json ContentType.
 type TestIdentityJSONRequestBody = IdentityTrial
+
+// CreateLocalAccountJSONRequestBody defines body for CreateLocalAccount for application/json ContentType.
+type CreateLocalAccountJSONRequestBody = LocalAccountInput
+
+// UpdateLocalAccountJSONRequestBody defines body for UpdateLocalAccount for application/json ContentType.
+type UpdateLocalAccountJSONRequestBody = LocalAccountUpdate
+
+// SetLocalSignInJSONRequestBody defines body for SetLocalSignIn for application/json ContentType.
+type SetLocalSignInJSONRequestBody = LocalSignInUpdate
 
 // StartSetupIdentityJSONRequestBody defines body for StartSetupIdentity for application/json ContentType.
 type StartSetupIdentityJSONRequestBody = IdentityInput

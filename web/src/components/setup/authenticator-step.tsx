@@ -1,5 +1,5 @@
 import { Smartphone } from 'lucide-react'
-import type { AuthenticatorEnrollment } from '../../api/local'
+import type { AuthenticatorEnrollment } from '../../api/sign-in'
 import { Field } from '../form'
 import { QRCode } from '../local/qr-code'
 import { secretFieldProps } from '../../lib/credential'

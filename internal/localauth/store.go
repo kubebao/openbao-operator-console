@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"time"
 )
 
 var (
@@ -23,18 +24,44 @@ var (
 const credentialPurpose = "console-local-credential-v1:"
 
 // Credential is the secret part of a local account. The account itself, with its
-// username and access, lives in the console configuration.
+// username and access, lives in the console configuration. A credential is either
+// active, with a password and TOTP secret, or pending, with only an enrollment link.
 type Credential struct {
-	PasswordHash string `json:"passwordHash"`
-	TOTPSecret   []byte `json:"totpSecret"`
+	PasswordHash string `json:"passwordHash,omitempty"`
+	TOTPSecret   []byte `json:"totpSecret,omitempty"`
 	// TOTPLastStep is the time step of the last accepted code. Codes from that step
 	// or earlier are refused.
 	TOTPLastStep int64 `json:"totpLastStep"`
 	// RecoveryCodes holds SHA-256 digests of the unused recovery codes.
 	RecoveryCodes []string `json:"recoveryCodes"`
+	// Enrollment is the one-time link of a pending credential. A pending credential
+	// cannot sign in.
+	Enrollment *PendingEnrollment `json:"enrollment,omitempty"`
 }
 
+// PendingEnrollment is a one-time enrollment link that an administrator issued.
+type PendingEnrollment struct {
+	// TokenDigest is the SHA-256 digest of the link secret.
+	TokenDigest string    `json:"tokenDigest"`
+	ExpiresAt   time.Time `json:"expiresAt"`
+	// TOTPSecret is the authenticator secret offered after the link was opened. It
+	// stays the same until enrollment completes, so reloading the page keeps it.
+	TOTPSecret []byte `json:"totpSecret,omitempty"`
+}
+
+// Pending reports whether the credential waits for enrollment.
+func (c Credential) Pending() bool { return c.Enrollment != nil }
+
 func (c Credential) validate() error {
+	if c.Enrollment != nil {
+		digest, err := hex.DecodeString(c.Enrollment.TokenDigest)
+		if err != nil || len(digest) != 32 || c.Enrollment.ExpiresAt.IsZero() || c.PasswordHash != "" ||
+			c.TOTPSecret != nil || len(c.RecoveryCodes) != 0 ||
+			(c.Enrollment.TOTPSecret != nil && len(c.Enrollment.TOTPSecret) != totpSecretBytes) {
+			return errors.New("invalid pending local credential")
+		}
+		return nil
+	}
 	if _, _, _, err := decodeHash(c.PasswordHash); err != nil {
 		return err
 	}
@@ -161,4 +188,17 @@ func (s *Store) Update(ctx context.Context, accountID string, revision int64, cr
 // Prune removes credentials of accounts that no longer exist.
 func (s *Store) Prune(ctx context.Context, keep []string) error {
 	return s.repository.DeleteLocalCredentials(ctx, keep)
+}
+
+// Replace stores credential for accountID whether or not one exists, and returns
+// ErrConflict when another writer changed it first.
+func (s *Store) Replace(ctx context.Context, accountID string, credential Credential) error {
+	current, err := s.Load(ctx, accountID)
+	switch {
+	case errors.Is(err, ErrNotFound):
+		return s.Create(ctx, accountID, credential)
+	case err != nil:
+		return err
+	}
+	return s.Update(ctx, accountID, current.Revision, credential)
 }

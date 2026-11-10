@@ -218,6 +218,141 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/api/v1/settings/local-accounts": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /** @description Enrolls a local account and returns its one-time enrollment link. */
+        readonly post: operations["createLocalAccount"];
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/settings/local-accounts/{id}": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put: operations["updateLocalAccount"];
+        readonly post?: never;
+        /** @description Removes a local account, its credential, and its sessions. */
+        readonly delete: operations["deleteLocalAccount"];
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/settings/local-accounts/{id}/enrollment": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /** @description Revokes the account's password, authenticator, recovery codes, and sessions, and returns a new one-time enrollment link. */
+        readonly post: operations["resetLocalAccount"];
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/settings/local-sign-in": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put: operations["setLocalSignIn"];
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/enrollment": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /** @description Opens a one-time enrollment link and returns the authenticator to add. */
+        readonly post: operations["openEnrollment"];
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/enrollment/complete": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /** @description Sets the password and authenticator of a local account, signs it in, and returns recovery codes once. */
+        readonly post: operations["completeEnrollment"];
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/account/password": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /** @description Changes the signed-in local account's password and ends its other sessions. */
+        readonly post: operations["changeAccountPassword"];
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/account/recovery-codes": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /** @description Replaces the signed-in local account's recovery codes and returns them once. */
+        readonly post: operations["replaceRecoveryCodes"];
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/api/v1/setup/lock": {
         readonly parameters: {
             readonly query?: never;
@@ -456,6 +591,8 @@ export interface components {
             readonly previousSeverity: "critical" | "high" | "info" | null;
         };
         readonly Viewer: {
+            /** @description The viewer signed in with a local account. */
+            readonly localAccount: boolean;
             readonly name: string;
             readonly subject: string;
             readonly connectionIds: readonly string[];
@@ -651,6 +788,8 @@ export interface components {
             readonly at: string;
         };
         readonly Settings: {
+            readonly localSignIn: boolean;
+            readonly localAccounts: readonly components["schemas"]["LocalAccount"][];
             /** Format: int64 */
             readonly revision: number;
             readonly configuration: components["schemas"]["Configuration"];
@@ -734,6 +873,68 @@ export interface components {
         };
         readonly LocalEnrollmentResult: {
             readonly recoveryCodes: readonly string[];
+        };
+        readonly LocalAccount: {
+            readonly id: string;
+            readonly username: string;
+            readonly name: string;
+            readonly admin: boolean;
+            readonly scopes: readonly components["schemas"]["Scope"][];
+            /** @enum {string} */
+            readonly state: "active" | "enrollmentPending" | "enrollmentExpired";
+            /** Format: date-time */
+            readonly enrollmentExpiresAt: string | null;
+        };
+        readonly LocalAccountInput: {
+            /** Format: int64 */
+            readonly revision: number;
+            readonly username: string;
+            readonly name: string;
+            readonly admin: boolean;
+            readonly scopes: readonly components["schemas"]["Scope"][];
+        };
+        readonly LocalAccountUpdate: {
+            /** Format: int64 */
+            readonly revision: number;
+            readonly name: string;
+            readonly admin: boolean;
+            readonly scopes: readonly components["schemas"]["Scope"][];
+        };
+        readonly LocalAccountEnrollment: {
+            readonly accountId: string;
+            /** @description One-time link. The token is in the URL fragment, so it never reaches server logs. */
+            readonly enrollmentUrl: string;
+            /** Format: date-time */
+            readonly expiresAt: string;
+        };
+        readonly LocalSignInUpdate: {
+            /** Format: int64 */
+            readonly revision: number;
+            readonly enabled: boolean;
+        };
+        readonly EnrollmentToken: {
+            readonly token: string;
+        };
+        readonly EnrollmentStart: {
+            readonly username: string;
+            readonly name: string;
+            /** Format: date-time */
+            readonly expiresAt: string;
+            readonly authenticator: components["schemas"]["AuthenticatorEnrollment"];
+        };
+        readonly EnrollmentInput: {
+            readonly token: string;
+            readonly password: string;
+            readonly code: string;
+        };
+        readonly AccountPasswordInput: {
+            readonly currentPassword: string;
+            readonly newPassword: string;
+            readonly code: string;
+        };
+        readonly AccountVerification: {
+            readonly password: string;
+            readonly code: string;
         };
         readonly SetupStatus: {
             /** @enum {string} */
@@ -1253,6 +1454,264 @@ export interface operations {
             readonly 403: components["responses"]["Forbidden"];
             readonly 409: components["responses"]["Conflict"];
             readonly 410: components["responses"]["Gone"];
+            readonly 429: components["responses"]["TooManyRequests"];
+            readonly 503: components["responses"]["Unavailable"];
+        };
+    };
+    readonly createLocalAccount: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["LocalAccountInput"];
+            };
+        };
+        readonly responses: {
+            /** @description Successful response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["LocalAccountEnrollment"];
+                };
+            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 409: components["responses"]["Conflict"];
+            readonly 503: components["responses"]["Unavailable"];
+        };
+    };
+    readonly updateLocalAccount: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly id: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["LocalAccountUpdate"];
+            };
+        };
+        readonly responses: {
+            /** @description Successful response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["Settings"];
+                };
+            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 409: components["responses"]["Conflict"];
+            readonly 503: components["responses"]["Unavailable"];
+        };
+    };
+    readonly deleteLocalAccount: {
+        readonly parameters: {
+            readonly query: {
+                readonly revision: number;
+            };
+            readonly header?: never;
+            readonly path: {
+                readonly id: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["Settings"];
+                };
+            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 409: components["responses"]["Conflict"];
+            readonly 503: components["responses"]["Unavailable"];
+        };
+    };
+    readonly resetLocalAccount: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly id: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["LocalAccountEnrollment"];
+                };
+            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 503: components["responses"]["Unavailable"];
+        };
+    };
+    readonly setLocalSignIn: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["LocalSignInUpdate"];
+            };
+        };
+        readonly responses: {
+            /** @description Successful response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["Settings"];
+                };
+            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 409: components["responses"]["Conflict"];
+            readonly 503: components["responses"]["Unavailable"];
+        };
+    };
+    readonly openEnrollment: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["EnrollmentToken"];
+            };
+        };
+        readonly responses: {
+            /** @description Successful response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["EnrollmentStart"];
+                };
+            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 429: components["responses"]["TooManyRequests"];
+            readonly 503: components["responses"]["Unavailable"];
+        };
+    };
+    readonly completeEnrollment: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["EnrollmentInput"];
+            };
+        };
+        readonly responses: {
+            /** @description Successful response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["LocalEnrollmentResult"];
+                };
+            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 429: components["responses"]["TooManyRequests"];
+            readonly 503: components["responses"]["Unavailable"];
+        };
+    };
+    readonly changeAccountPassword: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["AccountPasswordInput"];
+            };
+        };
+        readonly responses: {
+            /** @description Password changed */
+            readonly 204: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content?: never;
+            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 429: components["responses"]["TooManyRequests"];
+            readonly 503: components["responses"]["Unavailable"];
+        };
+    };
+    readonly replaceRecoveryCodes: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["AccountVerification"];
+            };
+        };
+        readonly responses: {
+            /** @description Successful response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["LocalEnrollmentResult"];
+                };
+            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
             readonly 429: components["responses"]["TooManyRequests"];
             readonly 503: components["responses"]["Unavailable"];
         };

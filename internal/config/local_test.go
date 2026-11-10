@@ -119,3 +119,25 @@ func TestTheFirstProviderOfALocalConsoleNeedsNoAccessDecision(t *testing.T) {
 		t.Fatal("the first provider was not activated")
 	}
 }
+
+func TestDisabledLocalSignInRequiresAProviderAndRejectsLocalPrincipals(t *testing.T) {
+	c := localFixture()
+	c.LocalSignInDisabled = true
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if _, allowed := c.Resolve(Principal{Issuer: LocalIssuer, Subject: "acct-admin"}); allowed {
+		t.Fatal("a local principal resolved while local sign-in was disabled")
+	}
+	if user, allowed := c.Resolve(Principal{Issuer: keycloakIssuer, Subject: "42"}); !allowed || !user.Admin || user.LocalAccountID != "" {
+		t.Fatal("disabling local sign-in affected OIDC users")
+	}
+	c.Identity, c.AccessIssuer, c.Users, c.Groups = nil, "", []User{}, []Group{}
+	if err := c.Validate(); err == nil {
+		t.Fatal("local sign-in was disabled without an identity provider")
+	}
+	c.LocalSignInDisabled = false
+	if user, _ := c.Resolve(Principal{Issuer: LocalIssuer, Subject: "acct-admin"}); user.LocalAccountID != "acct-admin" {
+		t.Fatal("a local viewer did not carry its account ID")
+	}
+}

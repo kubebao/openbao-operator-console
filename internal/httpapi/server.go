@@ -85,6 +85,7 @@ func (s *Server) Handler() http.Handler {
 	s.setupRoutes(mux)
 	s.settingsRoutes(mux)
 	s.signInRoutes(mux)
+	s.localAccountRoutes(mux)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	mux.HandleFunc("GET /readyz", s.ready)
 	mux.HandleFunc("GET /auth/login", s.Auth.Login)

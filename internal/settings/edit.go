@@ -45,6 +45,7 @@ func (s *Service) ApplyEdit(ctx context.Context, edit Edit, actor string) (int64
 	// Local accounts have their own management requests. A settings edit keeps them and
 	// drops their scopes on namespaces that the edit removes.
 	next.LocalAccounts = enrolledLocalAccounts(s.configuration.LocalAccounts, next)
+	next.LocalSignInDisabled = s.configuration.LocalSignInDisabled
 	replacements := []string{}
 	for i := range next.Connections {
 		connection := &next.Connections[i]

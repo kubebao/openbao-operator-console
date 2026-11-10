@@ -50,6 +50,9 @@ type User struct {
 	Name    string  `json:"name"`
 	Scopes  []Scope `json:"scopes"`
 	Admin   bool    `json:"admin,omitempty"`
+	// LocalAccountID names the local account a resolved viewer signed in with. It is
+	// empty for OIDC viewers and never stored.
+	LocalAccountID string `json:"-"`
 }
 
 // GrantAdministrator makes a subject a console administrator, enrolling it when absent.
@@ -116,6 +119,9 @@ type Config struct {
 	// LocalAccounts sign in with a password and TOTP. They do not belong to AccessIssuer
 	// and stay when the identity provider changes.
 	LocalAccounts []LocalAccount `json:"localAccounts,omitempty"`
+	// LocalSignInDisabled refuses local sign-ins and ends local sessions. It requires an
+	// identity provider, so administrators cannot lock themselves out.
+	LocalSignInDisabled bool `json:"localSignInDisabled,omitempty"`
 	// AccessIssuer is the OIDC issuer that Users and Groups belong to. It equals the
 	// active identity provider's issuer; an issuer change requires a decision about
 	// existing bindings.

@@ -105,6 +105,8 @@ type localConsole struct {
 	secret []byte
 	codes  []string
 	server *Server
+	// session is the administrator's session from setup.
+	session *http.Cookie
 }
 
 func decodeJSON[T any](t *testing.T, response interface{ Bytes() []byte }) T {
@@ -116,7 +118,9 @@ func decodeJSON[T any](t *testing.T, response interface{ Bytes() []byte }) T {
 	return value
 }
 
-func cookieNamed(response *http.Response, name string) *http.Cookie {
+// sessionCookie returns the session cookie that response sets.
+func sessionCookie(response *http.Response) *http.Cookie {
+	const name = "__Host-console-session"
 	for _, cookie := range response.Cookies() {
 		if cookie.Name == name && cookie.MaxAge >= 0 && cookie.Value != "" {
 			return cookie
@@ -180,7 +184,7 @@ func localSetup(t *testing.T) localConsole {
 	if len(result.RecoveryCodes) != localauth.RecoveryCodeCount {
 		t.Fatal("recovery codes were not returned")
 	}
-	session := cookieNamed(created.Result(), "__Host-console-session")
+	session := sessionCookie(created.Result())
 	if session == nil || !session.Secure || !session.HttpOnly {
 		t.Fatal("setup did not sign the administrator in")
 	}
@@ -188,7 +192,15 @@ func localSetup(t *testing.T) localConsole {
 	if snapshot.Code != http.StatusOK || !strings.Contains(snapshot.Body.String(), `"subject":"local:admin"`) {
 		t.Fatalf("snapshot as local administrator = %d: %s", snapshot.Code, snapshot.Body.String())
 	}
-	return localConsole{setupFixture: fixture, local: local, clock: timer, secret: secret, codes: result.RecoveryCodes, server: server}
+	return localConsole{
+		setupFixture: fixture,
+		local:        local,
+		clock:        timer,
+		secret:       secret,
+		codes:        result.RecoveryCodes,
+		server:       server,
+		session:      session,
+	}
 }
 
 func TestLocalSetupInitializesTheConsoleOnce(t *testing.T) {
@@ -233,7 +245,7 @@ func TestLocalSignInRequiresPasswordAndFreshSecondFactor(t *testing.T) {
 			!strings.Contains(response.Body.String(), "username, password, or code is incorrect") {
 			t.Fatalf("rejected sign-in = %d: %s", response.Code, response.Body.String())
 		}
-		if cookieNamed(response.Result(), "__Host-console-session") != nil {
+		if sessionCookie(response.Result()) != nil {
 			t.Fatal("a rejected sign-in opened a session")
 		}
 	}
@@ -241,7 +253,7 @@ func TestLocalSignInRequiresPasswordAndFreshSecondFactor(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("sign-in = %d: %s", response.Code, response.Body.String())
 	}
-	session := cookieNamed(response.Result(), "__Host-console-session")
+	session := sessionCookie(response.Result())
 	if session == nil {
 		t.Fatal("sign-in did not open a session")
 	}

@@ -57,6 +57,9 @@ func (c Config) Validate() error {
 	if err := validateLocalAccounts(c.LocalAccounts, enrolled); err != nil {
 		return err
 	}
+	if c.LocalSignInDisabled && c.Identity == nil {
+		return errors.New("local sign-in can be disabled only while an identity provider is configured")
+	}
 	return validateRelationships(c.Relationships, enrolled)
 }
 

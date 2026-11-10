@@ -242,6 +242,8 @@ test('administrators add a paused cluster, edit policies, and inspect changes', 
       groupsClaim: 'groups',
       secretConfigured: true,
     },
+    localSignIn: true,
+    localAccounts: [],
     changes: [
       {
         revision,

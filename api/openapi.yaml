@@ -502,6 +502,380 @@
                 },
             },
         },
+      "/api/v1/settings/local-accounts":
+        {
+          "post":
+            {
+              "operationId": "createLocalAccount",
+              "description": "Enrolls a local account and returns its one-time enrollment link.",
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "#/components/schemas/LocalAccountInput",
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/LocalAccountEnrollment",
+                                },
+                            },
+                        },
+                    },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "409": { "$ref": "#/components/responses/Conflict" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
+                },
+            },
+        },
+      "/api/v1/settings/local-accounts/{id}":
+        {
+          "put":
+            {
+              "operationId": "updateLocalAccount",
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "#/components/schemas/LocalAccountUpdate",
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Settings" },
+                            },
+                        },
+                    },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "409": { "$ref": "#/components/responses/Conflict" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
+                },
+            },
+          "delete":
+            {
+              "operationId": "deleteLocalAccount",
+              "description": "Removes a local account, its credential, and its sessions.",
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                  {
+                    "name": "revision",
+                    "in": "query",
+                    "required": true,
+                    "schema": { "type": "integer", "format": "int64" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Settings" },
+                            },
+                        },
+                    },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "409": { "$ref": "#/components/responses/Conflict" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
+                },
+            },
+        },
+      "/api/v1/settings/local-accounts/{id}/enrollment":
+        {
+          "post":
+            {
+              "operationId": "resetLocalAccount",
+              "description": "Revokes the account's password, authenticator, recovery codes, and sessions, and returns a new one-time enrollment link.",
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/LocalAccountEnrollment",
+                                },
+                            },
+                        },
+                    },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
+                },
+            },
+        },
+      "/api/v1/settings/local-sign-in":
+        {
+          "put":
+            {
+              "operationId": "setLocalSignIn",
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "#/components/schemas/LocalSignInUpdate",
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/Settings" },
+                            },
+                        },
+                    },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "409": { "$ref": "#/components/responses/Conflict" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
+                },
+            },
+        },
+      "/api/v1/enrollment":
+        {
+          "post":
+            {
+              "operationId": "openEnrollment",
+              "description": "Opens a one-time enrollment link and returns the authenticator to add.",
+              "security": [],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            { "$ref": "#/components/schemas/EnrollmentToken" },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/EnrollmentStart",
+                                },
+                            },
+                        },
+                    },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "429": { "$ref": "#/components/responses/TooManyRequests" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
+                },
+            },
+        },
+      "/api/v1/enrollment/complete":
+        {
+          "post":
+            {
+              "operationId": "completeEnrollment",
+              "description": "Sets the password and authenticator of a local account, signs it in, and returns recovery codes once.",
+              "security": [],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            { "$ref": "#/components/schemas/EnrollmentInput" },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/LocalEnrollmentResult",
+                                },
+                            },
+                        },
+                    },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "429": { "$ref": "#/components/responses/TooManyRequests" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
+                },
+            },
+        },
+      "/api/v1/account/password":
+        {
+          "post":
+            {
+              "operationId": "changeAccountPassword",
+              "description": "Changes the signed-in local account's password and ends its other sessions.",
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "#/components/schemas/AccountPasswordInput",
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "204": { "description": "Password changed" },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "429": { "$ref": "#/components/responses/TooManyRequests" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
+                },
+            },
+        },
+      "/api/v1/account/recovery-codes":
+        {
+          "post":
+            {
+              "operationId": "replaceRecoveryCodes",
+              "description": "Replaces the signed-in local account's recovery codes and returns them once.",
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "#/components/schemas/AccountVerification",
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/LocalEnrollmentResult",
+                                },
+                            },
+                        },
+                    },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "429": { "$ref": "#/components/responses/TooManyRequests" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
+                },
+            },
+        },
       "/api/v1/setup/lock":
         {
           "post":
@@ -1340,9 +1714,15 @@
             {
               "type": "object",
               "additionalProperties": false,
-              "required": ["name", "subject", "connectionIds", "admin"],
+              "required":
+                ["name", "subject", "connectionIds", "admin", "localAccount"],
               "properties":
                 {
+                  "localAccount":
+                    {
+                      "type": "boolean",
+                      "description": "The viewer signed in with a local account.",
+                    },
                   "name": { "type": "string" },
                   "subject": { "type": "string" },
                   "connectionIds":
@@ -1896,9 +2276,23 @@
             {
               "type": "object",
               "additionalProperties": false,
-              "required": ["revision", "configuration", "identity", "changes"],
+              "required":
+                [
+                  "revision",
+                  "configuration",
+                  "identity",
+                  "changes",
+                  "localSignIn",
+                  "localAccounts",
+                ],
               "properties":
                 {
+                  "localSignIn": { "type": "boolean" },
+                  "localAccounts":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/LocalAccount" },
+                    },
                   "revision": { "type": "integer", "format": "int64" },
                   "configuration":
                     { "$ref": "#/components/schemas/Configuration" },
@@ -2129,6 +2523,176 @@
                       "maxItems": 10,
                       "items": { "type": "string" },
                     },
+                },
+            },
+          "LocalAccount":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required":
+                [
+                  "id",
+                  "username",
+                  "name",
+                  "admin",
+                  "scopes",
+                  "state",
+                  "enrollmentExpiresAt",
+                ],
+              "properties":
+                {
+                  "id": { "type": "string" },
+                  "username": { "type": "string" },
+                  "name": { "type": "string" },
+                  "admin": { "type": "boolean" },
+                  "scopes":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Scope" },
+                    },
+                  "state":
+                    {
+                      "type": "string",
+                      "enum":
+                        ["active", "enrollmentPending", "enrollmentExpired"],
+                    },
+                  "enrollmentExpiresAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                },
+            },
+          "LocalAccountInput":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["revision", "username", "name", "admin", "scopes"],
+              "properties":
+                {
+                  "revision": { "type": "integer", "format": "int64" },
+                  "username":
+                    {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+                    },
+                  "name": { "type": "string", "maxLength": 256 },
+                  "admin": { "type": "boolean" },
+                  "scopes":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Scope" },
+                    },
+                },
+            },
+          "LocalAccountUpdate":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["revision", "name", "admin", "scopes"],
+              "properties":
+                {
+                  "revision": { "type": "integer", "format": "int64" },
+                  "name": { "type": "string", "maxLength": 256 },
+                  "admin": { "type": "boolean" },
+                  "scopes":
+                    {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Scope" },
+                    },
+                },
+            },
+          "LocalAccountEnrollment":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["accountId", "enrollmentUrl", "expiresAt"],
+              "properties":
+                {
+                  "accountId": { "type": "string" },
+                  "enrollmentUrl":
+                    {
+                      "type": "string",
+                      "description": "One-time link. The token is in the URL fragment, so it never reaches server logs.",
+                    },
+                  "expiresAt": { "type": "string", "format": "date-time" },
+                },
+            },
+          "LocalSignInUpdate":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["revision", "enabled"],
+              "properties":
+                {
+                  "revision": { "type": "integer", "format": "int64" },
+                  "enabled": { "type": "boolean" },
+                },
+            },
+          "EnrollmentToken":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["token"],
+              "properties":
+                {
+                  "token":
+                    { "type": "string", "minLength": 1, "maxLength": 256 },
+                },
+            },
+          "EnrollmentStart":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["username", "name", "expiresAt", "authenticator"],
+              "properties":
+                {
+                  "username": { "type": "string" },
+                  "name": { "type": "string" },
+                  "expiresAt": { "type": "string", "format": "date-time" },
+                  "authenticator":
+                    { "$ref": "#/components/schemas/AuthenticatorEnrollment" },
+                },
+            },
+          "EnrollmentInput":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["token", "password", "code"],
+              "properties":
+                {
+                  "token":
+                    { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "password":
+                    { "type": "string", "minLength": 1, "maxLength": 1024 },
+                  "code": { "type": "string", "minLength": 6, "maxLength": 16 },
+                },
+            },
+          "AccountPasswordInput":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["currentPassword", "newPassword", "code"],
+              "properties":
+                {
+                  "currentPassword":
+                    { "type": "string", "minLength": 1, "maxLength": 1024 },
+                  "newPassword":
+                    { "type": "string", "minLength": 1, "maxLength": 1024 },
+                  "code": { "type": "string", "minLength": 1, "maxLength": 64 },
+                },
+            },
+          "AccountVerification":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["password", "code"],
+              "properties":
+                {
+                  "password":
+                    { "type": "string", "minLength": 1, "maxLength": 1024 },
+                  "code": { "type": "string", "minLength": 1, "maxLength": 64 },
                 },
             },
           "SetupStatus":

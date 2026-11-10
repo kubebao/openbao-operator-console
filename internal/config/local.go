@@ -64,10 +64,11 @@ func (c Config) LocalAccountIDs() []string {
 	return ids
 }
 
-// resolveLocal finds the account a local principal names by its ID.
+// resolveLocal finds the account a local principal names by its ID. Disabled local
+// sign-in resolves no account, which also ends existing local sessions.
 func (c Config) resolveLocal(id string) (User, bool) {
 	for _, account := range c.LocalAccounts {
-		if account.ID == id {
+		if account.ID == id && !c.LocalSignInDisabled {
 			name := account.Name
 			if name == "" {
 				name = account.Username
@@ -77,6 +78,8 @@ func (c Config) resolveLocal(id string) (User, bool) {
 				Name:    name,
 				Admin:   account.Admin,
 				Scopes:  append([]Scope{}, account.Scopes...),
+
+				LocalAccountID: account.ID,
 			}, true
 		}
 	}

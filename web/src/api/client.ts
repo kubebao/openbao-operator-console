@@ -19,7 +19,7 @@ import {
   localEnrollmentResultSchema,
   localSignInResultSchema,
   signInOptionsSchema,
-} from './local'
+} from './sign-in'
 import type {
   AccessRules,
   Configuration,
@@ -29,7 +29,7 @@ import type {
   ManagedConnection,
   SetupStatus,
 } from './schema'
-import type { LocalAdministratorInput } from './local'
+import type { LocalAdministratorInput } from './sign-in'
 
 const client = createClient<paths>()
 const firstPage: string | null = null

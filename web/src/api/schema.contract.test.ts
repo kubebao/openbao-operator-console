@@ -4,7 +4,7 @@ import type { components } from './generated'
 import type { ActivityContractSchema } from './activity'
 import type { ProblemContractSchema } from './problem'
 import type { ContractSchemas } from './schema'
-import type { LocalContractSchemas } from './local'
+import type { SignInContractSchemas } from './sign-in'
 
 // Type-level contract checks, enforced by `pnpm typecheck`. The z.ZodType<T> annotations in
 // schema.ts only prove that parsed values fit the generated types. These checks prove the
@@ -21,8 +21,8 @@ type DeepReadonly<T> = T extends readonly (infer U)[]
     : T
 
 type Input<K extends keyof ContractSchemas> = DeepReadonly<z.input<ContractSchemas[K]>>
-type LocalInput<K extends keyof LocalContractSchemas> = DeepReadonly<
-  z.input<LocalContractSchemas[K]>
+type SignInInput<K extends keyof SignInContractSchemas> = DeepReadonly<
+  z.input<SignInContractSchemas[K]>
 >
 
 describe('runtime schemas accept the generated contract', () => {
@@ -41,15 +41,15 @@ describe('runtime schemas accept the generated contract', () => {
     expectTypeOf<Contract['ReaderAccessResult']>().toExtend<Input<'readerAccess'>>()
   })
   it('accepts every setup and login value', () => {
-    expectTypeOf<Contract['SetupStatus']>().toExtend<Input<'setupStatus'>>()
-    expectTypeOf<Contract['LoginRedirect']>().toExtend<Input<'loginRedirect'>>()
-    expectTypeOf<Contract['SignInOptions']>().toExtend<LocalInput<'signInOptions'>>()
-    expectTypeOf<Contract['LocalSignInResult']>().toExtend<LocalInput<'localSignInResult'>>()
+    expectTypeOf<Contract['SetupStatus']>().toExtend<SignInInput<'setupStatus'>>()
+    expectTypeOf<Contract['LoginRedirect']>().toExtend<SignInInput<'loginRedirect'>>()
+    expectTypeOf<Contract['SignInOptions']>().toExtend<SignInInput<'signInOptions'>>()
+    expectTypeOf<Contract['LocalSignInResult']>().toExtend<SignInInput<'localSignInResult'>>()
     expectTypeOf<Contract['AuthenticatorEnrollment']>().toExtend<
-      LocalInput<'authenticatorEnrollment'>
+      SignInInput<'authenticatorEnrollment'>
     >()
     expectTypeOf<Contract['LocalEnrollmentResult']>().toExtend<
-      LocalInput<'localEnrollmentResult'>
+      SignInInput<'localEnrollmentResult'>
     >()
   })
   it('accepts every problem value', () => {

@@ -26,7 +26,13 @@ func snapshotContract(snapshot fleet.Snapshot, user config.User, demo bool) cont
 	if demo {
 		mode = contract.Demo
 	}
-	viewer := contract.Viewer{Name: user.Name, Subject: user.Subject, Admin: user.Admin, ConnectionIds: []string{}}
+	viewer := contract.Viewer{
+		Name:          user.Name,
+		Subject:       user.Subject,
+		Admin:         user.Admin,
+		ConnectionIds: []string{},
+		LocalAccount:  user.LocalAccountID != "",
+	}
 	for _, connection := range snapshot.Connections {
 		viewer.ConnectionIds = append(viewer.ConnectionIds, connection.ID)
 	}
