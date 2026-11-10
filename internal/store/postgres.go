@@ -33,7 +33,7 @@ func repeatableRead() pgx.TxOptions {
 	return pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}
 }
 
-// Open connects to the database and applies pending schema migrations.
+// Open acquires ownership and initializes empty state or validates an existing schema.
 func Open(ctx context.Context, dsn string, retention time.Duration) (*Postgres, error) {
 	return open(ctx, dsn, retention, migrations)
 }
@@ -42,9 +42,9 @@ func open(ctx context.Context, dsn string, retention time.Duration, list []migra
 	if retention <= 0 {
 		return nil, errors.New("observation retention must be positive")
 	}
-	pool, err := pgxpool.New(ctx, dsn)
+	pool, err := postgresPool(ctx, dsn, true)
 	if err != nil {
-		return nil, fmt.Errorf("configure database: %w", err)
+		return nil, err
 	}
 	success := false
 	defer func() {
@@ -85,7 +85,7 @@ func connect(ctx context.Context, pool *pgxpool.Pool) error {
 			return nil
 		}
 		var databaseError *pgconn.PgError
-		if errors.As(err, &databaseError) && databaseError.Code != "57P03" {
+		if errors.Is(err, errDatabaseOwned) || (errors.As(err, &databaseError) && databaseError.Code != "57P03") {
 			return err
 		}
 		timer := time.NewTimer(delay)

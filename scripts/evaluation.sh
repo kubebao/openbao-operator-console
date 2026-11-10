@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Creates, opens, or removes a disposable kind cluster that runs the OpenBao Operator, one
-# Development OpenBao cluster, an evaluation PostgreSQL, and the console from this checkout.
+# Development OpenBao cluster, persistent SQLite state, and the console from this checkout.
 # Usage: scripts/evaluation.sh up|open|down
 # It touches only its own kind cluster and keeps its kubeconfig and secrets in .local/evaluation.
 set -euo pipefail
@@ -72,20 +72,14 @@ up() {
   make image IMAGE="$IMAGE"
   kind load docker-image "$IMAGE" --name "$CLUSTER"
 
-  log "Starting the evaluation PostgreSQL"
+  log "Preparing persistent SQLite state"
   kubectl create namespace console-system --dry-run=client -o yaml | kubectl apply -f - >/dev/null
-  secret postgres-password
   secret config-key
   secret setup-token
-  apply_secret console-postgres --from-file=password="$STATE/postgres-password"
-  kubectl apply -f examples/evaluation/postgres.yaml
-  kubectl --namespace console-system rollout status statefulset/console-postgres --timeout=3m
+  apply_secret console-runtime --from-file=CONFIG_KEY="$STATE/config-key" \
+    --from-file=SETUP_TOKEN="$STATE/setup-token"
 
   log "Installing the console"
-  (umask 077 && printf 'postgres://console:%s@console-postgres:5432/console' "$(cat "$STATE/postgres-password")" \
-    > "$STATE/database-url")
-  apply_secret console-runtime --from-file=CONFIG_KEY="$STATE/config-key" \
-    --from-file=SETUP_TOKEN="$STATE/setup-token" --from-file=DATABASE_URL="$STATE/database-url"
   tls_secret
   helm upgrade --install openbao-operator-console charts/openbao-operator-console \
     --namespace console-system --values examples/evaluation/console-values.yaml \

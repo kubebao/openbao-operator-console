@@ -33,7 +33,7 @@ kubectl --namespace console-system logs deployment/openbao-operator-console --pr
 | Endpoint | Returns | Used by the chart for |
 | --- | --- | --- |
 | `/healthz` | `204` while the HTTP server runs. It checks nothing else. | Startup and liveness probes |
-| `/readyz` | `204` when the console can read the fleet from PostgreSQL within three seconds, otherwise `503` with `Database unavailable`. | Readiness probe |
+| `/readyz` | `204` when the console can reach its database within three seconds, otherwise `503` with `Database unavailable`. | Readiness probe |
 
 Both endpoints are unauthenticated and are available during browser setup. A database outage after startup makes the Pod
 unready without restarting it. Neither endpoint checks the identity provider or Kubernetes collection.
@@ -47,11 +47,23 @@ stops startup.
 An invalid `historyRetention` value fails first with `CONSOLE_HISTORY_RETENTION must be a duration such as 168h` or
 `history retention must be between 1h and 8760h`.
 
+### SQLite state and schema
+
+SQLite uses the configured file and its sibling `.lock`, `-wal`, and `-shm` files. Check that UID 65532 can write the
+mounted state directory in Kubernetes. Use a local or block filesystem with SQLite locking support; do not use NFS.
+
+| Message contains | Cause and fix |
+| --- | --- |
+| `owned by another console or schema command` | Stop the existing process or maintenance Pod. Do not remove the lock file to bypass ownership. |
+| `requires an offline upgrade` | Stop the console and follow [schema upgrades](upgrading.md). |
+| `legacy or unrecognized development database` | The database predates the new baseline or contains unrelated objects. Recreate disposable development state deliberately or select compatible state. Startup never resets it. |
+| `schema history mismatch` | A migration checksum, baseline identity, or version history differs. Use the matching binary or restore a known backup. |
+
 ### Database connection and TLS
 
 | Message contains | Cause and fix |
 | --- | --- |
-| `CONSOLE_DATABASE_URL is required in live mode` | The URL is empty. Check `existingSecret`, `database.urlSecret`, and `database.urlKey`. |
+| `CONSOLE_DATABASE_URL is required for PostgreSQL` | The URL is empty. Check `existingSecret`, `database.urlSecret`, and `database.urlKey`. |
 | `server certificate is not signed by a trusted CA` | Verification is enabled but the server CA is unknown. Set `database.caSecret`, or add `sslrootcert` to the URL. |
 | `server certificate does not match the host name` | With `verify-full`, the URL's host must appear in the server certificate. Use the host name from the certificate, such as the CloudNativePG `<cluster>-rw` Service. |
 | `server certificate is expired or not yet valid` | Renew the server certificate, or check the clock of the node. |

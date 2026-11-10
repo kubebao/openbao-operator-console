@@ -31,14 +31,18 @@ Uploading a credential with broader privileges does not reduce them. Upload only
 
 ## Stored data
 
+The database is SQLite on a persistent local or block volume by default, or an external PostgreSQL service. Database
+files and backups contain approved observations in plaintext; sensitive configuration and credentials are encrypted.
+Restrict filesystem access to SQLite state and keep the matching encryption key in a separate backup.
+
 | Data | Storage |
 | --- | --- |
-| Configuration (connections, access rules, relationships, policies, identity provider) | PostgreSQL, encrypted with AES-256-GCM and bound to its revision |
-| Kubernetes reader credentials | PostgreSQL, encrypted per connection with AES-256-GCM and bound to the connection ID and credential revision |
-| Local account credentials (Argon2id password hash, TOTP secret, recovery code digests) | PostgreSQL, encrypted per account with AES-256-GCM and bound to the account ID and credential revision |
-| Observations, findings, and activity | PostgreSQL, approved fields only; history kept for the configured retention (default seven days) |
-| Configuration changes | PostgreSQL: actor, time, revision, and changed area, without credential values |
-| Encryption key | Outside PostgreSQL, mounted from a Kubernetes Secret or file |
+| Configuration (connections, access rules, relationships, policies, identity provider) | Database, encrypted with AES-256-GCM and bound to its revision |
+| Kubernetes reader credentials | Database, encrypted per connection with AES-256-GCM and bound to the connection ID and credential revision |
+| Local account credentials (Argon2id password hash, TOTP secret, recovery code digests) | Database, encrypted per account with AES-256-GCM and bound to the account ID and credential revision |
+| Observations, findings, and activity | Database, approved fields only; history kept for the configured retention (default seven days) |
+| Configuration changes | Database: actor, time, revision, and changed area, without credential values |
+| Encryption key | Outside the database, mounted from a Kubernetes Secret or file |
 
 The collector projects approved fields from Kubernetes objects before storing them. Raw Kubernetes objects, Secret
 data, and provider error messages are not stored or returned by the API. Credentials are write-only in the UI.

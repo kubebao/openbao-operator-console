@@ -78,7 +78,7 @@ with the operator, an OpenBao cluster, and the console. For your own clusters, f
 | --- | --- |
 | OpenBao Operator | Clusters managed by the [OpenBao Operator](https://github.com/kubebao/openbao-operator) |
 | Kubernetes | 1.33 or later |
-| PostgreSQL | An external database; CI tests PostgreSQL 18 |
+| State | SQLite on a durable local or block volume by default; optional PostgreSQL 18 |
 | Sign-in | An OpenID Connect provider is recommended; local accounts work without one |
 | Network | HTTPS through an ingress, a Gateway, or the console itself |
 

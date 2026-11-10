@@ -7,14 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
-
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
-	"github.com/kubebao/openbao-operator-console/internal/store/database"
 )
 
-func insertActivity(t *testing.T, p *Postgres, activity fleet.Activity) {
+func insertActivity(t *testing.T, p testRepository, activity fleet.Activity) {
 	t.Helper()
 	if activity.Kind == "" {
 		activity.Kind = fleet.ActivityLegacy
@@ -23,19 +20,18 @@ func insertActivity(t *testing.T, p *Postgres, activity fleet.Activity) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := database.New(p.pool).InsertActivity(context.Background(), database.InsertActivityParams{
-		ID:           activity.ID,
-		DeploymentID: activity.DeploymentID,
-		ConnectionID: activity.ConnectionID,
-		Namespace:    activity.Namespace,
-		RecordedAt:   pgtype.Timestamptz{Time: activity.RecordedAt, Valid: true},
-		Projection:   projection,
-	}); err != nil {
+	if err := execFixture(context.Background(), p,
+		"INSERT INTO console_activity(id,deployment_id,connection_id,namespace,recorded_at,projection) VALUES ($1,$2,$3,$4,$5,$6)",
+		activity.ID, activity.DeploymentID, activity.ConnectionID, activity.Namespace, activity.RecordedAt, projection); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestScopedViewerReceivesNewestEventsInScope(t *testing.T) {
+	storageBackends(t, scopedViewerReceivesNewestEventsInScope)
+}
+
+func scopedViewerReceivesNewestEventsInScope(t *testing.T) {
 	p := isolatedDatabase(t)()
 	defer p.Close()
 	ctx := context.Background()
@@ -82,6 +78,10 @@ func TestScopedViewerReceivesNewestEventsInScope(t *testing.T) {
 }
 
 func TestEventsOfDeletedDeploymentsRemainInScope(t *testing.T) {
+	storageBackends(t, eventsOfDeletedDeploymentsRemainInScope)
+}
+
+func eventsOfDeletedDeploymentsRemainInScope(t *testing.T) {
 	p := isolatedDatabase(t)()
 	defer p.Close()
 	ctx := context.Background()

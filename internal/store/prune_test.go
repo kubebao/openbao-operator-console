@@ -10,11 +10,12 @@ import (
 )
 
 func TestPruneAppliesRetentionOutsideCollection(t *testing.T) {
+	storageBackends(t, pruneAppliesRetentionOutsideCollection)
+}
+
+func pruneAppliesRetentionOutsideCollection(t *testing.T) {
 	ctx := context.Background()
-	p, err := Open(ctx, isolatedDSN(t), 24*time.Hour)
-	if err != nil {
-		t.Fatal(err)
-	}
+	p := isolatedRepository(t, 24*time.Hour)()
 	defer p.Close()
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	old := now.Add(-48 * time.Hour)

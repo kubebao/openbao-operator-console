@@ -1,8 +1,7 @@
 # Enrollment files and CLI diagnostics
 
 The console collects existing OpenBao resources and named controller Deployments. It does not create OpenBao clusters,
-read Secrets, contact OpenBao, or run recovery operations. Use PostgreSQL and an OIDC provider to serve a live
-workspace.
+read Secrets, contact OpenBao, or run recovery operations. Live mode uses durable SQLite or PostgreSQL storage and OIDC or local account sign-in.
 
 Most installations add clusters through [guided cluster onboarding](cluster-onboarding.md). This page covers the
 alternatives: seeding enrollment from a YAML file on the first start, generating reader RBAC from the command line, and

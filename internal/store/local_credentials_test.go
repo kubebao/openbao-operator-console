@@ -9,6 +9,10 @@ import (
 )
 
 func TestLocalCredentialsUseRevisionCompareAndSwap(t *testing.T) {
+	storageBackends(t, localCredentialsUseRevisionCompareAndSwap)
+}
+
+func localCredentialsUseRevisionCompareAndSwap(t *testing.T) {
 	repository := isolatedDatabase(t)()
 	defer repository.Close()
 	ctx := context.Background()

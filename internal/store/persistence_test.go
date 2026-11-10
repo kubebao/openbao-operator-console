@@ -8,7 +8,11 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
 )
 
-func TestPostgresRetainsFirstSeenAcrossRestartAndFailedCollection(t *testing.T) {
+func TestRetainsFirstSeenAcrossRestartAndFailedCollection(t *testing.T) {
+	storageBackends(t, retainsFirstSeenAcrossRestartAndFailedCollection)
+}
+
+func retainsFirstSeenAcrossRestartAndFailedCollection(t *testing.T) {
 	ctx := context.Background()
 	open := isolatedDatabase(t)
 	p := open()

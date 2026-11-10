@@ -10,6 +10,10 @@ import (
 )
 
 func TestRemovedConnectionIsForgottenAndReenrollsEmpty(t *testing.T) {
+	storageBackends(t, removedConnectionIsForgottenAndReenrollsEmpty)
+}
+
+func removedConnectionIsForgottenAndReenrollsEmpty(t *testing.T) {
 	p := isolatedDatabase(t)()
 	defer p.Close()
 	ctx := context.Background()

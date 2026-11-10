@@ -18,7 +18,7 @@ CREATE TABLE console_observation (
   recorded_at timestamptz NOT NULL,
   projection jsonb NOT NULL
 );
-CREATE INDEX console_observation_deployment ON console_observation(deployment_id, recorded_at DESC);
+CREATE INDEX console_observation_deployment ON console_observation(deployment_id, recorded_at DESC, id DESC);
 CREATE INDEX console_observation_connection ON console_observation(connection_id);
 CREATE INDEX console_observation_retention ON console_observation(recorded_at);
 
@@ -32,7 +32,7 @@ CREATE TABLE console_activity (
   recorded_at timestamptz NOT NULL,
   projection jsonb NOT NULL
 );
-CREATE INDEX console_activity_scope ON console_activity(connection_id, namespace, recorded_at DESC);
+CREATE INDEX console_activity_scope ON console_activity(connection_id, namespace, recorded_at DESC, id DESC);
 CREATE INDEX console_activity_retention ON console_activity(recorded_at);
 
 -- Configuration and reader credentials are AES-GCM ciphertext. Revisions provide
@@ -52,6 +52,15 @@ CREATE TABLE console_configuration_change (
 
 CREATE TABLE console_reader_credential (
   connection_id text PRIMARY KEY,
+  revision bigint NOT NULL CHECK (revision > 0),
+  ciphertext bytea NOT NULL
+);
+
+-- Local account credentials: an Argon2id password hash, a TOTP secret, and recovery
+-- code digests as AES-GCM ciphertext under the configuration key. The account itself is
+-- part of the configuration. Revisions provide compare-and-swap updates.
+CREATE TABLE console_local_credential (
+  account_id text PRIMARY KEY,
   revision bigint NOT NULL CHECK (revision > 0),
   ciphertext bytea NOT NULL
 );

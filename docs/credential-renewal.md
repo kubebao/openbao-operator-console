@@ -40,7 +40,7 @@ Small scheduling jitter moves attempts earlier. Pending and overdue readers are 
 four requests in flight. Each attempt has a 45-second deadline, including candidate validation.
 
 Failed requests retain the current token and retry with backoff from 30 seconds to five minutes. A candidate must pass
-scoped workload collection before activation. It is encrypted and committed to PostgreSQL before replacing the active
+scoped workload collection before activation. It is encrypted and committed to the database before replacing the active
 reader. Restart preserves the credential and next attempt time. Background updates do not invalidate an open settings form.
 
 With a granted 24-hour lifetime, an uninterrupted connection renews about every 7.2–8 hours. The token then has roughly
@@ -88,6 +88,6 @@ Rotate the credential through **Reconnect** after either step. The console never
 Reader credentials are stored separately from editable configuration. Each credential has its own revision and
 persisted renewal state, so background renewals do not change the configuration revision or invalidate an open
 settings form. AES-256-GCM binds each ciphertext to its connection identifier and credential revision, and the
-encryption key stays outside PostgreSQL. Renewal never changes the API server, CA, client certificate, or enrollment scope.
+encryption key stays outside the database. Renewal never changes the API server, CA, client certificate, or enrollment scope.
 
-Back up PostgreSQL and the matching encryption key together. See [administration](administration.md) for upgrades.
+Back up the database and store the matching encryption key separately. See [administration](administration.md) for upgrades.

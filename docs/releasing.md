@@ -83,13 +83,13 @@ Search for them with `git grep -n -i "first.*release\|no.*release"`.
 
 Edge is an opt-in development channel for testing qualified `main` commits before a stable release. It includes the
 multi-architecture image, a Helm chart, and binary archives for Linux and macOS on `amd64` and `arm64`. Edge builds
-can change configuration and migrate PostgreSQL. Use a disposable database, or back up PostgreSQL and its encryption
-key before upgrading. A rollback across a schema change requires the pre-upgrade database backup; see
+can change configuration and schema. Use a disposable database, or follow the offline schema upgrade procedure and
+keep the matching encryption key in a separate backup. A rollback across a schema change requires the pre-upgrade database backup; see
 [upgrading](upgrading.md).
 
 The **Check** workflow builds the OCI image once, builds all four binary archives, and packages the chart with that
-image's digest. It tests the native archive's version and installs the packaged chart against PostgreSQL 18 in a
-disposable kind cluster. It checks the chart's image reference, readiness, embedded UI, and content security policy.
+image's digest. It tests the native archive's version and installs the packaged chart with the default SQLite PVC and
+optional PostgreSQL 18 in a disposable kind cluster. It verifies retained SQLite schema after Pod replacement. It checks the chart's image reference, readiness, embedded UI, and content security policy.
 This test does not qualify a real OpenBao Operator, external identity provider, or remote credential renewal.
 
 After all Check jobs pass, CI attests the candidate bundle, chart, binary archives, and source metadata. **Publish

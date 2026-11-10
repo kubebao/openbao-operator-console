@@ -3,7 +3,7 @@
 Installs the [OpenBao Operator Console](https://github.com/kubebao/openbao-operator-console), a read-only fleet console
 for the [OpenBao Operator](https://github.com/kubebao/openbao-operator).
 
-The chart runs one console replica. It does not install PostgreSQL or an identity provider. See the
+The chart runs one console replica with SQLite on a persistent volume by default. PostgreSQL is optional. It does not install PostgreSQL or an identity provider. See the
 [installation guide](https://github.com/kubebao/openbao-operator-console/blob/main/docs/installation.md) for the full
 procedure, including the runtime Secret and first-run setup.
 
@@ -11,7 +11,7 @@ procedure, including the runtime Secret and first-run setup.
 
 - Kubernetes 1.33 or later
 - Helm 3.x or 4
-- An external PostgreSQL database
+- A local or block filesystem StorageClass for SQLite, or an external PostgreSQL database
 - An OpenID Connect provider is recommended; a local administrator with an authenticator app works without one
 
 ## Install
@@ -45,8 +45,14 @@ the release name `openbao-operator-console`, the Deployment, Service, and Servic
 | `image.digest` | `""` | Image digest, such as `sha256:<hex>`. Takes precedence over `image.tag`. |
 | `image.pullPolicy` | `IfNotPresent` | Image pull policy. |
 | `imagePullSecrets` | `[]` | Secrets for pulling the image from a private registry. |
-| `existingSecret` | `""` | **Required.** Secret with `CONFIG_KEY`, `DATABASE_URL` unless `database.urlSecret` is set, and optional `SETUP_TOKEN`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, and `OIDC_CLIENT_SECRET`. |
+| `existingSecret` | `""` | **Required.** Secret with `CONFIG_KEY`, PostgreSQL `DATABASE_URL` unless `database.urlSecret` is set, and optional `SETUP_TOKEN`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, and `OIDC_CLIENT_SECRET`. |
 | `publicURL` | `""` | Public HTTPS address without a path, such as `https://console.example.com`. The OIDC callback is this address followed by `/auth/callback`. Defaults to `https://<ingress.host>` when the Ingress is enabled; required otherwise. |
+| `database.engine` | `sqlite` | SQLite state on a PVC, or `postgres` for an external database. |
+| `persistence.enabled` | `true` | Persist SQLite state. `false` uses an ephemeral `emptyDir` and loses state on Pod replacement. |
+| `persistence.existingClaim` | `""` | Use an existing SQLite state PVC instead of creating one. |
+| `persistence.size` | `1Gi` | Requested state volume size. |
+| `persistence.storageClass` | `""` | StorageClass. Empty uses the cluster default. Use SQLite-compatible local or block storage; NFS is unsupported. |
+| `persistence.accessModes` | `[ReadWriteOnce]` | One writer: `ReadWriteOnce` or `ReadWriteOncePod`. |
 | `database.urlSecret` | `""` | Secret with the PostgreSQL connection URL, for example a CloudNativePG `<cluster>-app` Secret. Defaults to `existingSecret`. |
 | `database.urlKey` | `DATABASE_URL` | Key of the connection URL. Use `uri` for CloudNativePG. |
 | `database.sslMode` | `verify-full` | Default TLS mode, exported as `PGSSLMODE`. An `sslmode` parameter in the URL takes precedence. `""` uses the driver default, `prefer`, which does not verify the server. |
@@ -87,7 +93,14 @@ the release name `openbao-operator-console`, the Deployment, Service, and Servic
 
 `values.schema.json` validates these values. Helm rejects unknown keys and invalid enumerations.
 
-## Database TLS
+## SQLite persistence
+
+The chart mounts state at `/var/lib/console`. It retains the generated PVC on uninstall. A reinstall with the same
+release name can reuse this state. Do not mount the database directory in another serving process or remove its lock
+file. Back up the database and CONFIG_KEY separately. Follow [schema upgrades](../../docs/upgrading.md) when the
+candidate binary reports pending changes. Changing `database.engine` does not transfer data between backends.
+
+## PostgreSQL TLS
 
 The console uses the pgx driver, which reads libpq environment variables as defaults. Parameters in the connection URL
 take precedence: a URL with `sslmode=disable` or `sslrootcert=...` overrides `database.sslMode` and `database.caSecret`.
