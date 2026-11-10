@@ -49,7 +49,7 @@ the release assets and republishes the same version. Do not move a published tag
 
 The documentation describes the pre-release state in a few places. In the release pull request for `0.1.0`, remove:
 
-- the **Early development** warning in `README.md`, and the "Before the first release" note in its quick start;
+- the **Early development** warning in `README.md`, and the "Before the first release" line in its quick start;
 - the pre-release note at the top of `docs/installation.md` and its **Build the image before the first release**
   section;
 - the "Until the first release" sentence in `charts/openbao-operator-console/README.md`;
