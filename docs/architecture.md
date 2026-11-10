@@ -30,13 +30,13 @@ The collector and reader RBAC target the operator's `openbao.org/v1alpha1` API g
 ## Runtime
 
 One Go executable serves the compiled React application and a versioned JSON API. It runs scoped Kubernetes collectors.
-PostgreSQL stores projected observations, findings, encrypted configuration, and the configuration change log. A fixture
+SQLite by default, or PostgreSQL when configured, stores projected observations, findings, encrypted configuration, and the configuration change log. A fixture
 mode serves demonstration data without login for evaluation and local UI work.
 
 ```mermaid
 flowchart LR
   browser[React console] --> api[Go API and authorization]
-  api --> database[(PostgreSQL)]
+  api --> database[(SQLite or PostgreSQL)]
   collector[Go collector and evidence adapters] --> database
   collector --> kubernetes[Kubernetes APIs]
   renewal[ServiceAccount renewal worker] --> kubernetes
@@ -99,13 +99,17 @@ snapshot's `generatedAt` is only when the console read its database; the UI show
 
 ## Deployment
 
-Use one application image and an external PostgreSQL service in production. An evaluation Compose file can supply a
-dedicated local database. Database failure affects the console only. OpenBao and operator recovery remain independent.
-Startup applies numbered schema migrations in one transaction under an advisory lock and refuses a database whose schema
-is newer than the binary.
+Use one console process with durable SQLite state or an external PostgreSQL service. Both backends enforce one owner
+and serialize database work through one connection. SQLite uses WAL and full synchronous commits on a local or block
+filesystem; network filesystems are unsupported. Database failure affects the console only. OpenBao and operator
+recovery remain independent.
+
+Startup initializes empty state and validates baseline identity, consecutive schema versions, and checksums for existing
+state. Existing schemas require an offline, ownership-protected upgrade with a validated backup. DDL and migration
+history commit together. See [upgrade and roll back](upgrading.md).
 
 Kubernetes credentials are encrypted with AES-256-GCM before database storage. The encryption key stays outside
-PostgreSQL. The settings service owns versioned configuration and serializes configuration commits with collection
+the database. The settings service owns versioned configuration and serializes configuration commits with collection
 writes. Reader credentials have independent encrypted records and revisions. A separate worker issues named
 TokenRequests, validates the candidate through scoped collection, and commits it before activating it. Enrollment and
 credential revision checks reject delayed replacements. A reader generation check rejects collection results from a

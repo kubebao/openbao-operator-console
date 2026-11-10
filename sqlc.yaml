@@ -9,3 +9,12 @@ sql:
         out: internal/store/database
         sql_package: pgx/v5
         emit_empty_slices: true
+  - engine: sqlite
+    queries: internal/store/sqlite/queries.sql
+    schema: internal/store/sqlite/migrations
+    gen:
+      go:
+        package: sqlitedb
+        out: internal/store/sqlitedb
+        sql_package: database/sql
+        emit_empty_slices: true

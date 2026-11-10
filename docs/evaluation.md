@@ -6,7 +6,7 @@ This guide runs the console against a real OpenBao Operator on your workstation.
 - the [OpenBao Operator](https://github.com/kubebao/openbao-operator) 0.6.0 in single-tenant mode for the namespace
   `openbao-demo`;
 - one Development `OpenBaoCluster` with one replica;
-- an evaluation PostgreSQL without TLS, backups, or high availability;
+- persistent SQLite state on a PVC in the disposable cluster;
 - the console from your checkout, with HTTPS and the cluster already connected.
 
 No identity provider is needed: you create a local administrator during setup. Do not keep data in this environment.
@@ -17,7 +17,7 @@ For a deployment you keep, follow the [installation guide](installation.md).
 Docker, kind, kubectl, Helm 3.x or 4, and OpenSSL. About 4 GB of free memory for Docker. Optional:
 [mkcert](https://github.com/FiloSottile/mkcert) for a browser-trusted certificate.
 
-The script touches only its own kind cluster, `console-evaluation`. It writes its kubeconfig, database password,
+The script touches only its own kind cluster, `console-evaluation`. It writes its kubeconfig,
 encryption key, setup token, and certificate to `.local/evaluation` in your checkout, with private file permissions.
 
 ## Start

@@ -12,9 +12,9 @@ first administrator in one of two ways:
 always loads its stored configuration. Changing bootstrap environment variables or mounting a setup token cannot reopen
 setup.
 
-The deployment must provide PostgreSQL, a persistent encryption key, and the public HTTPS address of the console. The
-callback URL is that address followed by `/auth/callback`. Back up both PostgreSQL and the matching key. Store the key separately from database backups. The key
-is required to read a restored configuration.
+The deployment must provide durable SQLite storage or PostgreSQL, a persistent encryption key, and the public HTTPS
+address of the console. The callback URL is that address followed by `/auth/callback`. Back up the database and store
+the matching key separately. The key is required to read a restored configuration.
 
 ## Browser setup
 
@@ -26,7 +26,7 @@ is required to read a restored configuration.
    openssl rand -hex 32 > console-setup-token
    ```
 
-2. Add the token to the runtime Secret as `SETUP_TOKEN`, next to `DATABASE_URL` and `CONFIG_KEY`, with
+2. Add the token to the runtime Secret as `SETUP_TOKEN`, next to `CONFIG_KEY`, with
    `--from-file=SETUP_TOKEN=console-setup-token`. The chart mounts it and sets `CONSOLE_SETUP_TOKEN_FILE`. To keep the
    token in a separate Secret, set `setup.tokenSecret` and `setup.tokenKey`. When running the binary directly, set
    `CONSOLE_SETUP_TOKEN_FILE` to the token file path.
@@ -99,7 +99,7 @@ trial invalidates earlier trials in the same setup session. **Lock setup** inval
 trials.
 
 If login fails or its link expires, return to `/setup` and start a new login. Unfinished candidate credentials remain in
-bounded process memory; an expired login cannot activate them. Failed candidates are not written to PostgreSQL. If the
+bounded process memory; an expired login cannot activate them. Failed candidates are not written to the database. If the
 browser ticket expires, enter the setup token again. If the one-hour window expires, replace `SETUP_TOKEN` with a new
 token and restart the console while the database is still uninitialized.
 
@@ -121,7 +121,7 @@ users, groups, and bootstrap administrators belong to the bootstrap issuer. When
 file supply an identity, the environment identity and its issuer apply.
 
 The application imports this seed once and immediately starts normal authentication. Browser setup remains closed. Later
-access and identity changes use **Settings**. Deployment inputs still include PostgreSQL, the encryption key, and the
+access and identity changes use **Settings**. Deployment inputs still include persistent storage, the encryption key, and the
 callback URL.
 
 An unreadable setup token does not affect an initialized database. Stored configuration takes precedence over seed files

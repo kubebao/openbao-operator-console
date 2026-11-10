@@ -1,13 +1,13 @@
 # Console administration
 
 Console administrators manage cluster connections, user and group access, declared relationships, attention policies,
-and OpenID Connect (OIDC) settings in **Settings**. PostgreSQL stores this configuration. Enabling automatic credential
+and OpenID Connect (OIDC) settings in **Settings**. SQLite or PostgreSQL stores this configuration. Enabling automatic credential
 renewal starts named ServiceAccount TokenRequests. Settings do not change workload configuration or OpenBao.
 
 ## Initialize the console
 
-Provide the database URL, public HTTPS callback URL, and configuration encryption key through the deployment secret
-mechanism. Choose [protected browser setup or automated identity bootstrap](bootstrap.md). `CONSOLE_CONFIG_KEY_FILE`
+Provide durable SQLite storage or a PostgreSQL URL, the public HTTPS callback URL, and the configuration encryption
+key through the deployment settings. Choose [protected browser setup or automated identity bootstrap](bootstrap.md). `CONSOLE_CONFIG_KEY_FILE`
 must reference 32 random bytes, stored raw or encoded as hexadecimal or base64 text. Generate a key in a private
 directory:
 
@@ -17,7 +17,7 @@ openssl rand -hex 32 > /private/console-config-key
 ```
 
 For Helm, put the key in the runtime Secret's `CONFIG_KEY` key. Keep the key across upgrades. Back it up separately
-from PostgreSQL; a database backup cannot restore configuration without the matching key.
+from the database; a database backup cannot restore configuration without the matching key.
 
 For automated identity bootstrap, provide a confidential OIDC client and enroll at least one administrator. Set
 `bootstrapAdminSubjects` in Helm or `CONSOLE_BOOTSTRAP_ADMIN_SUBJECTS` to a comma-separated list of OIDC subject
@@ -25,7 +25,7 @@ identifiers. An optional enrollment YAML file can seed connections, users, group
 `admin: true` on a seed user or group that must manage the console.
 
 Browser setup enrolls the first administrator through a verified provider login. Automated first start imports the seed
-configuration once. Later starts load PostgreSQL and ignore seed enrollment and OIDC values. The database URL,
+configuration once. Later starts load the database and ignore seed enrollment and OIDC values. The storage backend, database path or URL,
 encryption-key file, public callback URL, listen address, and TLS termination remain deployment settings. Changing seed
 YAML does not overwrite changes made in the console.
 
@@ -173,9 +173,10 @@ kubectl --namespace console-system create secret generic console-recovery \
 kubectl --namespace console-system scale deployment/openbao-operator-console --replicas=0
 ```
 
-Use the image of the stopped Deployment. A newer image would also apply its schema migrations. Copy the database
-settings from the Deployment if they differ, for example `database.urlSecret`, `PGSSLMODE`, or `PGSSLROOTCERT` with its
-volume.
+Use the image of the stopped Deployment. Its schema must match the database. This example uses the default SQLite PVC.
+Copy the actual PVC name from the Deployment when it differs. For PostgreSQL, remove the SQLite environment variables,
+state mount, and state volume. Copy `CONSOLE_DATABASE_URL`, `PGSSLMODE`, and `PGSSLROOTCERT` with its CA volume from the
+Deployment instead.
 
 ```yaml
 apiVersion: batch/v1
@@ -209,11 +210,10 @@ spec:
           env:
             - name: CONSOLE_CONFIG_KEY_FILE
               value: /etc/console/key/config-key
-            - name: PGSSLMODE
-              value: verify-full
-            - name: CONSOLE_DATABASE_URL
-              valueFrom:
-                secretKeyRef: {name: console-runtime, key: DATABASE_URL}
+            - name: CONSOLE_STORAGE
+              value: sqlite
+            - name: CONSOLE_SQLITE_PATH
+              value: /var/lib/console/console.db
             - name: CONSOLE_OIDC_REDIRECT_URL
               value: https://console.example.com/auth/callback
             - name: CONSOLE_OIDC_ISSUER
@@ -229,10 +229,15 @@ spec:
               valueFrom:
                 secretKeyRef: {name: console-recovery, key: ADMIN_SUBJECTS}
           volumeMounts:
+            - name: state
+              mountPath: /var/lib/console
             - name: configuration-key
               mountPath: /etc/console/key
               readOnly: true
       volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: openbao-operator-console-state
         - name: configuration-key
           secret:
             secretName: console-runtime
@@ -287,12 +292,9 @@ stay unchanged.
 Every save uses a configuration revision. A stale edit returns a conflict. Reload settings before applying the change again.
 **Settings → Changes** records the actor, time, revision, and changed area without credential values.
 
-Back up PostgreSQL and the encryption key before an upgrade. At startup, a newer binary applies its pending numbered schema
-migrations in one transaction and records each version in `console_schema_migration`. A failed migration rolls back
-completely and the console does not start. An older binary refuses a database with a newer schema version and names both
-versions in the error. Rollback across a schema change therefore requires the matching pre-upgrade database backup as
-well as the older image; a Helm rollback alone is insufficient. A database restore also restores the access rules,
-identity settings, and retained observations from that backup.
+Back up the database and keep its encryption key in a separate backup. Startup initializes an empty database and
+validates existing schema history. Schema changes require an offline upgrade with a validated backup. A rollback across
+a schema change requires the pre-upgrade database and previous image. See [upgrade and roll back](upgrading.md).
 
 The console requires one serving process. Shared sessions, coordinated collectors, key rotation tooling, and a separate
 migration role are not implemented yet.

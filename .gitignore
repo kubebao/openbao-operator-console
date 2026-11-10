@@ -14,3 +14,6 @@ web/playwright-report/
 .claude/
 /dist/
 __pycache__/
+
+# Default durable console state. Keep database files out of source control.
+/data/

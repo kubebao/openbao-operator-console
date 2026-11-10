@@ -1,8 +1,7 @@
 # Install the console
 
-This guide installs the console on Kubernetes with the Helm chart. The console runs as one replica, stores its data in
-PostgreSQL, and signs users in through OpenID Connect or local accounts. The installation takes four steps: a database,
-one Secret, the chart, and the first administrator.
+This guide installs one console replica on Kubernetes. SQLite stores its state on a persistent volume by default.
+PostgreSQL is optional. Users sign in through OpenID Connect or local accounts.
 
 Releases publish a signed image to `ghcr.io/kubebao/openbao-operator-console` and the chart to
 `oci://ghcr.io/kubebao/charts/openbao-operator-console`; see [releases](releasing.md#verify-a-release) to verify them.
@@ -20,30 +19,28 @@ the Deployment, Service, and ServiceAccount are named `openbao-operator-console`
 
 - A Kubernetes 1.33 or later cluster for the console. It can be one of the clusters that runs the OpenBao Operator.
 - Helm 3.x or 4, and `kubectl` access to the console's namespace.
-- PostgreSQL. CI tests PostgreSQL 18. [CloudNativePG](#use-cloudnativepg) is the shortest path on Kubernetes.
+- A StorageClass that provides a local or block filesystem with SQLite locking support. Do not use NFS. Alternatively,
+  use an external PostgreSQL database; CI tests PostgreSQL 18.
 - An OpenID Connect provider that supports the authorization code flow with PKCE (`S256`), recommended for teams. See
   [Keycloak](keycloak.md) for a worked example. You register the client during setup. Without a provider, start with a
   local administrator and add the provider later.
 - A public HTTPS address, such as `https://console.example.com`, served by an ingress controller or a Gateway. The
   console can also serve HTTPS itself with `tls.secretName`.
 
-## 1. Prepare PostgreSQL
+## 1. Select storage
 
-Create a dedicated database and a user that owns it:
+The default chart creates a 1 GiB PVC and mounts SQLite state at `/var/lib/console/console.db`. The PVC is retained on
+uninstall. Set `persistence.storageClass`, `persistence.size`, or `persistence.existingClaim` when needed. Keep one replica
+and a single owner of the state directory. Back up the database and encryption key before upgrades.
 
-```sql
-CREATE USER console WITH PASSWORD '<generated password>';
-CREATE DATABASE console OWNER console;
-```
-
-The console creates and migrates its schema at startup. The connection URL looks like
-`postgres://console:<password>@db.example.com:5432/console?sslmode=verify-full`. When a database operator manages the
-credentials, skip this step and reference its Secret instead; see [use CloudNativePG](#use-cloudnativepg).
+To use PostgreSQL, create a dedicated database and a user that owns its schema. Set `database.engine: postgres` and
+provide its connection URL in the runtime Secret, or follow [use CloudNativePG](#use-cloudnativepg). SQLite persistence
+values do not apply to PostgreSQL. The console initializes an empty schema; later schema changes require an
+[offline upgrade](upgrading.md).
 
 ## 2. Create the runtime Secret
 
-Generate the configuration encryption key and a one-time setup token in a private directory. Write the database URL to
-a file named `database-url`, then create the Secret:
+Generate the configuration encryption key and a one-time setup token in a private directory, then create the Secret:
 
 ```sh
 umask 077
@@ -53,8 +50,7 @@ openssl rand -hex 32 > console-setup-token
 kubectl create namespace console-system
 kubectl --namespace console-system create secret generic console-runtime \
   --from-file=CONFIG_KEY=console-config-key \
-  --from-file=SETUP_TOKEN=console-setup-token \
-  --from-file=DATABASE_URL=database-url
+  --from-file=SETUP_TOKEN=console-setup-token
 ```
 
 The files keep the values out of shell history. The console ignores surrounding whitespace, including a trailing
@@ -63,12 +59,12 @@ newline.
 | Key | Required | Description |
 | --- | --- | --- |
 | `CONFIG_KEY` | Yes | Encrypts configuration and stored Kubernetes credentials: 32 random bytes, raw or encoded as hexadecimal or base64 text. |
-| `DATABASE_URL` | Unless `database.urlSecret` is set | PostgreSQL connection URL. |
+| `DATABASE_URL` | For PostgreSQL unless `database.urlSecret` is set | PostgreSQL connection URL. Add `--from-file=DATABASE_URL=database-url` when creating the Secret. |
 | `SETUP_TOKEN` | For browser setup | Unlocks first administrator setup on an empty database. Remove it after setup. |
 | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | For automated bootstrap | Seed the identity provider instead of browser setup. Supply all three or none. |
 
 > [!IMPORTANT]
-> Back up `console-config-key` separately from PostgreSQL backups and keep it for the lifetime of the database. A
+> Back up `console-config-key` separately from database backups and keep it for the lifetime of the database. A
 > restored database cannot be read without the matching key.
 
 ## 3. Install the chart
@@ -104,7 +100,7 @@ helm upgrade --install openbao-operator-console charts/openbao-operator-console 
 ```
 
 The release notes print the console address, the callback URL to register, and the next steps. `/readyz` returns `204`
-once settings are loaded and PostgreSQL accepts connections:
+once settings are loaded and the database accepts queries:
 
 ```sh
 curl --fail https://console.example.com/readyz
@@ -163,13 +159,14 @@ certificate. Omit `DATABASE_URL` from the runtime Secret and reference both Secr
 
 ```yaml
 database:
+  engine: postgres
   urlSecret: console-db-app
   urlKey: uri
   caSecret: console-db-ca
 ```
 
 The chart mounts only the `ca.crt` key of the CA Secret. Configure CloudNativePG backups for the `Cluster`, and keep the
-configuration encryption key with them. After a restore into a new `Cluster`, point `database.urlSecret` and
+configuration encryption key in a separate backup. After a restore into a new `Cluster`, point `database.urlSecret` and
 `database.caSecret` at that `Cluster`'s Secrets and keep the same encryption key.
 
 ### Database TLS
@@ -186,9 +183,8 @@ The console reads the URL and CA certificate at startup. Restart it after the pa
 kubectl --namespace console-system rollout restart deployment/openbao-operator-console
 ```
 
-Startup applies each pending numbered schema migration in order, in one transaction under an advisory lock, and records
-it in `console_schema_migration`. A failed migration leaves the database unchanged. Startup refuses a database whose
-schema version is newer than the binary supports, because downgrades are not supported.
+Startup initializes empty state and validates existing schema history. Pending changes to an existing database require
+a stopped console and an [offline upgrade](upgrading.md). Newer schemas and legacy development databases are refused.
 
 ### Automated bootstrap
 
@@ -255,11 +251,11 @@ The same binary runs on a host behind an HTTPS reverse proxy. See the
 ## Operate the installation
 
 - **Replicas.** Run one replica. Sessions are held in process memory, and a restart requires users to sign in again.
-- **Backups.** Back up PostgreSQL and the encryption key. Both are required to restore configuration and history.
-- **Upgrades.** Back up the database before upgrading. The new version migrates the schema at startup. An older version
-  refuses a migrated database, so rolling back the image also requires restoring the pre-upgrade backup. See
+- **Backups.** Back up the database and store the encryption key separately. Both are required to restore configuration and history.
+- **Upgrades.** Inspect the candidate schema first. Apply pending changes with the offline upgrade command and its
+  validated backup. Rolling back across a schema change requires restoring that backup. See
   [upgrade and roll back](upgrading.md).
 - **Retention.** Observation history and activity are kept for seven days by default. Set `historyRetention` to change
   it. An hourly job deletes older rows. Current inventory is not history and is kept while its connection is enrolled.
-- **Uninstall.** `helm uninstall` leaves PostgreSQL untouched. Remove reader Roles and RoleBindings that you applied in
+- **Uninstall.** `helm uninstall` retains the SQLite PVC and leaves external PostgreSQL untouched. Remove reader Roles and RoleBindings that you applied in
   other clusters yourself; the console never removes Kubernetes permissions.

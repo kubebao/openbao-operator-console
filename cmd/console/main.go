@@ -27,12 +27,12 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/localauth"
 	"github.com/kubebao/openbao-operator-console/internal/renewal"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
-	"github.com/kubebao/openbao-operator-console/internal/store"
 	"github.com/kubebao/openbao-operator-console/internal/view"
 )
 
 // options holds the command-line flags.
 type options struct {
+	schema, backup              string
 	mode, address, configPath   string
 	readerName, readerNamespace string
 	tlsCertificate, tlsKey      string
@@ -99,7 +99,18 @@ func parseOptions() (options, error) {
 		"comma-separated proxy addresses or CIDR prefixes whose X-Forwarded-For is used for rate limits and logs",
 	)
 	flag.BoolVar(&o.version, "version", false, "print the version and commit, then exit")
+	flag.StringVar(&o.schema, "schema", "", "inspect, backup, or upgrade the database schema without serving")
+	flag.StringVar(&o.backup, "backup", "", "new backup file for an offline schema backup or upgrade")
 	flag.Parse()
+	if o.schema != "" && (o.mode != "live" || o.check || o.printRBAC != "" || o.recoverIdentity || o.recoverLocal != "" || o.version) {
+		return o, errors.New("schema commands require live mode and exclude other operations")
+	}
+	if o.schema != "" && o.schema != "inspect" && o.schema != "backup" && o.schema != "upgrade" {
+		return o, errors.New("schema must be inspect, backup, or upgrade")
+	}
+	if o.backup != "" && o.schema != "backup" && o.schema != "upgrade" {
+		return o, errors.New("backup requires schema=backup or schema=upgrade")
+	}
 	if (o.tlsCertificate == "") != (o.tlsKey == "") {
 		return o, errors.New("tls-cert and tls-key must be supplied together")
 	}
@@ -138,6 +149,8 @@ func run() error {
 	defer stop()
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	switch {
+	case o.schema != "":
+		return runSchema(ctx, o)
 	case o.check || o.printRBAC != "":
 		return runCheck(ctx, o)
 	case o.mode == "demo":
@@ -196,13 +209,9 @@ func demoServer(o options) (*httpapi.Server, error) {
 
 // runLive serves live mode. Collection and renewal stop before the database closes.
 func runLive(ctx context.Context, o options, logger *slog.Logger) error {
-	dsn := environment("CONSOLE_DATABASE_URL")
-	if dsn == "" {
-		return errors.New("CONSOLE_DATABASE_URL is required in live mode")
-	}
 	startup, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	pg, err := store.Open(startup, dsn, o.historyRetention)
+	pg, err := openStorage(startup, o.historyRetention)
 	if err != nil {
 		return fmt.Errorf("database startup failed: %w", err)
 	}
@@ -245,7 +254,7 @@ func runLive(ctx context.Context, o options, logger *slog.Logger) error {
 
 // openSettings opens stored configuration. An empty database is seeded from the
 // enrollment file and bootstrap environment; without an identity it waits for browser setup.
-func openSettings(ctx context.Context, pg *store.Postgres, key []byte, o options) (*settings.Service, config.Config, error) {
+func openSettings(ctx context.Context, pg settings.Repository, key []byte, o options) (*settings.Service, config.Config, error) {
 	var err error
 	var enrollment config.Config
 	_, loadErr := pg.LoadSettings(ctx)
@@ -275,7 +284,7 @@ func openSettings(ctx context.Context, pg *store.Postgres, key []byte, o options
 // credentials whose account no longer exists, such as one left by a lost setup claim.
 func localAccounts(
 	ctx context.Context,
-	pg *store.Postgres,
+	pg localauth.Repository,
 	key []byte,
 	configuration *settings.Service,
 ) (*localauth.Authenticator, error) {
@@ -299,7 +308,7 @@ func localAccounts(
 func liveServer(
 	ctx context.Context,
 	o options,
-	pg *store.Postgres,
+	pg liveStore,
 	configuration *settings.Service,
 	enrollment config.Config,
 	local *localauth.Authenticator,

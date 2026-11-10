@@ -19,8 +19,8 @@ imagePullSecrets: []
 # Runtime Secret. Required keys:
 #   CONFIG_KEY    32 random bytes, raw or encoded as hexadecimal or base64 text, for
 #                 example from `openssl rand -hex 32`. Keep it across upgrades and back
-#                 it up separately from PostgreSQL.
-#   DATABASE_URL  PostgreSQL connection URL, unless database.urlSecret is set.
+#                 it up separately from the database.
+#   DATABASE_URL  Only for database.engine=postgres, unless database.urlSecret is set.
 # Optional keys:
 #   SETUP_TOKEN   Unlocks browser setup on an empty database. Remove it after setup.
 #   OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET
@@ -32,11 +32,12 @@ existingSecret: ""
 # https://<ingress.host> when the Ingress is enabled.
 publicURL: ""
 
-# PostgreSQL connection. By default, the URL is read from existingSecret.
+# SQLite is the default. PostgreSQL is optional; its URL is read from existingSecret.
 # Reference a Secret managed by the database provider so that the console reads
 # its current value at each start. For CloudNativePG, use "<cluster>-app" and "uri".
 # The console reads the URL and CA at startup; restart it after either changes.
 database:
+  engine: sqlite
   urlSecret: ""
   urlKey: DATABASE_URL
   # Default TLS mode, exported as PGSSLMODE. An sslmode parameter in the URL takes
@@ -47,6 +48,16 @@ database:
   # An sslrootcert parameter in the URL takes precedence.
   caSecret: ""
   caKey: ca.crt
+
+# SQLite state uses a persistent volume. Use a local/block filesystem with SQLite
+# locking support; do not use NFS or share this directory between consoles.
+# The chart retains its PVC on uninstall. Back up the database and CONFIG_KEY.
+persistence:
+  enabled: true
+  existingClaim: ""
+  size: 1Gi
+  storageClass: ""
+  accessModes: [ReadWriteOnce]
 
 # How long observation history and activity are kept, as a Go duration from 1h to 8760h.
 # Empty uses the console default of 168h (seven days).

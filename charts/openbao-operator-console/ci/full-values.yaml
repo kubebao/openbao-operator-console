@@ -5,6 +5,7 @@ imagePullSecrets:
   - name: registry-credentials
 existingSecret: console-runtime
 database:
+  engine: postgres
   urlSecret: console-db-app
   urlKey: uri
   sslMode: verify-full

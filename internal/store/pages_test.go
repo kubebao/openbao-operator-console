@@ -14,17 +14,21 @@ import (
 
 // Existing retention tests inspect the newest page. Pagination tests below traverse
 // cursors separately, including rows with identical timestamps.
-func firstActivity(p *Postgres, ctx context.Context, scopes []config.Scope) ([]fleet.Activity, error) {
+func firstActivity(p testRepository, ctx context.Context, scopes []config.Scope) ([]fleet.Activity, error) {
 	page, err := p.Activity(ctx, scopes, fleet.Page{Limit: 100})
 	return page.Events, err
 }
 
-func firstHistory(p *Postgres, ctx context.Context, id string) ([]fleet.Observation, error) {
+func firstHistory(p testRepository, ctx context.Context, id string) ([]fleet.Observation, error) {
 	page, err := p.History(ctx, id, fleet.HistoryQuery{Page: fleet.Page{Limit: 100}})
 	return page.Observations, err
 }
 
 func TestHistoryPagesPreserveTimestampTiesAndWindowBaseline(t *testing.T) {
+	storageBackends(t, historyPagesPreserveTimestampTiesAndWindowBaseline)
+}
+
+func historyPagesPreserveTimestampTiesAndWindowBaseline(t *testing.T) {
 	p := isolatedDatabase(t)()
 	defer p.Close()
 	ctx := context.Background()
@@ -35,7 +39,7 @@ func TestHistoryPagesPreserveTimestampTiesAndWindowBaseline(t *testing.T) {
 			recordedAt = at.Add(-time.Hour)
 		}
 		projection := fmt.Sprintf(`{"resourceVersion":"%d"}`, i)
-		if _, err := p.pool.Exec(ctx,
+		if err := execFixture(ctx, p,
 			"INSERT INTO console_observation(deployment_id, connection_id, recorded_at, projection) VALUES ($1,$2,$3,$4)",
 			"bao", "cluster", recordedAt, projection); err != nil {
 			t.Fatal(err)
@@ -75,6 +79,10 @@ func TestHistoryPagesPreserveTimestampTiesAndWindowBaseline(t *testing.T) {
 }
 
 func TestActivityPagesApplyCurrentScopeAndPreserveTimestampTies(t *testing.T) {
+	storageBackends(t, activityPagesApplyCurrentScopeAndPreserveTimestampTies)
+}
+
+func activityPagesApplyCurrentScopeAndPreserveTimestampTies(t *testing.T) {
 	p := isolatedDatabase(t)()
 	defer p.Close()
 	ctx := context.Background()
@@ -113,13 +121,17 @@ func TestActivityPagesApplyCurrentScopeAndPreserveTimestampTies(t *testing.T) {
 }
 
 func TestLegacyActivityRemainsScopedWithoutInventingStructuredEvidence(t *testing.T) {
+	storageBackends(t, legacyActivityRemainsScopedWithoutInventingStructuredEvidence)
+}
+
+func legacyActivityRemainsScopedWithoutInventingStructuredEvidence(t *testing.T) {
 	p := isolatedDatabase(t)()
 	defer p.Close()
 	ctx := context.Background()
 	at := time.Now().UTC().Truncate(time.Microsecond)
 	const projection = `{"id":"legacy","deploymentId":"removed","connectionId":"cluster","namespace":"team",
 "at":"2026-10-01T12:00:00Z","title":"old free-form title","detail":"old free-form detail","outcome":"error"}`
-	if _, err := p.pool.Exec(ctx, `INSERT INTO console_activity(id, deployment_id, connection_id, namespace, recorded_at, projection)
+	if err := execFixture(ctx, p, `INSERT INTO console_activity(id, deployment_id, connection_id, namespace, recorded_at, projection)
 VALUES ('legacy', 'removed', 'cluster', 'team', $1, $2)`, at, projection); err != nil {
 		t.Fatal(err)
 	}

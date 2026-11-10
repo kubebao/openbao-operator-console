@@ -44,7 +44,15 @@ First administrator:
   An initialized database loads its stored configuration and ignores the setup token.
 {{- end }}
 
-Back up PostgreSQL and the CONFIG_KEY in Secret {{ .Values.existingSecret }}. A restored database cannot be read
+Back up the database and the CONFIG_KEY in Secret {{ .Values.existingSecret }}. A restored database cannot be read
 without the matching key.
 
 Documentation: https://github.com/kubebao/openbao-operator-console/tree/main/docs
+
+{{- if eq .Values.database.engine "sqlite" }}
+SQLite state is stored at /var/lib/console/console.db. Stop the console before offline
+backup or schema upgrades. The chart retains its PVC on uninstall.
+{{- if not .Values.persistence.enabled }}
+WARNING: persistence is disabled. Pod replacement deletes all console state.
+{{- end }}
+{{- end }}

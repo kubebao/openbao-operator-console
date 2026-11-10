@@ -19,7 +19,7 @@ workflow and conventions, and [installation](installation.md) for running the co
 | `internal/kube` | Kubernetes REST clients for embedded reader credentials; never follow redirects |
 | `internal/renewal` | ServiceAccount token renewal worker |
 | `internal/settings` | Versioned, encrypted console configuration |
-| `internal/store` | PostgreSQL persistence, schema, and sqlc queries |
+| `internal/store` | SQLite and PostgreSQL persistence, schemas, and sqlc queries |
 | `internal/view` | Reconciles retained observations with current enrollment and marks stale evidence |
 | `api/openapi.yaml` | API contract; Go and TypeScript types are generated from it |
 | `web/` | React application, unit tests (`src`), browser tests (`e2e`), and screenshot capture (`screenshots`) |
@@ -55,7 +55,8 @@ Open <http://127.0.0.1:8090>.
 | `make check-generated` | OpenAPI Go/TypeScript and sqlc output drift |
 | `make e2e` | Chromium workflows through the development server |
 | `make e2e-production` | The same workflows through the compiled Go application and its content security policy |
-| `make integration` | PostgreSQL persistence; optional Kubernetes, Keycloak, and renewal checks |
+| `make e2e-storage` | Real SQLite browser setup, restart, and backup restore with recovery-code replay checks |
+| `make integration` | SQLite and PostgreSQL persistence; optional Kubernetes, Keycloak, and renewal checks |
 | `make helm-check` | Strict Helm lint and rendering with each `charts/openbao-operator-console/ci/*-values.yaml` file, and values schema rejection checks |
 | `make screenshots` | Regenerates the README screenshots in `docs/images` from demo data |
 | `make build` | Web assets and `bin/console`, with the version from `git describe` and the commit embedded |
@@ -92,7 +93,7 @@ running checks. The jobs run in parallel:
 | Container image | A `linux/amd64` and `linux/arm64` Buildx build without push |
 
 The Container image job also builds edge archives and a digest-pinned chart, then installs it in a disposable kind
-cluster with PostgreSQL. `scripts/edge-tools.env` pins its registry, kind, and fixture versions. Release tooling checks
+cluster with SQLite persistence and optional PostgreSQL. `scripts/edge-tools.env` pins its registry, kind, and fixture versions. Release tooling checks
 require Python 3.11 or later and ShellCheck. `make check-release-tools` runs actionlint through its pinned Go module.
 
 Other workflows run CodeQL for Go and TypeScript, OpenSSF Scorecard, and dependency review on pull requests. Every
@@ -116,6 +117,13 @@ make check-generated
 The web application uses plain CSS in `web/src/styles`, with one file per area. `index.css` imports them, and its import
 order is the cascade order. `reset.css` holds the element reset in a cascade layer, so every unlayered rule overrides
 it. Use the color, type, radius, and stacking tokens in `tokens.css` instead of repeating literal values.
+
+## Storage tests
+
+SQLite persistence and recovery tests run in temporary directories during `go test -race ./...`. With
+`CONSOLE_TEST_DATABASE_URL` set, the same storage contract also runs against isolated PostgreSQL schemas. Schema tests
+require `pg_dump` and `pg_restore` compatible with the PostgreSQL server. The CI service supplies its matching tools.
+`sqlc.yaml` generates separate query adapters for the engine-specific DDL. Never edit either generated package.
 
 ## Local PostgreSQL
 

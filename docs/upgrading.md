@@ -1,120 +1,112 @@
 # Upgrade and roll back
 
-This page describes how to upgrade a Helm installation of the console and how to return to the previous version. The
-examples use the release `openbao-operator-console` in the namespace `console-system`, the runtime Secret
-`console-runtime`, and a values file `console-values.yaml`.
+The console initializes a genuinely empty database at startup. It opens an existing database only when its schema
+matches the binary. Startup never upgrades an existing schema or resets an unrecognized database.
 
-## How upgrades change the database
+Schema versions are independent of application versions. `console_schema_migration` records each consecutive version,
+its baseline identity, and its SQL checksum. Both backends start at version 1 with the same logical schema and separate
+DDL. A changed checksum, missing history, legacy development schema, or newer version stops startup.
 
-At startup, the console applies the pending numbered schema migrations of its version in one transaction and records
-each version in `console_schema_migration`. A failed migration rolls back completely, and the console exits without
-serving. A console refuses to start against a database with a newer schema version than it supports. A Helm rollback
-therefore restores the previous image and values, but not the previous schema. Rolling back across a schema change
-requires the database backup taken before the upgrade.
+> [!IMPORTANT]
+> This baseline replaces the three unreleased development migrations. Recreate those development databases deliberately.
+> There is no supported upgrade from them. Do not delete a database that contains state you need to retain.
 
-The encryption key in `CONFIG_KEY` does not change during an upgrade. Keep the same key for every version and every
-restored backup.
+Keep the configuration encryption key for the lifetime of the database. Store its backup separately. Restored settings,
+reader credentials, local passwords, authenticators, and recovery codes require the matching key.
 
-Stored configurations from before issuer-scoped access bind their existing users and groups to the identity provider
-already stored with them. Loading this format preserves the configuration revision, reader credentials, and change
-history. The next settings save persists the issuer binding. A declared binding that differs from the stored provider
-is rejected.
+## Inspect an upgrade
 
-The pagination migration replaces the observation and activity indexes without deleting their records. Older activity
-records remain visible as earlier activity with unavailable structured details. The console does not infer structured
-changes from their old text.
-
-## Before you upgrade
-
-1. Read the release notes in [CHANGELOG.md](../CHANGELOG.md) for breaking changes to configuration, Helm values, or
-   reader RBAC. Releases before 1.0 can contain breaking changes in minor versions.
-2. Verify the new image and chart as described in [releases](releasing.md#verify-a-release).
-3. Record the installed revision and values:
-
-   ```sh
-   helm --namespace console-system history openbao-operator-console
-   helm --namespace console-system get values openbao-operator-console > previous-values.yaml
-   ```
-
-4. Record the current schema version, so that you know later whether the upgrade migrated the database:
-
-   ```sh
-   psql "$DATABASE_URL" --command 'SELECT max(version) FROM console_schema_migration'
-   ```
-
-5. Back up PostgreSQL. Use your database provider's backup, such as a CloudNativePG `Backup`, or `pg_dump`:
-
-   ```sh
-   umask 077
-   pg_dump --format=custom --file=console-before-upgrade.dump "$DATABASE_URL"
-   ```
-
-6. Confirm that you have a copy of the encryption key from the runtime Secret, stored separately from the database
-   backup. A backup cannot be read without it.
-
-## Upgrade
-
-Upgrade the release with the new chart version and your values file:
+Read the release notes and verify the candidate binary, image, and chart as described in [releases](releasing.md).
+Use the candidate binary with the same storage environment as the installed console:
 
 ```sh
-helm upgrade openbao-operator-console oci://ghcr.io/kubebao/charts/openbao-operator-console \
-  --version <new version> --namespace console-system --values console-values.yaml --wait
+./console --mode=live --schema=inspect
 ```
 
-The chart uses the `Recreate` strategy, so the old Pod stops before the new one starts. Expect a short interruption.
-Sessions are held in process memory, so users sign in again afterwards. Check the result:
+The command prints JSON with `current`, `supported`, `pending`, and `empty`. It reads schema history without creating
+or changing it. For SQLite, set `CONSOLE_SQLITE_PATH` to the existing file. For PostgreSQL, set `CONSOLE_DATABASE_URL`.
+The command requires no configuration key or Kubernetes credentials.
 
-```sh
-kubectl --namespace console-system rollout status deployment/openbao-operator-console
-kubectl --namespace console-system logs deployment/openbao-operator-console
-curl --fail https://console.example.com/readyz
-```
+When `pending` is empty, upgrade the image and chart normally. A restart ends process-local sessions. Users sign in again.
 
-If the Pod restarts, read the log of the failed container with `kubectl logs --previous`. A startup error is the last
-line before the process exits. See [troubleshooting](troubleshooting.md).
+## Upgrade an existing schema
 
-## Roll back
+Schema changes require an interruption. Stop every console process that uses this database before running the command.
+The server and maintenance commands enforce the same ownership lock. SQLite uses a sibling `.lock` file; PostgreSQL
+uses a session advisory lock scoped to the database and schema. Do not remove a lock file to bypass ownership.
 
-First check whether the upgrade changed the schema version, with the query from step 4.
-
-**The schema version is unchanged.** Roll back the release:
-
-```sh
-helm --namespace console-system rollback openbao-operator-console <previous revision> --wait
-```
-
-**The schema version increased.** The previous version refuses the migrated database and reports both versions in its
-startup error. Restore the pre-upgrade backup into an empty database, then roll back:
-
-1. Stop the console:
+1. Record the installed image, chart revision, values, and schema inspection result.
+2. Stop the console. For Helm, scale its Deployment to zero and wait for its Pod to terminate:
 
    ```sh
    kubectl --namespace console-system scale deployment/openbao-operator-console --replicas=0
+   kubectl --namespace console-system wait --for=delete pod \
+     --selector=app.kubernetes.io/instance=openbao-operator-console --timeout=180s
    ```
 
-2. Restore the backup into an empty database. Recreate the database, or restore into a new database or CloudNativePG
-   `Cluster`, rather than restoring over the migrated schema:
+3. Confirm that you have the matching encryption key in a separate backup.
+4. Run the candidate binary with an unused backup path on durable storage:
 
    ```sh
-   pg_restore --no-owner --dbname "$EMPTY_DATABASE_URL" console-before-upgrade.dump
+   ./console --mode=live --schema=upgrade --backup=/backups/console-before-upgrade
    ```
 
-3. If the database URL changed, update `DATABASE_URL` in the runtime Secret or `database.urlSecret` in
-   `previous-values.yaml`.
-4. Roll back the release, which also restores the replica count:
+5. Confirm that inspection reports the supported version and no pending changes. Start the candidate console and check
+   `/readyz`, sign-in, enrolled clusters, and retained history.
 
-   ```sh
-   helm --namespace console-system rollback openbao-operator-console <previous revision> --wait
-   ```
+The command acquires ownership, validates migration history, creates and validates the backup, and applies all pending
+steps and their history records in one transaction. Failed SQL or validation rolls back the complete chain. The backup
+remains available after failure. An existing backup file is never overwritten. There are no down migrations.
 
-A restore also returns access rules, identity settings, cluster enrollment, and history to their state at backup time.
-Changes made in **Settings** after the backup are lost; check **Settings → Changes** and repeat them if needed.
-Kubernetes credentials that were renewed after the backup may have expired; reconnect affected clusters.
+For SQLite, the command uses `VACUUM INTO` to produce a standalone database containing committed WAL data. It checks
+integrity, foreign keys, and schema history in the backup. It checks integrity and foreign keys before committing the
+upgrade. Use a local or block filesystem with SQLite locking support. WAL does not support NFS or sharing the database
+across hosts. Do not copy only the main database file while a process is running.
 
-If the migration itself failed, the database is unchanged. Roll back the release without restoring the backup.
+For PostgreSQL, install `pg_dump` and `pg_restore` compatible with the server. The command exports a consistent snapshot,
+dumps the console's current schema in custom format, and validates the complete archive through `pg_restore`. It does
+not restore the archive into another server. Qualify restoration separately with your PostgreSQL backup tooling before
+an operational upgrade. The runtime image does not contain these tools; run maintenance from an operator workstation
+or a purpose-built maintenance image with the same database access and CA trust.
 
-## Pre-release charts
+To create a backup without changing the schema, stop the console and run:
 
-Charts from before the first release used different selector labels and resource names. Kubernetes does not allow a
-Deployment's selector to change, so `helm upgrade` from such a chart can fail. Uninstall the old release and install the
-new chart with the same runtime Secret and database; `helm uninstall` does not touch PostgreSQL.
+```sh
+./console --mode=live --schema=backup --backup=/backups/console-state
+```
+
+For Kubernetes SQLite installations, run the maintenance binary in a temporary Pod that mounts the existing state PVC
+at `/var/lib/console` and a separate backup volume at `/backups`. Set `CONSOLE_SQLITE_PATH=/var/lib/console/console.db`.
+Use the candidate image and its non-root UID 65532. Stop and remove this Pod before restarting the Deployment. Copy the
+backup to independent storage; another file on the state PVC does not protect against loss of that PVC.
+
+## Roll back
+
+If the schema version did not change, restore the previous binary or Helm revision and values.
+
+If it changed, stop the console and restore the pre-upgrade backup before starting the previous binary. For SQLite,
+restore to a new directory and select that file; do not leave old `-wal` or `-shm` files beside a replacement database.
+Set file ownership for UID 65532 in Kubernetes and restrict access to the state directory and files. For PostgreSQL,
+restore into an empty database:
+
+```sh
+pg_restore --no-owner --dbname "$EMPTY_DATABASE_URL" /backups/console-before-upgrade
+```
+
+Restore the matching encryption key. Update the database URL or PVC reference if it changed. A Helm rollback restores
+the image and values; it does not restore database contents.
+
+A restore returns access rules, identity settings, cluster enrollment, authentication replay state, and history to the
+backup time. Changes after that time are lost. Renewed Kubernetes credentials may have expired. Invalidate or reset
+local credentials if restoring their previous replay state would be unsafe for your environment.
+
+## Migration maintenance
+
+After the first public build that persists this baseline, including edge builds, released migrations are immutable.
+Append a numbered migration only when stored structure must change. Implement equivalent behavior for both engines.
+Keep every step transactional. Do not include transaction control, PostgreSQL `CREATE INDEX CONCURRENTLY`, or SQLite
+`VACUUM` in migration SQL. Test populated upgrades, failure rollback, newer-version refusal, backup restoration, and
+credential revisions with both backends. Changes to an encrypted payload format need a separate compatibility review.
+
+There is no automatic conversion between SQLite and PostgreSQL. Select the backend before enrolling a console, or
+start a separate console and enroll it deliberately.

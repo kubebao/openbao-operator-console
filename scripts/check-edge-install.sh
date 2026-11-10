@@ -84,9 +84,21 @@ spec:
               command: [pg_isready, -U, console, -d, console_test]
 YAML
 kubectl -n console-edge rollout status deployment/postgres --timeout=180s
+# Qualify the default SQLite PVC and its retained schema after Pod replacement.
+helm install console-sqlite "${candidate}/openbao-operator-console-${version}.tgz" --namespace console-edge \
+  --set existingSecret=console-runtime --set publicURL=https://console.example.test \
+  --set image.repository="${image}" --wait --timeout=180s
+sqlite_deployment=console-sqlite-openbao-operator-console
+kubectl -n console-edge exec "deployment/${sqlite_deployment}" -- /console --mode=live --schema=inspect | \
+  jq -e '.current == 1 and .empty == false and .pending == []' >/dev/null
+kubectl -n console-edge rollout restart "deployment/${sqlite_deployment}"
+kubectl -n console-edge rollout status "deployment/${sqlite_deployment}" --timeout=180s
+kubectl -n console-edge exec "deployment/${sqlite_deployment}" -- /console --mode=live --schema=inspect | \
+  jq -e '.current == 1 and .empty == false and .pending == []' >/dev/null
+
 helm install console "${candidate}/openbao-operator-console-${version}.tgz" --namespace console-edge \
   --set existingSecret=console-runtime --set publicURL=https://console.example.test \
-  --set database.sslMode=disable --set image.repository="${image}" --wait --timeout=180s
+  --set database.engine=postgres --set database.sslMode=disable --set image.repository="${image}" --wait --timeout=180s
 test "$(kubectl -n console-edge get deployment console-openbao-operator-console -o jsonpath='{.spec.template.spec.containers[0].image}')" = "${image}@${digest}"
 kubectl -n console-edge port-forward service/console-openbao-operator-console :8090 --address 127.0.0.1 > "${work}/forward.log" 2>&1 &
 forward_pid=$!

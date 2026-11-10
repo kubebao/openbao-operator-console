@@ -1,5 +1,5 @@
 .PHONY: evaluation evaluation-open evaluation-down install dev generate check check-generated build dist e2e integration helm-check e2e-production screenshots lint lint-fix \
-	image vulncheck audit licenses check-licenses check-release-tools
+	image vulncheck audit licenses check-licenses check-release-tools e2e-storage
 
 GOLANGCI_LINT = go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 
@@ -111,6 +111,14 @@ helm-check:
 		--set publicURL=https://console.example.com/console > /dev/null 2>&1; then \
 		echo "values.schema.json accepted a publicURL with a path" >&2; exit 1; \
 	fi
+	@if helm template openbao-operator-console $(CHART) --values $(CHART)/ci/default-values.yaml \
+		--set database.engine=unknown > /dev/null 2>&1; then \
+		echo "values.schema.json accepted an unknown database engine" >&2; exit 1; \
+	fi
+	@if helm template openbao-operator-console $(CHART) --values $(CHART)/ci/default-values.yaml \
+		--set database.urlSecret=postgres-secret > /dev/null 2>&1; then \
+		echo "values.schema.json accepted PostgreSQL connection settings for SQLite" >&2; exit 1; \
+	fi
 
 screenshots: build
 	pnpm --dir web exec playwright test --config playwright.screenshots.config.ts
@@ -131,5 +139,9 @@ check-licenses:
 
 check-release-tools:
 	python3 -m unittest discover -s scripts/tests -v
-	shellcheck -x scripts/edge-candidate.sh scripts/check-edge-install.sh scripts/publish-edge.sh
+	shellcheck -x scripts/edge-candidate.sh scripts/check-edge-install.sh scripts/publish-edge.sh scripts/test-postgres-tools.sh
 	go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+
+# Real SQLite setup, restart, and backup restore through the production browser UI.
+e2e-storage: build
+	pnpm --dir web exec playwright test --config playwright.storage.config.ts

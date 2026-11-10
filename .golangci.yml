@@ -36,6 +36,7 @@ linters:
     paths:
       - internal/contract/generated.go
       - internal/store/database
+      - internal/store/sqlitedb
     rules:
       # Operators supply these file paths through flags and environment variables.
       - linters: [gosec]
@@ -62,3 +63,4 @@ formatters:
     paths:
       - internal/contract/generated.go
       - internal/store/database
+      - internal/store/sqlitedb

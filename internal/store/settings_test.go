@@ -39,7 +39,11 @@ func renewableSeed() config.Config {
 	}
 }
 
-func TestPostgresConfigurationSurvivesRestartAndRejectsStaleRevisions(t *testing.T) {
+func TestConfigurationSurvivesRestartAndRejectsStaleRevisions(t *testing.T) {
+	storageBackends(t, configurationSurvivesRestartAndRejectsStaleRevisions)
+}
+
+func configurationSurvivesRestartAndRejectsStaleRevisions(t *testing.T) {
 	ctx := context.Background()
 	open := isolatedDatabase(t)
 	repository := open()
@@ -87,7 +91,11 @@ func TestPostgresConfigurationSurvivesRestartAndRejectsStaleRevisions(t *testing
 	}
 }
 
-func TestPostgresCredentialRevisionsCommitWithSettings(t *testing.T) {
+func TestCredentialRevisionsCommitWithSettings(t *testing.T) {
+	storageBackends(t, credentialRevisionsCommitWithSettings)
+}
+
+func credentialRevisionsCommitWithSettings(t *testing.T) {
 	ctx := context.Background()
 	repository := isolatedDatabase(t)()
 	defer repository.Close()

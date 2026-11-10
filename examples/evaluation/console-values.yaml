@@ -7,9 +7,7 @@ publicURL: https://localhost:8443
 tls:
   secretName: console-tls
 
-# The evaluation PostgreSQL runs in the same namespace without TLS.
-database:
-  sslMode: disable
+# SQLite state uses the chart's persistent volume.
 
 # Read access to the OpenBao namespace and the operator controller on this cluster.
 readerNamespaces: [openbao-demo]

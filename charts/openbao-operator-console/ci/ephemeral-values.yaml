@@ -1,0 +1,4 @@
+existingSecret: console-runtime
+publicURL: https://console.example.test
+persistence:
+  enabled: false

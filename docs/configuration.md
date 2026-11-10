@@ -26,6 +26,8 @@ The binary can run on a host behind an HTTPS reverse proxy:
 | `--demo-allow-external` | Let demo mode listen on a non-loopback address, such as in a container. Demo mode has no login. |
 | `--config` | Optional first-start enrollment YAML. Ignored once the database is initialized. |
 | `--tls-cert`, `--tls-key` | Serve HTTPS directly. |
+| `--schema` | `inspect`, `backup`, or `upgrade` in live mode, without serving. See [schema upgrades](upgrading.md). |
+| `--backup` | Unused destination file for an offline schema backup or upgrade. |
 | `--check` | Check enrolled Kubernetes reads and exit. Needs no database or OIDC. See [enrollment files and CLI](connect-clusters.md). |
 | `--print-rbac` | Print reader RBAC for a connection ID and exit. |
 | `--reader-name`, `--reader-namespace` | ServiceAccount used in RBAC that `--print-rbac` and the onboarding wizard generate for the hosting cluster. |
@@ -42,7 +44,9 @@ The console removes surrounding whitespace from these values, so files with a tr
 
 | Variable | Description |
 | --- | --- |
-| `CONSOLE_DATABASE_URL` | PostgreSQL connection URL. Required in live mode. |
+| `CONSOLE_STORAGE` | `sqlite` or `postgres`. Defaults to SQLite when no PostgreSQL URL is set, otherwise PostgreSQL. Conflicting backend settings are refused. |
+| `CONSOLE_SQLITE_PATH` | Local SQLite file. Defaults to `data/console.db` relative to the working directory. The parent directory is created with mode 0700. Use a durable local or block filesystem and back up the state. |
+| `CONSOLE_DATABASE_URL` | PostgreSQL connection URL. Required when `CONSOLE_STORAGE=postgres`. Never falls back to SQLite if PostgreSQL is unavailable. |
 | `CONSOLE_CONFIG_KEY_FILE` | Path to the encryption key: 32 bytes, raw or encoded as hexadecimal or base64 text. Required in live mode. |
 | `CONSOLE_OIDC_REDIRECT_URL` | Public HTTPS callback URL ending in `/auth/callback`. The chart derives it from `publicURL`. |
 | `CONSOLE_OIDC_ISSUER`, `CONSOLE_OIDC_CLIENT_ID`, `CONSOLE_OIDC_CLIENT_SECRET` | Automated bootstrap identity. Supply all three or none. |
