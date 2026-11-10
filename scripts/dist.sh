@@ -12,7 +12,8 @@ buildinfo=github.com/kubebao/openbao-operator-console/internal/buildinfo
 pnpm --dir web build
 cp -R web/dist/. internal/httpapi/assets/
 
-mkdir -p dist
+destination="${DIST_DIR:-dist}"
+mkdir -p "${destination}"
 work="$(mktemp -d)"
 trap 'rm -rf "${work}"' EXIT
 for platform in "$@"; do
@@ -24,6 +25,6 @@ for platform in "$@"; do
     -ldflags "-s -w -X ${buildinfo}.Version=${version} -X ${buildinfo}.Commit=${commit}" \
     -o "${work}/${name}/console" ./cmd/console
   cp LICENSE THIRD_PARTY_LICENSES "${work}/${name}/"
-  tar -C "${work}" -czf "dist/${name}.tar.gz" "${name}"
-  echo "dist/${name}.tar.gz"
+  tar -C "${work}" -czf "${destination}/${name}.tar.gz" "${name}"
+  echo "${destination}/${name}.tar.gz"
 done

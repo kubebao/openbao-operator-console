@@ -1,5 +1,5 @@
 .PHONY: evaluation evaluation-open evaluation-down install dev generate check check-generated build dist e2e integration helm-check e2e-production screenshots lint lint-fix \
-	image vulncheck audit licenses check-licenses
+	image vulncheck audit licenses check-licenses check-release-tools
 
 GOLANGCI_LINT = go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 
@@ -128,3 +128,8 @@ check-licenses:
 	@scratch=$$(mktemp) && trap 'rm -f "$$scratch"' EXIT && \
 		./scripts/third-party-licenses.sh "$$scratch" && \
 		diff -u THIRD_PARTY_LICENSES "$$scratch" || { echo "THIRD_PARTY_LICENSES is out of date; run make licenses" >&2; exit 1; }
+
+check-release-tools:
+	python3 -m unittest discover -s scripts/tests -v
+	shellcheck -x scripts/edge-candidate.sh scripts/check-edge-install.sh scripts/publish-edge.sh
+	go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12

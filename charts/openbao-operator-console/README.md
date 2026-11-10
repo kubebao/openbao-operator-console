@@ -16,8 +16,9 @@ procedure, including the runtime Secret and first-run setup.
 
 ## Install
 
-Releases publish the chart as a signed OCI artifact. Until the first release, install the chart from a checkout and set
-`image.repository` and `image.tag` to an image you built.
+Releases publish the chart as a signed OCI artifact. Before the first stable release, install from a checkout with an
+image you built, or use a qualified [edge build](../../docs/releasing.md#edge-builds). Edge charts include the tested
+image digest and use a separate OCI repository.
 
 ```sh
 helm upgrade --install openbao-operator-console oci://ghcr.io/kubebao/charts/openbao-operator-console \

@@ -8,8 +8,8 @@ Releases publish a signed image to `ghcr.io/kubebao/openbao-operator-console` an
 `oci://ghcr.io/kubebao/charts/openbao-operator-console`; see [releases](releasing.md#verify-a-release) to verify them.
 
 > [!NOTE]
-> No release has been published yet. Until then, [build the image](#build-the-image-before-the-first-release) and
-> install the chart from a checkout.
+> No stable release has been published yet. [Build the image](#build-the-image-before-the-first-release) and install
+> from a checkout, or use a qualified [edge build](releasing.md#edge-builds).
 
 To try the console first, [evaluate it on a local cluster](evaluation.md).
 
