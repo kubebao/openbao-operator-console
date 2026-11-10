@@ -1,6 +1,8 @@
 package settings
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"testing"
 
@@ -48,5 +50,52 @@ func TestResolveAccessKeepsOrReplacesTheReaderCredential(t *testing.T) {
 				t.Fatalf("credential token = %q, want %q", token, test.token)
 			}
 		})
+	}
+}
+
+func TestApplyEditKeepsLocalAccountsAndDropsRemovedScopes(t *testing.T) {
+	ctx := context.Background()
+	initial := config.Config{
+		MaxBackupAgeHours: 24,
+		Connections: []config.Connection{
+			{
+				ID:     "cluster",
+				Name:   "Cluster",
+				Access: config.Access{Mode: config.AccessInCluster},
+				Namespaces: []config.Namespace{
+					{Name: "team", Environment: "production"},
+					{Name: "old", Environment: "production"},
+				},
+			},
+		},
+		Users: []config.User{},
+		LocalAccounts: []config.LocalAccount{
+			{ID: "admin-id", Username: "admin", Admin: true, Scopes: []config.Scope{}},
+			{
+				ID:       "reader-id",
+				Username: "reader",
+				Scopes:   []config.Scope{{ConnectionID: "cluster", Namespaces: []string{"team", "old"}}},
+			},
+		},
+	}
+	service, err := Open(ctx, &memoryRepository{}, bytes.Repeat([]byte{1}, 32), &initial)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The settings document carries no local accounts, as the web editor sends it.
+	edited, revision := service.Current()
+	edited.LocalAccounts = nil
+	edited.Connections[0].Namespaces = edited.Connections[0].Namespaces[:1]
+	edited.MaxBackupAgeHours = 48
+	if _, err := service.ApplyEdit(ctx, Edit{Revision: revision, Configuration: edited}, "local:admin"); err != nil {
+		t.Fatalf("a local-only console could not save settings: %v", err)
+	}
+	current, _ := service.Current()
+	if len(current.LocalAccounts) != 2 || current.MaxBackupAgeHours != 48 {
+		t.Fatalf("local accounts after edit: %+v", current.LocalAccounts)
+	}
+	reader := current.LocalAccounts[1]
+	if len(reader.Scopes) != 1 || len(reader.Scopes[0].Namespaces) != 1 || reader.Scopes[0].Namespaces[0] != "team" {
+		t.Fatalf("removed namespace stayed in a local scope: %+v", reader.Scopes)
 	}
 }

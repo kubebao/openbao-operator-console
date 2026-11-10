@@ -42,6 +42,9 @@ func (s *Service) ApplyEdit(ctx context.Context, edit Edit, actor string) (int64
 	// Edited users and groups belong to the active issuer.
 	next.Identity = s.configuration.Identity
 	next.AccessIssuer = s.configuration.AccessIssuer
+	// Local accounts have their own management requests. A settings edit keeps them and
+	// drops their scopes on namespaces that the edit removes.
+	next.LocalAccounts = enrolledLocalAccounts(s.configuration.LocalAccounts, next)
 	replacements := []string{}
 	for i := range next.Connections {
 		connection := &next.Connections[i]
@@ -104,4 +107,35 @@ func resolveAccess(connection config.Connection, server string, replacement, sto
 		connection.Access.Credential = stored
 	}
 	return connection, nil
+}
+
+// enrolledLocalAccounts returns accounts whose scopes name only namespaces enrolled in
+// configuration.
+func enrolledLocalAccounts(accounts []config.LocalAccount, configuration config.Config) []config.LocalAccount {
+	enrolled := map[string]map[string]bool{}
+	for _, connection := range configuration.Connections {
+		enrolled[connection.ID] = map[string]bool{}
+		for _, namespace := range connection.Namespaces {
+			enrolled[connection.ID][namespace.Name] = true
+		}
+	}
+	result := make([]config.LocalAccount, 0, len(accounts))
+	for _, account := range accounts {
+		account.Scopes = cloneScopes(account.Scopes)
+		scopes := []config.Scope{}
+		for _, scope := range account.Scopes {
+			namespaces := []string{}
+			for _, namespace := range scope.Namespaces {
+				if enrolled[scope.ConnectionID][namespace] {
+					namespaces = append(namespaces, namespace)
+				}
+			}
+			if len(namespaces) > 0 {
+				scopes = append(scopes, config.Scope{ConnectionID: scope.ConnectionID, Namespaces: namespaces})
+			}
+		}
+		account.Scopes = scopes
+		result = append(result, account)
+	}
+	return result
 }
