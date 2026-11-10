@@ -139,7 +139,7 @@ A compatibility matrix with operator releases will be published with the first c
 | [First administrator setup](docs/bootstrap.md) | Protected browser setup or automated identity bootstrap |
 | [Connect a Kubernetes cluster](docs/cluster-onboarding.md) | Guided onboarding, reader RBAC, verification, and credential replacement |
 | [Credential renewal](docs/credential-renewal.md) | Automatic ServiceAccount token renewal for remote clusters |
-| [Administration](docs/administration.md) | Access rules, relationships, identity provider changes, recovery, and upgrades |
+| [Administration](docs/administration.md) | Access rules, local accounts, relationships, identity provider changes, recovery, and upgrades |
 | [Upgrade and roll back](docs/upgrading.md) | Backups, Helm upgrades, and rollback limits across schema versions |
 | [Troubleshooting](docs/troubleshooting.md) | Startup failures, health checks, sign-in problems, logs, and collection states |
 | [Keycloak](docs/keycloak.md) | Configure Keycloak as the OpenID Connect provider |

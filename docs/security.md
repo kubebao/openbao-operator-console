@@ -89,6 +89,15 @@ sign-in for teams.
   issuer-scoped access rules, and they stay when the provider changes.
 - Credentials are keyed by a random account ID. A deleted account's credential cannot apply to a new account with the
   same username; startup removes such leftover credentials.
+- Administrators never see or set passwords. A new or reset account receives a one-time enrollment link with 256
+  random bits. Only its SHA-256 digest is stored, it expires after 24 hours, and a reset or completed enrollment
+  invalidates it. The token travels in the URL fragment, which browsers do not send to servers or in `Referer`
+  headers. Rejected links count toward the client's failure limit.
+- A reset revokes the password, authenticator, recovery codes, and sessions at once. A password change requires the
+  current password and a second factor, and ends the owner's other sessions.
+- Administrators can turn local sign-in off when an identity provider and an administrator who signs in through it
+  exist. Local sessions then end, and local accounts and enrollment links stop working until it is turned on again or
+  [local administrator recovery](administration.md#recover-with-a-local-administrator) runs.
 
 ## Authorization
 

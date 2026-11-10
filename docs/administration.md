@@ -72,6 +72,39 @@ Add a relationship by selecting observed source and target deployments. The cons
 recreated resource cannot inherit the old relationship. Snapshot storage is a display value, not a backup catalog or a
 verified recovery point. The topology view and recovery details display available evidence for each selected path.
 
+## Manage local accounts
+
+Local accounts sign in with a username, a password, and an authenticator app. They suit small installations and a
+break-glass administrator. For teams, an identity provider with multi-factor authentication remains the recommended
+sign-in. See [local accounts](security.md#local-accounts) for the security model.
+
+Manage them in **Settings → Local accounts**:
+
+- **Add local account.** Enter a lowercase username, an optional display name, and the account's access. The console
+  shows a one-time enrollment link. Share it privately with the account owner. The owner opens it, sets a password,
+  adds an authenticator app, and saves ten recovery codes. The link works once and expires after 24 hours; it is shown
+  only once. The token is in the URL fragment, so it does not reach server or proxy logs.
+- **Edit.** Change the display name, administrator role, and namespaces. The username cannot change. Changes apply to
+  open sessions on their next request.
+- **Reset.** The password, authenticator, recovery codes, and open sessions stop working at once, and the console
+  shows a new one-time link. Use it when an owner lost their authenticator and recovery codes, or a credential may be
+  exposed.
+- **Remove.** The account, its credential, and its open sessions are removed. The console keeps at least one
+  administrator who can sign in.
+
+Account owners change their password and replace their recovery codes in **Your account**, below their name in the
+sidebar. Both require the current password and an authenticator or recovery code. A password change ends the owner's
+other sessions.
+
+### Local sign-in
+
+**Turn local sign-in off** to allow only single sign-on. Local accounts stay configured but cannot sign in, enrollment
+links stop working, and local sessions end. Turning local sign-in off requires an identity provider and an
+administrator who signs in through it. To sign in with a local account again, turn local sign-in on, or use
+[local administrator recovery](#recover-with-a-local-administrator).
+
+Settings edits keep local accounts. When a settings edit removes a namespace, local account scopes on it are dropped.
+
 ## Change the identity provider
 
 Open **Settings → Identity provider**. Enter issuer, client ID, client secret, groups claim, and any private CA. What
@@ -222,6 +255,30 @@ kubectl --namespace console-system delete secret console-recovery
 The command prints nothing on success. On failure, it prints the reason and exits with status 1, and the Job fails. If
 you changed the identity provider permanently, update the `OIDC_*` keys in the runtime Secret as well; stored
 configuration takes precedence over them on later starts.
+
+## Recover with a local administrator
+
+When the identity provider is unavailable, or administrators lost access, create or reset a local administrator from
+the deployment instead of recovering the provider. This needs the database URL, the encryption key, and the public
+callback URL. No identity provider settings are needed.
+
+1. Stop the serving console process. In Kubernetes, scale the application Deployment to zero.
+2. Run `console --mode=live --recover-local-administrator=<username>` with the same image, database, and key. Reuse
+   the [recovery Job](#example-recovery-job): name it `console-recover-local-administrator`, replace `args` with
+   `["--mode=live", "--recover-local-administrator=breakglass"]`, and drop the `OIDC_*` and
+   `CONSOLE_BOOTSTRAP_ADMIN_SUBJECTS` variables. Keep `CONSOLE_OIDC_REDIRECT_URL`; the link uses its address.
+3. The command creates the account if it does not exist, makes it an administrator, turns local sign-in on, revokes
+   its previous credential, and prints a one-time enrollment link valid for 24 hours. Read it from the Job log:
+
+   ```sh
+   kubectl --namespace console-system logs job/console-recover-local-administrator
+   ```
+
+4. Start the console, open the link, set a password and an authenticator, and sign in.
+
+The link is a credential until it is used. Anyone who can read the Job log can enroll the account, so delete the Job
+after use. Its `ttlSecondsAfterFinished` removes it after an hour. Other users, access rules, and the identity provider
+stay unchanged.
 
 ## Concurrent edits and upgrades
 

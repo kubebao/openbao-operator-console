@@ -146,8 +146,12 @@ the reason:
 | `Too many failed sign-ins for this username. Retry in N seconds.` | Five or more recent failures delay further attempts, up to 15 minutes. Wait, then sign in with the correct values. The account is not locked. |
 | `Too many failed sign-ins. Retry in one minute.` | The client address reached 30 failures in a minute. Behind an ingress without `trustedProxies`, all browsers share one address. |
 
+`This enrollment link is invalid, used, or expired.` means the link was already used, replaced by a reset, or older
+than 24 hours, or its account was removed. Ask an administrator to reset the account for a new link. `Local sign-in is
+disabled.` means an administrator turned local sign-in off.
+
 A lost authenticator: sign in with a recovery code. Without recovery codes, another administrator resets the
-authenticator, or use [administrator recovery](administration.md#recover-administrator-login).
+account, or use [local administrator recovery](administration.md#recover-with-a-local-administrator).
 
 ### Clock skew
 

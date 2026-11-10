@@ -30,6 +30,7 @@ The binary can run on a host behind an HTTPS reverse proxy:
 | `--print-rbac` | Print reader RBAC for a connection ID and exit. |
 | `--reader-name`, `--reader-namespace` | ServiceAccount used in RBAC that `--print-rbac` and the onboarding wizard generate for the hosting cluster. |
 | `--recover-identity` | Replace the stored identity provider and administrators, then exit. See [administration](administration.md#recover-administrator-login). |
+| `--recover-local-administrator` | Create or reset this local administrator, turn local sign-in on, print a one-time enrollment link, and exit. See [administration](administration.md#recover-with-a-local-administrator). |
 | `--recover-access-rules` | With `--recover-identity` and a different issuer: `remove` or `carryOver` existing user and group access. Required for an issuer change. |
 | `--trusted-proxies` | Comma-separated proxy addresses or CIDR prefixes whose `X-Forwarded-For` identifies the client for rate limits and logs. Default from `CONSOLE_TRUSTED_PROXIES`. |
 | `--history-retention` | How long observation history and activity are kept, from `1h` to `8760h`. Default `168h` (seven days), or `CONSOLE_HISTORY_RETENTION` when set. |

@@ -73,7 +73,9 @@ After unlocking setup, choose **Local administrator**:
    once.
 
 The console signs the administrator in and opens guided cluster onboarding. Remove the setup token as described above.
-To add an identity provider later, open **Settings → Identity provider**; the first provider needs no decision about
+Add more local accounts in **Settings → Local accounts**; see
+[manage local accounts](administration.md#manage-local-accounts). To add an identity provider later, open
+**Settings → Identity provider**; the first provider needs no decision about
 existing access, and the account that verifies it becomes an administrator. Local accounts keep working after that.
 
 The password is stored as an Argon2id hash. The hash, the authenticator secret, and the recovery code digests are
