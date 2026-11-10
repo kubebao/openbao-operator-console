@@ -340,3 +340,95 @@
   margin: 1.2rem 0 0.4rem;
   font-size: var(--text-base);
 }
+
+.setup-methods {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0 0 2rem;
+  padding: 0;
+  border: 0;
+}
+
+.setup-methods legend {
+  margin-bottom: 0.8rem;
+  font-weight: 600;
+}
+
+.setup-method {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.setup-method:has(input:checked) {
+  border-color: var(--accent);
+}
+
+.setup-method input {
+  margin-top: 3px;
+}
+
+.setup-method span {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.setup-method small {
+  color: var(--muted-foreground);
+  font-size: var(--text-md);
+}
+
+.authenticator-enrollment {
+  display: grid;
+  grid-template-columns: minmax(0, 180px) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+  margin-bottom: 1rem;
+}
+
+.qr-code {
+  width: 100%;
+  max-width: 180px;
+  height: auto;
+  border-radius: var(--radius-control);
+}
+
+.authenticator-key {
+  display: block;
+  margin: 0.5rem 0 1rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  overflow-wrap: anywhere;
+}
+
+.recovery-codes {
+  display: grid;
+  gap: 1rem;
+}
+
+.recovery-codes > p {
+  color: var(--muted-foreground);
+}
+
+@media (max-width: 560px) {
+  .authenticator-enrollment {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.recovery-codes h2 {
+  margin-bottom: 0;
+}
+
+.recovery-codes .form-actions {
+  margin-top: 0;
+}
+
+.recovery-codes > .button {
+  justify-self: start;
+}

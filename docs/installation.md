@@ -1,8 +1,8 @@
 # Install the console
 
 This guide installs the console on Kubernetes with the Helm chart. The console runs as one replica, stores its data in
-PostgreSQL, and signs users in through OpenID Connect. The installation takes four steps: a database, one Secret, the
-chart, and the first administrator.
+PostgreSQL, and signs users in through OpenID Connect or local accounts. The installation takes four steps: a database,
+one Secret, the chart, and the first administrator.
 
 Releases publish a signed image to `ghcr.io/kubebao/openbao-operator-console` and the chart to
 `oci://ghcr.io/kubebao/charts/openbao-operator-console`; see [releases](releasing.md#verify-a-release) to verify them.
@@ -19,8 +19,9 @@ the Deployment, Service, and ServiceAccount are named `openbao-operator-console`
 - A Kubernetes 1.33 or later cluster for the console. It can be one of the clusters that runs the OpenBao Operator.
 - Helm 3.x or 4, and `kubectl` access to the console's namespace.
 - PostgreSQL. CI tests PostgreSQL 18. [CloudNativePG](#use-cloudnativepg) is the shortest path on Kubernetes.
-- An OpenID Connect provider that supports the authorization code flow with PKCE (`S256`). See [Keycloak](keycloak.md)
-  for a worked example. You register the client during setup, so you do not need it before you install.
+- An OpenID Connect provider that supports the authorization code flow with PKCE (`S256`), recommended for teams. See
+  [Keycloak](keycloak.md) for a worked example. You register the client during setup. Without a provider, start with a
+  local administrator and add the provider later.
 - A public HTTPS address, such as `https://console.example.com`, served by an ingress controller or a Gateway.
 
 ## 1. Prepare PostgreSQL
@@ -111,9 +112,12 @@ curl --fail https://console.example.com/readyz
 Open the console. On an empty database it redirects to `/setup`:
 
 1. Enter the setup token from `console-setup-token`.
-2. Register the displayed callback URL in a confidential OpenID Connect client with the authorization code flow and
-   PKCE `S256`. Enter the issuer, client ID, and client secret.
-3. Select **Verify with login** and sign in with the account that becomes the first administrator.
+2. Choose how the first administrator signs in:
+   - **Identity provider** (recommended): register the displayed callback URL in a confidential OpenID Connect client
+     with the authorization code flow and PKCE `S256`. Enter the issuer, client ID, and client secret, then select
+     **Verify with login** and sign in with the account that becomes the first administrator.
+   - **Local administrator**: enter a username and a password of at least 15 characters, add an authenticator app, and
+     save the recovery codes. No identity provider is needed. You can add one later in **Settings**.
 
 The setup window lasts one hour from startup. After you have signed in, remove the token. No Helm upgrade is required:
 

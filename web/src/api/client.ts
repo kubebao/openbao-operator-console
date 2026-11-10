@@ -14,6 +14,12 @@ import {
   loginRedirectSchema,
   credentialStatusesSchema,
 } from './schema'
+import {
+  authenticatorEnrollmentSchema,
+  localEnrollmentResultSchema,
+  localSignInResultSchema,
+  signInOptionsSchema,
+} from './local'
 import type {
   AccessRules,
   Configuration,
@@ -23,6 +29,7 @@ import type {
   ManagedConnection,
   SetupStatus,
 } from './schema'
+import type { LocalAdministratorInput } from './local'
 
 const client = createClient<paths>()
 const firstPage: string | null = null
@@ -31,6 +38,7 @@ const firstPage: string | null = null
 const queryKeys = {
   snapshot: ['snapshot'],
   setup: ['setup'],
+  signIn: ['sign-in'],
   settings: ['settings'],
   credentialStatuses: ['credentialStatuses'],
   history: (id: string, since: string) => ['history', id, since] as const,
@@ -112,6 +120,46 @@ export async function startSetupIdentity(identity: IdentityInput) {
   if (!response.response.ok)
     throw requestFailure(response.response, response.error, 'Identity could not be verified.')
   return loginRedirectSchema.parse(response.data).url
+}
+export async function startSetupAuthenticator() {
+  const response = await client.POST('/api/v1/setup/local/authenticator')
+  if (!response.response.ok)
+    throw requestFailure(
+      response.response,
+      response.error,
+      'The authenticator could not be prepared.',
+    )
+  return authenticatorEnrollmentSchema.parse(response.data)
+}
+export async function createSetupAdministrator(input: LocalAdministratorInput) {
+  const response = await client.POST('/api/v1/setup/local', { body: input })
+  if (!response.response.ok)
+    throw requestFailure(
+      response.response,
+      response.error,
+      'The administrator could not be created.',
+    )
+  return localEnrollmentResultSchema.parse(response.data).recoveryCodes
+}
+export function useSignInOptions() {
+  return useQuery({
+    queryKey: queryKeys.signIn,
+    queryFn: async () => {
+      const response = await client.GET('/api/v1/sign-in')
+      if (!response.response.ok)
+        throw readFailure(response.response, response.error, 'Sign-in options could not be loaded.')
+      return signInOptionsSchema.parse(response.data)
+    },
+    staleTime: 60_000,
+  })
+}
+export async function signInLocal(username: string, password: string, code: string) {
+  const response = await client.POST('/api/v1/sign-in/local', {
+    body: { username, password, code },
+  })
+  if (!response.response.ok)
+    throw requestFailure(response.response, response.error, 'Sign-in failed.')
+  return localSignInResultSchema.parse(response.data)
 }
 export async function lockSetup() {
   const response = await client.POST('/api/v1/setup/lock')

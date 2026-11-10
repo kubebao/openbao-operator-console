@@ -1,6 +1,14 @@
 # First administrator setup
 
-An empty database supports either seeded identity configuration or protected browser setup. An initialized database
+An empty database supports either seeded identity configuration or protected browser setup. Browser setup creates the
+first administrator in one of two ways:
+
+- **Identity provider.** Recommended. The administrator signs in through OpenID Connect, and the provider's
+  multi-factor and lifecycle rules apply.
+- **Local administrator.** The administrator signs in with a password and an authenticator app that the console stores.
+  It suits evaluation and small installations, and it remains available as a break-glass account after you add a
+  provider.
+ An initialized database
 always loads its stored configuration. Changing bootstrap environment variables or mounting a setup token cannot reopen
 setup.
 
@@ -25,11 +33,12 @@ is required to read a restored configuration.
 3. Set `publicURL` in the Helm values, or enable the Ingress with its host. The chart derives the callback URL from it.
 4. Open the public console address. The console redirects to `/setup`. Enter the token through the password field. Use a
    private local method to read the token file; do not place it in a URL or a shared command transcript.
-5. Register the displayed callback URL in an OpenID Connect client. Configure client authentication and the
+5. Choose **Identity provider**. For a local administrator, see [local administrator](#local-administrator).
+6. Register the displayed callback URL in an OpenID Connect client. Configure client authentication and the
    authorization code flow with PKCE S256.
-6. Enter the HTTPS issuer, client ID, and client secret. If the provider uses a private certificate authority, enter its
+7. Enter the HTTPS issuer, client ID, and client secret. If the provider uses a private certificate authority, enter its
    PEM certificate under **Private CA and group claim**. TLS verification remains enabled.
-7. Select **Verify with login**. Complete the provider login with the account that must become the first console
+8. Select **Verify with login**. Complete the provider login with the account that must become the first console
    administrator.
 
 The console verifies the token signature, issuer, audience, nonce, and PKCE exchange before writing any identity
@@ -49,6 +58,26 @@ kubectl --namespace console-system patch secret console-runtime --type=json \
 
 An initialized database ignores the token, so removing it is cleanup rather than a security boundary. Keep the
 configuration encryption key.
+
+### Local administrator
+
+After unlocking setup, choose **Local administrator**:
+
+1. Enter a lowercase username, an optional display name, and a password of at least 15 characters. A passphrase of
+   several words works well. The console rejects common, repetitive, and keyboard-pattern passwords, and passwords
+   based on the username or the console name.
+2. Select **Add an authenticator app**. Scan the QR code with an authenticator app such as Aegis, Google
+   Authenticator, Microsoft Authenticator, or 1Password, or enter the key manually.
+3. Enter the six-digit code the app shows, then select **Create administrator**.
+4. Save the ten recovery codes. Each signs you in once when the authenticator is unavailable, and they are shown only
+   once.
+
+The console signs the administrator in and opens guided cluster onboarding. Remove the setup token as described above.
+To add an identity provider later, open **Settings → Identity provider**; the first provider needs no decision about
+existing access, and the account that verifies it becomes an administrator. Local accounts keep working after that.
+
+The password is stored as an Argon2id hash. The hash, the authenticator secret, and the recovery code digests are
+encrypted with the configuration key. See [local accounts](security.md#local-accounts) for the security model.
 
 ### Keycloak
 

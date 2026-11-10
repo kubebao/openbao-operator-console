@@ -112,15 +112,7 @@ func (a *Authenticator) Callback(w http.ResponseWriter, request *http.Request) {
 		a.fail(w, request, tx, failure{http.StatusInternalServerError, "Session creation failed", SignInFailed, "session_unavailable"}, "")
 		return
 	}
-	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookie,
-		Value:    id,
-		Path:     "/",
-		Secure:   true,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		Expires:  expires,
-	})
+	setSessionCookie(w, id, expires)
 	http.Redirect(w, request, tx.returnTo, http.StatusSeeOther)
 }
 

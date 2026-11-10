@@ -1043,6 +1043,21 @@ type AttentionPolicy struct {
 	StartupGraceMinutes int `json:"startupGraceMinutes"`
 }
 
+// AuthenticatorEnrollment defines model for AuthenticatorEnrollment.
+type AuthenticatorEnrollment struct {
+	// Key Base32 TOTP secret for manual entry.
+	Key string `json:"key"`
+
+	// QrPath SVG path data with one unit square per dark module.
+	QrPath string `json:"qrPath"`
+
+	// QrSize QR code width in modules, including the quiet zone.
+	QrSize int `json:"qrSize"`
+
+	// Uri otpauth URI that the QR code carries.
+	Uri string `json:"uri"`
+}
+
 // Backup defines model for Backup.
 type Backup struct {
 	ConsecutiveFailures int32        `json:"consecutiveFailures"`
@@ -1338,6 +1353,33 @@ type IssueCategory string
 // IssueSeverity defines model for Issue.Severity.
 type IssueSeverity string
 
+// LocalAdministratorInput defines model for LocalAdministratorInput.
+type LocalAdministratorInput struct {
+	Code     string `json:"code"`
+	Name     string `json:"name"`
+	Password string `json:"password"`
+	Username string `json:"username"`
+}
+
+// LocalEnrollmentResult defines model for LocalEnrollmentResult.
+type LocalEnrollmentResult struct {
+	RecoveryCodes []string `json:"recoveryCodes"`
+}
+
+// LocalSignInInput defines model for LocalSignInInput.
+type LocalSignInInput struct {
+	// Code A six-digit authenticator code or a recovery code.
+	Code     string `json:"code"`
+	Password string `json:"password"`
+	Username string `json:"username"`
+}
+
+// LocalSignInResult defines model for LocalSignInResult.
+type LocalSignInResult struct {
+	RecoveryCodeUsed  bool `json:"recoveryCodeUsed"`
+	RecoveryCodesLeft int  `json:"recoveryCodesLeft"`
+}
+
 // LoginRedirect defines model for LoginRedirect.
 type LoginRedirect struct {
 	Url string `json:"url"`
@@ -1583,6 +1625,12 @@ type SetupUnlock struct {
 	Token string `json:"token"`
 }
 
+// SignInOptions defines model for SignInOptions.
+type SignInOptions struct {
+	LocalAccounts bool `json:"localAccounts"`
+	SingleSignOn  bool `json:"singleSignOn"`
+}
+
 // Snapshot defines model for Snapshot.
 type Snapshot struct {
 	Build       BuildInfo    `json:"build"`
@@ -1682,5 +1730,11 @@ type TestIdentityJSONRequestBody = IdentityTrial
 // StartSetupIdentityJSONRequestBody defines body for StartSetupIdentity for application/json ContentType.
 type StartSetupIdentityJSONRequestBody = IdentityInput
 
+// CreateSetupAdministratorJSONRequestBody defines body for CreateSetupAdministrator for application/json ContentType.
+type CreateSetupAdministratorJSONRequestBody = LocalAdministratorInput
+
 // UnlockSetupJSONRequestBody defines body for UnlockSetup for application/json ContentType.
 type UnlockSetupJSONRequestBody = SetupUnlock
+
+// SignInLocalJSONRequestBody defines body for SignInLocal for application/json ContentType.
+type SignInLocalJSONRequestBody = LocalSignInInput

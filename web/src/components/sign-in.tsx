@@ -1,5 +1,7 @@
 import { CircleAlert, Info, LogIn } from 'lucide-react'
+import { useSignInOptions } from '../api/client'
 import { BrandLogo } from './brand'
+import { LocalSignInForm } from './local/local-sign-in-form'
 import { useDocumentTitle } from './use-document-title'
 
 // Bounded reasons set by the backend after a failed or ended login. Provider errors never
@@ -35,6 +37,11 @@ export function SignIn() {
   const query = params.toString()
   const returnTo = window.location.pathname + (query ? `?${query}` : '')
   const notice = isNotice(result) ? notices[result] : null
+  const options = useSignInOptions()
+  // Single sign-on stays the fallback while options load or when no local account
+  // exists. Without a provider, its link returns to setup or this page.
+  const local = options.data?.localAccounts ?? false
+  const singleSignOn = (options.data?.singleSignOn ?? true) || !local
   return (
     <main className="sign-in">
       <div className="sign-in-panel">
@@ -51,13 +58,21 @@ export function SignIn() {
             <span>{notice.text}</span>
           </p>
         )}
-        <a
-          href={`/auth/login?returnTo=${encodeURIComponent(returnTo)}`}
-          className="button button-primary sign-in-button"
-        >
-          <LogIn size={16} />
-          Sign in with single sign-on
-        </a>
+        {singleSignOn && (
+          <a
+            href={`/auth/login?returnTo=${encodeURIComponent(returnTo)}`}
+            className="button button-primary sign-in-button"
+          >
+            <LogIn size={16} />
+            Sign in with single sign-on
+          </a>
+        )}
+        {singleSignOn && local && (
+          <p className="sign-in-divider">
+            <span>or use a local account</span>
+          </p>
+        )}
+        {local && <LocalSignInForm returnTo={returnTo} primary={!singleSignOn} />}
       </div>
     </main>
   )

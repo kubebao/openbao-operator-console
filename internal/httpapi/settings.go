@@ -445,7 +445,8 @@ func accessRulesProblem(err error) error {
 // activateIdentity applies a verified trial login to latest. With the same issuer, the
 // login must already resolve to an administrator. A new issuer applies the
 // administrator's access rules decision, and the verified account becomes an
-// administrator under that issuer.
+// administrator under that issuer. The first provider of a console that used local
+// accounts only needs no decision: seeded bindings adopt it, as in browser setup.
 func activateIdentity(
 	latest config.Config,
 	candidate config.Identity,
@@ -454,6 +455,13 @@ func activateIdentity(
 ) (config.Config, string, error) {
 	if principal.Issuer != candidate.Issuer {
 		return latest, "", errors.New("candidate login used a different issuer")
+	}
+	if latest.Identity == nil && latest.AccessIssuer == "" {
+		if err := latest.ReplaceIdentity(candidate, rules); err != nil {
+			return latest, "", err
+		}
+		latest.GrantAdministrator(principal.Subject)
+		return latest, "First identity provider verified and activated", nil
 	}
 	if latest.AccessIssuer == candidate.Issuer {
 		if user, allowed := latest.Resolve(principal); !allowed || !user.Admin {

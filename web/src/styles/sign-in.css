@@ -92,3 +92,30 @@
   font-size: var(--text-md);
   font-weight: 550;
 }
+
+.sign-in-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 1.5rem;
+  color: var(--muted-foreground);
+  font-size: var(--text-base);
+}
+
+.sign-in-divider::before,
+.sign-in-divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--border);
+}
+
+.local-sign-in {
+  width: 100%;
+  margin-top: 1.5rem;
+  text-align: left;
+}
+
+.local-sign-in .sign-in-button {
+  margin-top: 0.5rem;
+}

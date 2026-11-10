@@ -11,7 +11,8 @@ procedure, including the runtime Secret and first-run setup.
 
 - Kubernetes 1.33 or later
 - Helm 3.x or 4
-- An external PostgreSQL database and an OpenID Connect provider
+- An external PostgreSQL database
+- An OpenID Connect provider is recommended; a local administrator with an authenticator app works without one
 
 ## Install
 

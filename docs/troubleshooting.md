@@ -136,7 +136,18 @@ the reason:
 | `expired` | The login took longer than allowed or was started in another tab. Start a new login. |
 | `failed` | The code exchange, ID token signature, issuer, audience, nonce, or groups claim did not verify. Check the client ID and secret, and that the groups claim is a top-level array of strings. |
 | `denied` | The verified subject and groups match no console user or group. An administrator must add an access rule. |
-| `unavailable` | No identity provider is active. |
+| `unavailable` | No identity provider is active. Sign in with a local account, or add a provider in **Settings**. |
+
+### Local sign-in fails
+
+| Message | Cause and fix |
+| --- | --- |
+| `The username, password, or code is incorrect.` | One of the three values is wrong. The message does not say which. Check that the authenticator app shows the code for this console, and that the device clock is correct. A code works once; wait for the next code before signing in again. |
+| `Too many failed sign-ins for this username. Retry in N seconds.` | Five or more recent failures delay further attempts, up to 15 minutes. Wait, then sign in with the correct values. The account is not locked. |
+| `Too many failed sign-ins. Retry in one minute.` | The client address reached 30 failures in a minute. Behind an ingress without `trustedProxies`, all browsers share one address. |
+
+A lost authenticator: sign in with a recovery code. Without recovery codes, another administrator resets the
+authenticator, or use [administrator recovery](administration.md#recover-administrator-login).
 
 ### Clock skew
 

@@ -2,7 +2,7 @@ apiVersion: v2
 name: openbao-operator-console
 description: >-
   Read-only multi-cluster fleet console for the OpenBao Operator. Requires an external PostgreSQL
-  database and an OpenID Connect provider.
+  database; an OpenID Connect provider is recommended.
 type: application
 version: 0.1.0 # x-release-please-version
 appVersion: "0.1.0" # x-release-please-version

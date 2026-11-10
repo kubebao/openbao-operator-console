@@ -25,11 +25,12 @@ type Authenticator struct {
 	Store    *Store
 	Hasher   *Hasher
 	Throttle *Throttle
-	now      func() time.Time
+	// Now returns the time for TOTP checks. Tests replace it.
+	Now func() time.Time
 }
 
 func NewAuthenticator(store *Store, hasher *Hasher, throttle *Throttle) *Authenticator {
-	return &Authenticator{Store: store, Hasher: hasher, Throttle: throttle, now: time.Now}
+	return &Authenticator{Store: store, Hasher: hasher, Throttle: throttle, Now: time.Now}
 }
 
 // Attempt is one sign-in. AccountID is empty when the username is not enrolled.
@@ -85,7 +86,7 @@ func (a *Authenticator) Authenticate(ctx context.Context, attempt Attempt) (Resu
 	if err != nil {
 		return Result{}, ErrUnavailable
 	}
-	next, result, second := secondFactor(stored.Credential, attempt.Code, a.now())
+	next, result, second := secondFactor(stored.Credential, attempt.Code, a.Now())
 	if !match || !second {
 		a.Throttle.Failure(key)
 		return Result{}, ErrRejected
@@ -138,7 +139,7 @@ func (a *Authenticator) NewEnrollment(ctx context.Context, username, password st
 	if err := CheckPassword(password, username); err != nil {
 		return Enrollment{}, err
 	}
-	step, ok := VerifyTOTP(secret, code, a.now(), -1)
+	step, ok := VerifyTOTP(secret, code, a.Now(), -1)
 	if !ok {
 		return Enrollment{}, ErrRejected
 	}

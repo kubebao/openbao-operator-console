@@ -35,6 +35,7 @@ Uploading a credential with broader privileges does not reduce them. Upload only
 | --- | --- |
 | Configuration (connections, access rules, relationships, policies, identity provider) | PostgreSQL, encrypted with AES-256-GCM and bound to its revision |
 | Kubernetes reader credentials | PostgreSQL, encrypted per connection with AES-256-GCM and bound to the connection ID and credential revision |
+| Local account credentials (Argon2id password hash, TOTP secret, recovery code digests) | PostgreSQL, encrypted per account with AES-256-GCM and bound to the account ID and credential revision |
 | Observations, findings, and activity | PostgreSQL, approved fields only; history kept for the configured retention (default seven days) |
 | Configuration changes | PostgreSQL: actor, time, revision, and changed area, without credential values |
 | Encryption key | Outside PostgreSQL, mounted from a Kubernetes Secret or file |
@@ -44,11 +45,13 @@ data, and provider error messages are not stored or returned by the API. Credent
 
 ## Authentication and sessions
 
-- Users sign in through OpenID Connect with the authorization code flow, PKCE (`S256`), and nonce verification.
+- Users sign in through OpenID Connect with the authorization code flow, PKCE (`S256`), and nonce verification, or with
+  a [local account](#local-accounts).
 - The console validates the ID token signature, issuer, and audience.
 - The browser receives an opaque `Secure`, `HttpOnly` session cookie. Provider tokens stay on the server and are not
   persisted.
-- Sessions expire after eight hours or at ID token expiry, whichever comes first. Sessions live in process memory.
+- Sessions expire after eight hours or at ID token expiry, whichever comes first. Sessions live in process memory. Each
+  sign-in issues a new session ID and ends the session the browser already had.
 - A login in progress lives in a `Secure`, `HttpOnly` cookie sealed with AES-256-GCM under a random per-process key. It
   expires after five minutes, and its state is accepted once. Unauthenticated login requests keep no server state, so
   they cannot block other sign-ins. A restart cancels logins that are in progress.
@@ -61,8 +64,31 @@ data, and provider error messages are not stored or returned by the API. Credent
 - Requests that change state require the public origin. The console compares origins case-insensitively and ignores
   an explicit default port.
 - API requests authenticate with the `__Host-console-session` cookie. Only the setup endpoints work without it: setup
-  status, unlock, and lock are public, and identity setup requires the `__Host-console-setup` cookie that a valid setup
-  token opens. `api/openapi.yaml` declares both cookies as security schemes.
+  status, unlock, and lock are public, and identity and local administrator setup require the `__Host-console-setup`
+  cookie that a valid setup token opens. Sign-in options and local sign-in are public. `api/openapi.yaml` declares both cookies as security schemes.
+
+## Local accounts
+
+Local accounts sign in with a username, a password, and a TOTP code from an authenticator app, or one of ten
+single-use recovery codes. OpenID Connect with multi-factor authentication at the provider remains the recommended
+sign-in for teams.
+
+- Passwords follow NIST SP 800-63B: at least 15 characters, up to 1024 bytes, Unicode NFKC normalization, no
+  composition rules, and a check against common, repetitive, keyboard-pattern, and context-specific values.
+- Passwords are hashed with Argon2id (19 MiB, two passes, one lane). At most four hashes run at once, which bounds
+  memory. Unknown usernames cost the same hashing work as known ones.
+- TOTP follows RFC 6238 (SHA-1, six digits, 30 seconds) and accepts one step of clock drift. A code is accepted once:
+  each sign-in stores the accepted step with compare-and-swap, so a replayed or concurrent code fails. Recovery codes
+  carry 80 random bits, are stored as SHA-256 digests, and are removed when used.
+- Every failed sign-in returns the same message, whether the username, password, or code was wrong.
+- After five failures for a username, each further attempt waits 30 seconds, doubling up to 15 minutes. The account is
+  never locked, so guessing cannot lock out an administrator. Unknown usernames are delayed the same way. Each client
+  address also has a limit of 30 failures per minute; see [trusted proxies](../charts/openbao-operator-console/README.md#trusted-proxies)
+  for clients behind an ingress. Failure counters live in process memory.
+- Local accounts match only the reserved `console:local` issuer. They are independent of the identity provider and its
+  issuer-scoped access rules, and they stay when the provider changes.
+- Credentials are keyed by a random account ID. A deleted account's credential cannot apply to a new account with the
+  same username; startup removes such leftover credentials.
 
 ## Authorization
 
@@ -82,7 +108,8 @@ data, and provider error messages are not stored or returned by the API. Credent
 ## First-run setup
 
 Protected browser setup requires a deployment-provided token, expires one hour after startup, rate-limits rejected
-tokens, and closes permanently once a verified login creates the first administrator. The valid token is never
+tokens, and closes permanently once a verified login or a local administrator with a verified authenticator code
+creates the first administrator. The valid token is never
 throttled, so failed guesses through a shared proxy address cannot lock out its holder. The console logs each rejected
 token with the client address, never the submitted value. Anyone who holds the setup token can become the first
 administrator, so restrict access to it and remove it after setup. See [first administrator setup](bootstrap.md).

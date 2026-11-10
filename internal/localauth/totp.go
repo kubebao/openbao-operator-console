@@ -64,6 +64,10 @@ func totpCode(secret []byte, step int64) string {
 	return fmt.Sprintf("%0*d", totpDigits, value%1_000_000)
 }
 
+// TOTPCode returns the code for secret at time at. Tests use it to act as an
+// authenticator app.
+func TOTPCode(secret []byte, at time.Time) string { return totpCode(secret, totpStep(at)) }
+
 // totpFormat reports whether code has the shape of a TOTP code after removing spaces.
 func totpFormat(code string) (string, bool) {
 	code = strings.ReplaceAll(code, " ", "")

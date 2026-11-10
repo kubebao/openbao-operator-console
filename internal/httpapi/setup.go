@@ -18,6 +18,7 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/clientip"
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/contract"
+	"github.com/kubebao/openbao-operator-console/internal/localauth"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
@@ -30,9 +31,12 @@ const (
 type setupSession struct {
 	expires time.Time
 	trial   uint64
-	// trials limits identity provider trials per unlocked session, so failed unlock
-	// attempts from a shared proxy address cannot block them.
+	// trials limits identity provider trials and local administrator attempts per
+	// unlocked session, so failed unlock attempts from a shared proxy address cannot
+	// block them.
 	trials setupRate
+	// totpSecret is the authenticator secret offered to the first local administrator.
+	totpSecret []byte
 }
 type setupRate struct {
 	start time.Time
@@ -56,6 +60,8 @@ func (r *setupRate) allow(now time.Time, limit int) bool {
 type Setup struct {
 	// Logger records rejected setup tokens as security events. Nil discards them.
 	Logger *slog.Logger
+	// Local creates the first local administrator. Nil offers OIDC setup only.
+	Local *localauth.Authenticator
 
 	mu             sync.Mutex
 	settings       *settings.Service
@@ -382,5 +388,13 @@ func (s *Server) setupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc(
 		"POST /api/v1/setup/identity",
 		guard(func(w http.ResponseWriter, request *http.Request) { s.Setup.identity(w, request) }),
+	)
+	mux.HandleFunc(
+		"POST /api/v1/setup/local/authenticator",
+		guard(func(w http.ResponseWriter, request *http.Request) { s.Setup.authenticator(w, request) }),
+	)
+	mux.HandleFunc(
+		"POST /api/v1/setup/local",
+		guard(func(w http.ResponseWriter, request *http.Request) { s.Setup.localAdministrator(w, request) }),
 	)
 }

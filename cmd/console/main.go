@@ -24,6 +24,7 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/demo"
 	"github.com/kubebao/openbao-operator-console/internal/httpapi"
+	"github.com/kubebao/openbao-operator-console/internal/localauth"
 	"github.com/kubebao/openbao-operator-console/internal/renewal"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 	"github.com/kubebao/openbao-operator-console/internal/store"
@@ -196,14 +197,22 @@ func runLive(ctx context.Context, o options, logger *slog.Logger) error {
 		return fmt.Errorf("database startup failed: %w", err)
 	}
 	defer pg.Close()
-	configuration, enrollment, err := openSettings(startup, pg, o)
+	key, err := readConfigKey(os.Getenv("CONSOLE_CONFIG_KEY_FILE"))
+	if err != nil {
+		return err
+	}
+	configuration, enrollment, err := openSettings(startup, pg, key, o)
 	if err != nil {
 		return err
 	}
 	if o.recoverIdentity {
 		return recoverConfiguration(startup, configuration, config.AccessRules(o.recoverAccessRules))
 	}
-	server, err := liveServer(startup, o, pg, configuration, enrollment, logger)
+	local, err := localAccounts(startup, pg, key, configuration)
+	if err != nil {
+		return err
+	}
+	server, err := liveServer(startup, o, pg, configuration, enrollment, local, logger)
 	if err != nil {
 		return err
 	}
@@ -223,11 +232,8 @@ func runLive(ctx context.Context, o options, logger *slog.Logger) error {
 
 // openSettings opens stored configuration. An empty database is seeded from the
 // enrollment file and bootstrap environment; without an identity it waits for browser setup.
-func openSettings(ctx context.Context, pg *store.Postgres, o options) (*settings.Service, config.Config, error) {
-	key, err := readConfigKey(os.Getenv("CONSOLE_CONFIG_KEY_FILE"))
-	if err != nil {
-		return nil, config.Config{}, err
-	}
+func openSettings(ctx context.Context, pg *store.Postgres, key []byte, o options) (*settings.Service, config.Config, error) {
+	var err error
 	var enrollment config.Config
 	_, loadErr := pg.LoadSettings(ctx)
 	switch {
@@ -252,12 +258,38 @@ func openSettings(ctx context.Context, pg *store.Postgres, o options) (*settings
 	return configuration, enrollment, nil
 }
 
+// localAccounts prepares local account sign-in. On a configured console, it removes
+// credentials whose account no longer exists, such as one left by a lost setup claim.
+func localAccounts(
+	ctx context.Context,
+	pg *store.Postgres,
+	key []byte,
+	configuration *settings.Service,
+) (*localauth.Authenticator, error) {
+	credentials, err := localauth.NewStore(pg, key)
+	if err != nil {
+		return nil, err
+	}
+	if configuration.Initialized() {
+		current, _ := configuration.Current()
+		if err := credentials.Prune(ctx, current.LocalAccountIDs()); err != nil {
+			return nil, fmt.Errorf("remove credentials of deleted local accounts: %w", err)
+		}
+	}
+	hasher, err := localauth.NewHasher()
+	if err != nil {
+		return nil, err
+	}
+	return localauth.NewAuthenticator(credentials, hasher, localauth.NewThrottle()), nil
+}
+
 func liveServer(
 	ctx context.Context,
 	o options,
 	pg *store.Postgres,
 	configuration *settings.Service,
 	enrollment config.Config,
+	local *localauth.Authenticator,
 	logger *slog.Logger,
 ) (*httpapi.Server, error) {
 	callback := environment("CONSOLE_OIDC_REDIRECT_URL")
@@ -272,6 +304,7 @@ func liveServer(
 	authentication.Logger = logger
 	if setup != nil {
 		setup.Logger = logger
+		setup.Local = local
 	}
 	return &httpapi.Server{
 		Fleet:           view.Live{Observations: pg, Enrollment: configuration},
@@ -284,6 +317,7 @@ func liveServer(
 		ReaderName:      o.readerName,
 		ReaderNamespace: o.readerNamespace,
 		ClientIP:        o.clientIP,
+		Local:           local,
 	}, nil
 }
 
@@ -298,7 +332,8 @@ func liveAuthentication(
 	if configuration.Initialized() {
 		current, _ := configuration.Current()
 		if current.Identity == nil {
-			return nil, nil, errors.New("identity provider is not configured")
+			// The console uses local accounts until an administrator adds a provider.
+			return auth.NewLocal(configuration.Resolve), nil, nil
 		}
 		provider, err := auth.Discover(ctx, *current.Identity, callback)
 		if err != nil {

@@ -354,6 +354,154 @@
                 },
             },
         },
+      "/api/v1/sign-in":
+        {
+          "get":
+            {
+              "operationId": "getSignInOptions",
+              "description": "Sign-in methods that this console offers.",
+              "security": [],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/SignInOptions",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+      "/api/v1/sign-in/local":
+        {
+          "post":
+            {
+              "operationId": "signInLocal",
+              "description": "Signs in with a local account. Success sets the session cookie. Every failure returns the same unauthenticated problem.",
+              "security": [],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            { "$ref": "#/components/schemas/LocalSignInInput" },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/LocalSignInResult",
+                                },
+                            },
+                        },
+                    },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "429": { "$ref": "#/components/responses/TooManyRequests" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
+                },
+            },
+        },
+      "/api/v1/setup/local/authenticator":
+        {
+          "post":
+            {
+              "operationId": "startSetupAuthenticator",
+              "description": "Creates a TOTP secret for the first local administrator. A new call replaces the previous secret.",
+              "security": [{ "setupSession": [] }],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/AuthenticatorEnrollment",
+                                },
+                            },
+                        },
+                    },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "409": { "$ref": "#/components/responses/Conflict" },
+                  "410": { "$ref": "#/components/responses/Gone" },
+                  "429": { "$ref": "#/components/responses/TooManyRequests" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
+                },
+            },
+        },
+      "/api/v1/setup/local":
+        {
+          "post":
+            {
+              "operationId": "createSetupAdministrator",
+              "description": "Creates the first local administrator, initializes the console, and signs the administrator in. The recovery codes are returned once.",
+              "security": [{ "setupSession": [] }],
+              "requestBody":
+                {
+                  "required": true,
+                  "content":
+                    {
+                      "application/json":
+                        {
+                          "schema":
+                            {
+                              "$ref": "#/components/schemas/LocalAdministratorInput",
+                            },
+                        },
+                    },
+                },
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Successful response",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                {
+                                  "$ref": "#/components/schemas/LocalEnrollmentResult",
+                                },
+                            },
+                        },
+                    },
+                  "400": { "$ref": "#/components/responses/BadRequest" },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "403": { "$ref": "#/components/responses/Forbidden" },
+                  "409": { "$ref": "#/components/responses/Conflict" },
+                  "410": { "$ref": "#/components/responses/Gone" },
+                  "429": { "$ref": "#/components/responses/TooManyRequests" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
+                },
+            },
+        },
       "/api/v1/setup/lock":
         {
           "post":
@@ -458,7 +606,7 @@
               "type": "apiKey",
               "in": "cookie",
               "name": "__Host-console-session",
-              "description": "Signed-in console session, set by the OIDC callback. Demo mode accepts every request without it.",
+              "description": "Signed-in console session, set by the OIDC callback or local sign-in. Demo mode accepts every request without it.",
             },
           "setupSession":
             {
@@ -1875,6 +2023,113 @@
               "additionalProperties": false,
               "required": ["url"],
               "properties": { "url": { "type": "string" } },
+            },
+          "SignInOptions":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["singleSignOn", "localAccounts"],
+              "properties":
+                {
+                  "singleSignOn": { "type": "boolean" },
+                  "localAccounts": { "type": "boolean" },
+                },
+            },
+          "LocalSignInInput":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["username", "password", "code"],
+              "properties":
+                {
+                  "username":
+                    { "type": "string", "minLength": 1, "maxLength": 64 },
+                  "password":
+                    { "type": "string", "minLength": 1, "maxLength": 1024 },
+                  "code":
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "description": "A six-digit authenticator code or a recovery code.",
+                    },
+                },
+            },
+          "LocalSignInResult":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["recoveryCodeUsed", "recoveryCodesLeft"],
+              "properties":
+                {
+                  "recoveryCodeUsed": { "type": "boolean" },
+                  "recoveryCodesLeft":
+                    { "type": "integer", "minimum": 0, "maximum": 10 },
+                },
+            },
+          "AuthenticatorEnrollment":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["key", "uri", "qrSize", "qrPath"],
+              "properties":
+                {
+                  "key":
+                    {
+                      "type": "string",
+                      "description": "Base32 TOTP secret for manual entry.",
+                    },
+                  "uri":
+                    {
+                      "type": "string",
+                      "description": "otpauth URI that the QR code carries.",
+                    },
+                  "qrSize":
+                    {
+                      "type": "integer",
+                      "minimum": 21,
+                      "description": "QR code width in modules, including the quiet zone.",
+                    },
+                  "qrPath":
+                    {
+                      "type": "string",
+                      "description": "SVG path data with one unit square per dark module.",
+                    },
+                },
+            },
+          "LocalAdministratorInput":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["username", "name", "password", "code"],
+              "properties":
+                {
+                  "username":
+                    {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+                    },
+                  "name": { "type": "string", "maxLength": 256 },
+                  "password":
+                    { "type": "string", "minLength": 1, "maxLength": 1024 },
+                  "code": { "type": "string", "minLength": 6, "maxLength": 16 },
+                },
+            },
+          "LocalEnrollmentResult":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["recoveryCodes"],
+              "properties":
+                {
+                  "recoveryCodes":
+                    {
+                      "type": "array",
+                      "minItems": 10,
+                      "maxItems": 10,
+                      "items": { "type": "string" },
+                    },
+                },
             },
           "SetupStatus":
             {

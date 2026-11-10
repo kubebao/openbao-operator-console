@@ -150,6 +150,74 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/api/v1/sign-in": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** @description Sign-in methods that this console offers. */
+        readonly get: operations["getSignInOptions"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/sign-in/local": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /** @description Signs in with a local account. Success sets the session cookie. Every failure returns the same unauthenticated problem. */
+        readonly post: operations["signInLocal"];
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/setup/local/authenticator": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /** @description Creates a TOTP secret for the first local administrator. A new call replaces the previous secret. */
+        readonly post: operations["startSetupAuthenticator"];
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/setup/local": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /** @description Creates the first local administrator, initializes the console, and signs the administrator in. The recovery codes are returned once. */
+        readonly post: operations["createSetupAdministrator"];
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/api/v1/setup/lock": {
         readonly parameters: {
             readonly query?: never;
@@ -634,6 +702,39 @@ export interface components {
         readonly LoginRedirect: {
             readonly url: string;
         };
+        readonly SignInOptions: {
+            readonly singleSignOn: boolean;
+            readonly localAccounts: boolean;
+        };
+        readonly LocalSignInInput: {
+            readonly username: string;
+            readonly password: string;
+            /** @description A six-digit authenticator code or a recovery code. */
+            readonly code: string;
+        };
+        readonly LocalSignInResult: {
+            readonly recoveryCodeUsed: boolean;
+            readonly recoveryCodesLeft: number;
+        };
+        readonly AuthenticatorEnrollment: {
+            /** @description Base32 TOTP secret for manual entry. */
+            readonly key: string;
+            /** @description otpauth URI that the QR code carries. */
+            readonly uri: string;
+            /** @description QR code width in modules, including the quiet zone. */
+            readonly qrSize: number;
+            /** @description SVG path data with one unit square per dark module. */
+            readonly qrPath: string;
+        };
+        readonly LocalAdministratorInput: {
+            readonly username: string;
+            readonly name: string;
+            readonly password: string;
+            readonly code: string;
+        };
+        readonly LocalEnrollmentResult: {
+            readonly recoveryCodes: readonly string[];
+        };
         readonly SetupStatus: {
             /** @enum {string} */
             readonly state: "required" | "unlocked" | "complete" | "expired";
@@ -1039,6 +1140,112 @@ export interface operations {
                 };
                 content: {
                     readonly "application/json": components["schemas"]["LoginRedirect"];
+                };
+            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 409: components["responses"]["Conflict"];
+            readonly 410: components["responses"]["Gone"];
+            readonly 429: components["responses"]["TooManyRequests"];
+            readonly 503: components["responses"]["Unavailable"];
+        };
+    };
+    readonly getSignInOptions: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["SignInOptions"];
+                };
+            };
+        };
+    };
+    readonly signInLocal: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["LocalSignInInput"];
+            };
+        };
+        readonly responses: {
+            /** @description Successful response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["LocalSignInResult"];
+                };
+            };
+            readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 429: components["responses"]["TooManyRequests"];
+            readonly 503: components["responses"]["Unavailable"];
+        };
+    };
+    readonly startSetupAuthenticator: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["AuthenticatorEnrollment"];
+                };
+            };
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 403: components["responses"]["Forbidden"];
+            readonly 409: components["responses"]["Conflict"];
+            readonly 410: components["responses"]["Gone"];
+            readonly 429: components["responses"]["TooManyRequests"];
+            readonly 503: components["responses"]["Unavailable"];
+        };
+    };
+    readonly createSetupAdministrator: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["LocalAdministratorInput"];
+            };
+        };
+        readonly responses: {
+            /** @description Successful response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["LocalEnrollmentResult"];
                 };
             };
             readonly 400: components["responses"]["BadRequest"];

@@ -105,3 +105,17 @@ func TestFindLocalAccountIgnoresCase(t *testing.T) {
 		t.Fatalf("invalid generated ID %q", id)
 	}
 }
+
+func TestTheFirstProviderOfALocalConsoleNeedsNoAccessDecision(t *testing.T) {
+	c := localFixture()
+	c.Identity, c.AccessIssuer, c.Users, c.Groups = nil, "", []User{}, []Group{}
+	if err := c.ReplaceIdentity(Identity{Issuer: gitlabIssuer, ClientID: "console"}, AccessRulesRemove); err == nil {
+		t.Fatal("a decision was accepted without existing access")
+	}
+	if err := c.ReplaceIdentity(Identity{Issuer: gitlabIssuer, ClientID: "console"}, ""); err != nil {
+		t.Fatal(err)
+	}
+	if c.AccessIssuer != gitlabIssuer || len(c.LocalAccounts) != 2 || c.Validate() != nil {
+		t.Fatal("the first provider was not activated")
+	}
+}

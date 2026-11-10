@@ -43,7 +43,10 @@ type Authenticator struct {
 	now     func() time.Time
 
 	mu       sync.Mutex
-	provider *Provider // nil while setup is pending
+	provider *Provider // nil while setup is pending or without an identity provider
+	// local reports a configured console without an identity provider. Viewers sign in
+	// with local accounts only.
+	local bool
 }
 
 // NewDemo signs every request in as a fixed, scoped demonstration viewer.
@@ -59,6 +62,26 @@ func New(provider *Provider, resolve Resolver) *Authenticator {
 	authenticator := NewPending(resolve)
 	authenticator.provider = provider
 	return authenticator
+}
+
+// NewLocal serves a configured console that has no identity provider yet.
+func NewLocal(resolve Resolver) *Authenticator {
+	authenticator := NewPending(resolve)
+	authenticator.local = true
+	return authenticator
+}
+
+// CompleteLocalSetup records that setup finished with a local administrator.
+func (a *Authenticator) CompleteLocalSetup() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.local = true
+}
+
+func (a *Authenticator) localOnly() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.local && a.provider == nil
 }
 
 func (a *Authenticator) activeProvider() *Provider {
@@ -145,7 +168,12 @@ func (a *Authenticator) Login(w http.ResponseWriter, request *http.Request) {
 	}
 	provider := a.activeProvider()
 	if provider == nil {
-		http.Redirect(w, request, "/setup", http.StatusSeeOther)
+		// Without a provider, setup is pending or the console uses local accounts only.
+		target := "/setup"
+		if a.localOnly() {
+			target = "/"
+		}
+		http.Redirect(w, request, target, http.StatusSeeOther)
 		return
 	}
 	location, err := a.begin(w, provider, request.URL.Query().Get("returnTo"), "")

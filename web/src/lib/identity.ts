@@ -11,7 +11,9 @@ export interface AffectedBinding {
 // issuerChanges reports whether a candidate issuer differs from the active issuer. The
 // comparison is exact because ID tokens must carry the exact configured issuer.
 export function issuerChanges(activeIssuer: string, candidateIssuer: string): boolean {
-  return activeIssuer !== candidateIssuer
+  // Without an active provider, the console uses local accounts only and the first
+  // provider needs no decision about existing access.
+  return activeIssuer !== '' && activeIssuer !== candidateIssuer
 }
 
 // affectedBindings lists every user and group binding. All of them belong to the active

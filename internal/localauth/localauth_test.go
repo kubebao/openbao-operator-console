@@ -310,7 +310,7 @@ func newSignIn(t *testing.T) *signIn {
 	}
 	s := &signIn{now: time.Unix(1_800_000_000, 0)}
 	s.authenticator = NewAuthenticator(store, hasher, NewThrottle())
-	s.authenticator.now = func() time.Time { return s.now }
+	s.authenticator.Now = func() time.Time { return s.now }
 	s.authenticator.Throttle.now = func() time.Time { return s.now }
 	s.secret, _ = NewTOTPSecret()
 	enrollment, err := s.authenticator.NewEnrollment(
@@ -392,5 +392,15 @@ func TestNewEnrollmentRequiresAPolicyPasswordAndAWorkingAuthenticator(t *testing
 	}
 	if _, err := s.authenticator.NewEnrollment(context.Background(), "bob", "maple river lantern 42", secret, "000000"); err == nil {
 		t.Fatal("enrollment without a valid code succeeded")
+	}
+}
+
+func TestNewQRCodeDrawsModulesInsideTheQuietZone(t *testing.T) {
+	code, err := NewQRCode(TOTPURI(make([]byte, totpSecretBytes), "alice"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code.Size < 21+2*qrQuietZone || !strings.HasPrefix(code.Path, "M4 4h") || strings.ContainsAny(code.Path, "<>\"'") {
+		t.Fatalf("unexpected QR code %d %q", code.Size, code.Path[:20])
 	}
 }

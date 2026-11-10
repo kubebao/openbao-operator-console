@@ -57,8 +57,8 @@ an official OpenBao project.
   automatic ServiceAccount token renewal for remote clusters.
 - **Guided onboarding.** Generated least-privilege reader RBAC, connection checks, and deployment previews before a
   cluster is saved.
-- **Scoped access.** OpenID Connect login with PKCE, per-user and per-group namespace scopes, and administrator-only
-  settings with a change history.
+- **Scoped access.** OpenID Connect login with PKCE, or local accounts with a password and an authenticator app;
+  per-user and per-group namespace scopes; and administrator-only settings with a change history.
 - **Built for operators.** Light and dark themes, keyboard search (<kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>K</kbd>),
   responsive layout, and reduced-motion support.
 
@@ -126,7 +126,7 @@ encrypted configuration in PostgreSQL. See [architecture](docs/architecture.md) 
 | OpenBao Operator | Clusters managed by the [OpenBao Operator](https://github.com/kubebao/openbao-operator) (`openbao.org/v1alpha1` APIs) |
 | Kubernetes | 1.33 or later for the Helm chart; a namespace-scoped reader per cluster; the hosting cluster can use the console's ServiceAccount |
 | PostgreSQL | An external database; CI tests PostgreSQL 18 |
-| Identity provider | An OpenID Connect provider with authorization code flow and PKCE, such as Keycloak; the client is registered during setup |
+| Identity provider | Recommended: an OpenID Connect provider with authorization code flow and PKCE, such as Keycloak. A local administrator with an authenticator app works without one |
 | Network | HTTPS in front of the console, through an ingress, a gateway, or direct TLS |
 
 A compatibility matrix with operator releases will be published with the first console release.

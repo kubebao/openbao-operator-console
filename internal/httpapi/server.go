@@ -15,6 +15,7 @@ import (
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/contract"
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
+	"github.com/kubebao/openbao-operator-console/internal/localauth"
 	"github.com/kubebao/openbao-operator-console/internal/settings"
 )
 
@@ -33,6 +34,10 @@ type Server struct {
 	Setup           *Setup
 	// ClientIP resolves client addresses behind trusted proxies for rate limits and logs.
 	ClientIP clientip.Resolver
+	// Local verifies local account sign-ins. Nil disables them, as in demo mode.
+	Local *localauth.Authenticator
+
+	signInLimits clientLimiter
 }
 
 // Fleet provides the fleet and pages of retained history and activity. Activity applies
@@ -79,6 +84,7 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	s.setupRoutes(mux)
 	s.settingsRoutes(mux)
+	s.signInRoutes(mux)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	mux.HandleFunc("GET /readyz", s.ready)
 	mux.HandleFunc("GET /auth/login", s.Auth.Login)
