@@ -148,7 +148,7 @@ class EdgeBoundaryTests(unittest.TestCase):
                     archive.add(self.directory, arcname=".")
 
             pack()
-            command = [sys.executable, str(ROOT / "scripts/edge-bundle.py"), "unpack", str(path / "qualified"),
+            command = [sys.executable, str(ROOT / "scripts/edge-bundle.py"), "unpack", str(path / "dist" / "qualified"),
                        "--bundle", str(path / "candidate.tar"), "--repository", REPOSITORY, "--sha", SHA,
                        "--run-id", "123", "--run-attempt", "2"]
             result = subprocess.run(command, capture_output=True, text=True)

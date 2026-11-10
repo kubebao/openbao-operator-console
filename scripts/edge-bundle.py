@@ -161,7 +161,7 @@ def unpack(source, directory):
                 raise ValueError("unsafe edge bundle member")
             names.add(name)
             members.append((member, name))
-        directory.mkdir()
+        directory.mkdir(parents=True)
         for member, name in members:
             with (directory / name).open("xb") as output:
                 shutil.copyfileobj(archive.extractfile(member), output)
