@@ -25,6 +25,8 @@ The collector and reader RBAC target the operator's `openbao.org/v1alpha1` API g
 - **Calm interaction.** Fast filter transitions and restrained motion support investigation. Reduced motion is
   respected, and light and dark themes share semantic color tokens.
 
+![Attention workspace in the dark theme](images/attention-dark.png)
+
 ## Runtime
 
 One Go executable serves the compiled React application and a versioned JSON API. It runs scoped Kubernetes collectors.

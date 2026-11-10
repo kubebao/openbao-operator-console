@@ -72,6 +72,8 @@ Add a relationship by selecting observed source and target deployments. The cons
 recreated resource cannot inherit the old relationship. Snapshot storage is a display value, not a backup catalog or a
 verified recovery point. The topology view and recovery details display available evidence for each selected path.
 
+![Snapshot recovery path with recorded evidence and the latest restore test](images/recovery-path.png)
+
 ## Manage local accounts
 
 Local accounts sign in with a username, a password, and an authenticator app. They suit small installations and a

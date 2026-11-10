@@ -22,7 +22,10 @@ ServiceAccount tokens can then use [automatic renewal](credential-renewal.md).
    **Connect cluster** to start collection, or **Save paused** to retain the enrollment without starting collection.
 
 After connecting, the console polls until the first collection completes and lists the observed deployments. **View
-deployments** opens the fleet filtered to the new cluster.
+deployments** opens the fleet filtered to the new cluster. In **Topology**, select the cluster to see its operators,
+deployments, relationships, and API access.
+
+![Topology view of one cluster with its operators, deployments, relationships, and API access](images/clusters.png)
 
 Reader manifests grant namespace-scoped `list` access to `OpenBaoCluster`, `OpenBaoRestore`, and `OpenBaoRecovery`.
 Named operator observation adds `get` access to the declared Deployment. Automatic renewal adds `create` on

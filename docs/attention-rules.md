@@ -7,6 +7,8 @@ the evidence rows that triggered them.
 The overview tiles group findings by availability, backups, restore tests, and lifecycle. The History tab lists every
 recorded change, including when each finding was raised or resolved.
 
+![History tab with state over seven days and a timeline of recorded changes](images/history.png)
+
 Rules use current evidence only. When collection fails, the console keeps the last known findings and adds a collection
 finding instead of treating missing evidence as recovery.
 
@@ -20,6 +22,8 @@ finding instead of treating missing evidence as recovery.
 | Unknown | Replica counts are missing or desired replicas are zero, and no finding applies. |
 
 The Fleet view sorts by state in that order: critical, attention, unknown, then healthy.
+
+![Fleet view with deployments sorted by state](images/fleet.png)
 
 ## Rules
 
@@ -47,6 +51,11 @@ Administrators set two thresholds in **Settings → Policies**:
 | --- | --- | --- |
 | Maximum backup age | 24 hours | A configured backup older than this raises **Backup is overdue**. |
 | Startup grace | 10 minutes | Replica findings wait this long after a deployment is created. A recovery request without a reported phase counts as pending this long after it is created. |
+
+The Backups tab shows the age of the last successful backup against the maximum backup age, backup activity over the
+last seven days, and the latest restore test.
+
+![Backups tab with backup age against policy, a week of backup activity, and restore-test evidence](images/backup-evidence.png)
 
 ## Collection and freshness
 
