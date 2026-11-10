@@ -73,11 +73,18 @@ function Profile({ viewer, live }: { viewer: Snapshot['viewer']; live: boolean }
       <div>
         <strong title={viewer.subject}>{viewer.name || viewer.subject}</strong>
         {live && (
-          <form method="post" action="/auth/logout">
-            <button className="sign-out" type="submit">
-              Sign out
-            </button>
-          </form>
+          <div className="profile-actions">
+            {viewer.localAccount && (
+              <Link to="/account" className="sign-out">
+                Your account
+              </Link>
+            )}
+            <form method="post" action="/auth/logout">
+              <button className="sign-out" type="submit">
+                Sign out
+              </button>
+            </form>
+          </div>
         )}
       </div>
     </div>

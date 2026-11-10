@@ -110,7 +110,7 @@ export function AccessEditor({
   )
 }
 
-function ScopePicker({
+export function ScopePicker({
   configuration,
   scopes,
   onChange,

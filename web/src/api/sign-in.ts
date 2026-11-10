@@ -57,8 +57,28 @@ export const localEnrollmentResultSchema: z.ZodType<
   components['schemas']['LocalEnrollmentResult']
 > = localEnrollmentResultObject
 
+export type LocalAccountEnrollment = components['schemas']['LocalAccountEnrollment']
+export type EnrollmentStart = components['schemas']['EnrollmentStart']
+
+const localAccountEnrollmentObject = z.object({
+  accountId: z.string(),
+  enrollmentUrl: z.url().refine((value) => value.startsWith('https://'), 'Links must use HTTPS.'),
+  expiresAt: z.iso.datetime({ offset: true }),
+})
+const enrollmentStartObject = z.object({
+  username: z.string(),
+  name: z.string(),
+  expiresAt: z.iso.datetime({ offset: true }),
+  authenticator: authenticatorEnrollmentObject,
+})
+export const localAccountEnrollmentSchema: z.ZodType<LocalAccountEnrollment> =
+  localAccountEnrollmentObject
+export const enrollmentStartSchema: z.ZodType<EnrollmentStart> = enrollmentStartObject
+
 // SignInContractSchemas exposes the unannotated schemas to the contract test.
 const signInContractSchemas = {
+  localAccountEnrollment: localAccountEnrollmentObject,
+  enrollmentStart: enrollmentStartObject,
   setupStatus: setupStatusObject,
   loginRedirect: loginRedirectObject,
   signInOptions: signInOptionsObject,

@@ -42,7 +42,8 @@ export function Shell() {
       </div>
     )
   if (setup.data.state !== 'complete' && pathname !== '/setup') return <Navigate to="/setup" />
-  if (pathname === '/setup') return <Outlet />
+  // Setup and enrollment links serve viewers who are not signed in yet.
+  if (pathname === '/setup' || pathname === '/enroll') return <Outlet />
   return <WorkspaceShell theme={theme} setTheme={setTheme} />
 }
 

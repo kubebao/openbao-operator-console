@@ -48,6 +48,10 @@ describe('runtime schemas accept the generated contract', () => {
     expectTypeOf<Contract['AuthenticatorEnrollment']>().toExtend<
       SignInInput<'authenticatorEnrollment'>
     >()
+    expectTypeOf<Contract['LocalAccountEnrollment']>().toExtend<
+      SignInInput<'localAccountEnrollment'>
+    >()
+    expectTypeOf<Contract['EnrollmentStart']>().toExtend<SignInInput<'enrollmentStart'>>()
     expectTypeOf<Contract['LocalEnrollmentResult']>().toExtend<
       SignInInput<'localEnrollmentResult'>
     >()

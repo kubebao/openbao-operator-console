@@ -15,6 +15,8 @@ import { TopologyPage } from './pages/topology'
 import { TopologyClusterPage } from './pages/topology-cluster'
 import { TopologyRelationshipPage } from './pages/topology-relationship'
 import { SetupPage } from './pages/setup'
+import { EnrollPage } from './pages/enroll'
+import { AccountPage } from './pages/account'
 import { ClusterOnboardingPage } from './pages/cluster-onboarding'
 import { RouteError, RouteNotFound } from './components/route-states'
 
@@ -30,6 +32,12 @@ const setup = createRoute({
   validateSearch: (search: SearchSchemaInput & { result?: string }) =>
     z.object({ result: z.enum(['', 'failed', 'expired']).catch('') }).parse(search),
   component: SetupPage,
+})
+const enroll = createRoute({ getParentRoute: () => root, path: '/enroll', component: EnrollPage })
+const account = createRoute({
+  getParentRoute: () => root,
+  path: '/account',
+  component: AccountPage,
 })
 const clusterOnboarding = createRoute({
   getParentRoute: () => root,
@@ -77,7 +85,15 @@ const settings = createRoute({
     z
       .object({
         section: z
-          .enum(['connections', 'access', 'relationships', 'policies', 'identity', 'changes'])
+          .enum([
+            'connections',
+            'access',
+            'local',
+            'relationships',
+            'policies',
+            'identity',
+            'changes',
+          ])
           .catch('connections'),
       })
       .parse(search),
@@ -103,6 +119,8 @@ export const router = createRouter({
   routeTree: root.addChildren([
     attention,
     setup,
+    enroll,
+    account,
     clusterOnboarding,
     fleet,
     deployment,

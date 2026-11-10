@@ -31,11 +31,12 @@ import type {
 } from './schema'
 import type { LocalAdministratorInput } from './sign-in'
 
-const client = createClient<paths>()
+// client is shared with the sibling API modules.
+export const client = createClient<paths>()
 const firstPage: string | null = null
 
 // Query keys are shared by queries and the mutations that refresh them.
-const queryKeys = {
+export const queryKeys = {
   snapshot: ['snapshot'],
   setup: ['setup'],
   signIn: ['sign-in'],
@@ -66,7 +67,7 @@ function readFailure(response: Response, body: unknown, message: string): APIErr
 
 // requestFailure shows the server's problem detail, which is written for the requester.
 // A body that is not valid problem details falls back to a generic message.
-function requestFailure(response: Response, body: unknown, fallback: string): APIError {
+export function requestFailure(response: Response, body: unknown, fallback: string): APIError {
   const problem = problemSchema.safeParse(body)
   return problem.success
     ? new APIError(response.status, problem.data.detail, problem.data.code)

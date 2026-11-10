@@ -20,6 +20,7 @@ import { ConnectionDialog } from '../components/settings/connection-dialog'
 import { ConnectionsSection } from '../components/settings/connections-section'
 import { PrunedReferenceList } from '../components/settings/pruned-references'
 import { IdentitySettings } from '../components/settings/identity-settings'
+import { LocalAccountsSection } from '../components/settings/local-accounts-section'
 import { PolicySettings } from '../components/settings/policy-settings'
 import { RelationshipsSection } from '../components/settings/relationships-section'
 import { SettingsEditor } from '../components/settings-editor'
@@ -41,6 +42,7 @@ import {
 const sections = [
   'connections',
   'access',
+  'local',
   'relationships',
   'policies',
   'identity',
@@ -50,6 +52,7 @@ type Section = (typeof sections)[number]
 const sectionLabels: Record<Section, string> = {
   connections: 'Clusters',
   access: 'Access',
+  local: 'Local accounts',
   relationships: 'Relationships',
   policies: 'Policies',
   identity: 'Identity provider',
@@ -231,6 +234,14 @@ function SettingsWorkspace({
           }}
           onRemove={(grantKind, grant, label) => {
             remove(label, withoutGrant(configuration, grantKind, grant.key))
+          }}
+        />
+      )}
+      {section === 'local' && (
+        <LocalAccountsSection
+          settings={settings}
+          onError={(message) => {
+            onError(message)
           }}
         />
       )}

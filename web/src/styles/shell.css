@@ -506,3 +506,12 @@
   color: var(--muted-foreground);
   font-size: var(--text-xs);
 }
+
+.profile strong {
+  display: block;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 0.8rem;
+}
