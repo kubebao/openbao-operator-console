@@ -70,6 +70,7 @@ the release name `openbao-operator-console`, the Deployment, Service, and Servic
 | `nodeSelector` | `{}` | Pod node selector. |
 | `tolerations` | `[]` | Pod tolerations. |
 | `affinity` | `{}` | Pod affinity. |
+| `tls.secretName` | `""` | `kubernetes.io/tls` Secret for HTTPS served by the console itself. The Service port then carries HTTPS. Leave empty when an ingress or Gateway terminates TLS. |
 | `service.type` | `ClusterIP` | Service type. |
 | `service.port` | `8090` | Service port. |
 | `service.annotations` | `{}` | Service annotations. |

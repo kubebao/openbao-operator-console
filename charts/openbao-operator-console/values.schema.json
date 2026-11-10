@@ -270,6 +270,16 @@
         "not": { "enum": ["0.0.0.0/0", "::/0"] }
       }
     },
+    "tls": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "secretName": {
+          "type": "string",
+          "description": "kubernetes.io/tls Secret for HTTPS served by the console itself. Empty when an ingress or Gateway terminates TLS."
+        }
+      }
+    },
     "networkPolicy": {
       "type": "object",
       "additionalProperties": false,

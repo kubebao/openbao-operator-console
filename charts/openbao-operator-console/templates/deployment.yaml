@@ -48,6 +48,10 @@ spec:
             - --config=/etc/console/enrollment.yaml
             - --reader-name={{ include "console.serviceAccountName" . }}
             - --reader-namespace={{ .Release.Namespace }}
+            {{- if .Values.tls.secretName }}
+            - --tls-cert=/etc/console/tls/tls.crt
+            - --tls-key=/etc/console/tls/tls.key
+            {{- end }}
           ports:
             - name: http
               containerPort: 8090
@@ -108,20 +112,34 @@ spec:
             httpGet:
               path: /readyz
               port: http
+              {{- if .Values.tls.secretName }}
+              scheme: HTTPS
+              {{- end }}
           livenessProbe:
             httpGet:
               path: /healthz
               port: http
+              {{- if .Values.tls.secretName }}
+              scheme: HTTPS
+              {{- end }}
           startupProbe:
             httpGet:
               path: /healthz
               port: http
+              {{- if .Values.tls.secretName }}
+              scheme: HTTPS
+              {{- end }}
             periodSeconds: 5
             failureThreshold: 12
           volumeMounts:
             - name: configuration-key
               mountPath: /etc/console/key
               readOnly: true
+            {{- if .Values.tls.secretName }}
+            - name: tls
+              mountPath: /etc/console/tls
+              readOnly: true
+            {{- end }}
             - name: setup-token
               mountPath: /etc/console/setup
               readOnly: true
@@ -152,6 +170,17 @@ spec:
             items:
               - key: CONFIG_KEY
                 path: config-key
+        {{- if .Values.tls.secretName }}
+        - name: tls
+          secret:
+            secretName: {{ .Values.tls.secretName }}
+            defaultMode: 0440
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+        {{- end }}
         - name: enrollment
           configMap:
             name: {{ include "console.fullname" . }}-enrollment

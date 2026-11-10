@@ -11,6 +11,8 @@ Releases publish a signed image to `ghcr.io/kubebao/openbao-operator-console` an
 > No release has been published yet. Until then, [build the image](#build-the-image-before-the-first-release) and
 > install the chart from a checkout.
 
+To try the console first, [evaluate it on a local cluster](evaluation.md).
+
 The examples install the release `openbao-operator-console` in the namespace `console-system`. With that release name,
 the Deployment, Service, and ServiceAccount are named `openbao-operator-console`.
 
@@ -22,7 +24,8 @@ the Deployment, Service, and ServiceAccount are named `openbao-operator-console`
 - An OpenID Connect provider that supports the authorization code flow with PKCE (`S256`), recommended for teams. See
   [Keycloak](keycloak.md) for a worked example. You register the client during setup. Without a provider, start with a
   local administrator and add the provider later.
-- A public HTTPS address, such as `https://console.example.com`, served by an ingress controller or a Gateway.
+- A public HTTPS address, such as `https://console.example.com`, served by an ingress controller or a Gateway. The
+  console can also serve HTTPS itself with `tls.secretName`.
 
 ## 1. Prepare PostgreSQL
 

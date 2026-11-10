@@ -46,6 +46,8 @@ affinity:
           labelSelector:
             matchLabels:
               app.kubernetes.io/name: openbao-operator-console
+tls:
+  secretName: console-serving-tls
 service:
   annotations:
     example.com/service: console

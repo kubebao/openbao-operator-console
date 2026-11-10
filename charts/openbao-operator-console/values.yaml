@@ -117,6 +117,12 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
+# Serve HTTPS from the console itself with a kubernetes.io/tls Secret, for example when a
+# load balancer or port-forward passes TLS through. Leave empty when an ingress or Gateway
+# terminates TLS. The Service port then carries HTTPS.
+tls:
+  secretName: ""
+
 service:
   type: ClusterIP
   port: 8090
