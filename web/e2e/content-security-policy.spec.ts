@@ -66,7 +66,14 @@ test('dialogs, menus, and charts render without policy violations', async ({ pag
   await page.goto('/deployments/payments?tab=history')
   await expect(page.getByRole('heading', { name: 'Recorded changes' })).toBeVisible()
   await page.goto('/topology')
-  await page.locator('.map-edge').first().hover()
+  // Hover the label of a labelled edge. An unlabelled straight edge has a zero-height box,
+  // and the center of a bent edge's box can fall on a cluster card instead of the line.
+  const edge = page
+    .locator('.map-edge')
+    .filter({ has: page.locator('rect') })
+    .first()
+  await edge.locator('rect').hover()
+  await expect(edge).toHaveClass(/\bhot\b/)
   await page.goto('/topology/relationships/payments-recovery')
   await administrator(page)
   await page.goto('/settings?section=access')
