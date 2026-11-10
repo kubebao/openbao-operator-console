@@ -298,7 +298,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 --------------------------------------------------------------------------------
 
-github.com/go-jose/go-jose/v4 v4.1.6
+github.com/go-jose/go-jose/v4 v4.1.8
 License: Apache-2.0
 
                                  Apache License
@@ -505,7 +505,7 @@ License: Apache-2.0
 
 --------------------------------------------------------------------------------
 
-github.com/go-jose/go-jose/v4/json v4.1.6
+github.com/go-jose/go-jose/v4/json v4.1.8
 License: BSD-3-Clause
 
 Copyright (c) 2012 The Go Authors. All rights reserved.
@@ -801,7 +801,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 --------------------------------------------------------------------------------
 
-github.com/jackc/pgx/v5 v5.11.0
+github.com/jackc/pgx/v5 v5.12.0
 License: MIT
 
 Copyright (c) 2013-2021 Jack Christensen
@@ -829,7 +829,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 --------------------------------------------------------------------------------
 
-github.com/jackc/puddle/v2 v2.2.2
+github.com/jackc/puddle/v2 v2.2.3
 License: MIT
 
 Copyright (c) 2018 Jack Christensen
@@ -1636,7 +1636,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 --------------------------------------------------------------------------------
 
-golang.org/x/net v0.61.0
+golang.org/x/net v0.62.0
 License: BSD-3-Clause
 
 Copyright 2009 The Go Authors.
@@ -1901,7 +1901,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 --------------------------------------------------------------------------------
 
-k8s.io/apimachinery/pkg v0.37.1
+k8s.io/apimachinery/pkg v0.37.2
 License: Apache-2.0
 
                                  Apache License
@@ -2108,7 +2108,7 @@ License: Apache-2.0
 
 --------------------------------------------------------------------------------
 
-k8s.io/apimachinery/third_party/forked/golang/reflect v0.37.1
+k8s.io/apimachinery/third_party/forked/golang/reflect v0.37.2
 License: BSD-3-Clause
 
 Copyright (c) 2009 The Go Authors. All rights reserved.
@@ -2141,7 +2141,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 --------------------------------------------------------------------------------
 
-k8s.io/client-go v0.37.1
+k8s.io/client-go v0.37.2
 License: Apache-2.0
 
                                  Apache License
