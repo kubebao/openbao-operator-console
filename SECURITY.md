@@ -15,16 +15,18 @@ not include exploit details.
 
 Security fixes are provided for:
 
-- The latest released version.
+- The latest stable release.
 
-No release has been published yet. Until then, fixes are made on the `main` branch.
+No stable release has been published yet. Until then, fixes are made on the `main` branch. Edge builds receive fixes
+through new builds of `main`; older edge builds are not maintained.
 
 ## Supply Chain
 
-From the first release, release artifacts are published to GHCR by the release workflow in this repository:
+Release artifacts are published by the stable release and edge publication workflows in this repository:
 
 - the multi-architecture container image `ghcr.io/kubebao/openbao-operator-console`;
-- the OCI Helm chart `oci://ghcr.io/kubebao/charts/openbao-operator-console`;
+- the stable OCI Helm chart `oci://ghcr.io/kubebao/charts/openbao-operator-console` and development charts in
+  `oci://ghcr.io/kubebao/charts-edge/openbao-operator-console`;
 - SPDX SBOMs, `THIRD_PARTY_LICENSES`, and `checksums.txt` attached to the GitHub release.
 
 The image and chart are signed with keyless Sigstore signing through GitHub Actions OIDC, and carry signed SLSA build

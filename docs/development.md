@@ -63,6 +63,7 @@ Open <http://127.0.0.1:8090>.
 | `make image` | Container image for the local platform; set `IMAGE` to choose the tag |
 | `make licenses` | Regenerates `THIRD_PARTY_LICENSES` from Go and production web dependencies |
 | `make check-licenses` | Fails when `THIRD_PARTY_LICENSES` is out of date |
+| `make check-release-tools` | Edge source/artifact boundary tests, publication failure tests, ShellCheck, and pinned actionlint |
 | `make vulncheck` | `govulncheck` for reachable vulnerabilities in Go code and the standard library |
 | `make audit` | `pnpm audit` for production web dependencies |
 
@@ -89,6 +90,10 @@ running checks. The jobs run in parallel:
 | Go vulnerabilities | `make vulncheck` |
 | Web dependency audit | `make audit` |
 | Container image | A `linux/amd64` and `linux/arm64` Buildx build without push |
+
+The Container image job also builds edge archives and a digest-pinned chart, then installs it in a disposable kind
+cluster with PostgreSQL. `scripts/edge-tools.env` pins its registry, kind, and fixture versions. Release tooling checks
+require Python 3.11 or later and ShellCheck. `make check-release-tools` runs actionlint through its pinned Go module.
 
 Other workflows run CodeQL for Go and TypeScript, OpenSSF Scorecard, and dependency review on pull requests. Every
 action is pinned to a commit SHA, and workflows default to read-only repository permissions. Dependabot proposes weekly

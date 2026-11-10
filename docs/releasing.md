@@ -1,7 +1,7 @@
 # Releases
 
-This page describes how maintainers publish a release and how users verify the published artifacts. The console has no
-release yet; the first release will be `0.1.0`.
+This page describes how maintainers publish releases and edge builds, and how users verify the artifacts. The console
+has no stable release yet; the first stable release will be `0.1.0`.
 
 ## Versioning
 
@@ -49,22 +49,27 @@ the release assets and republishes the same version. Do not move a published tag
 
 The documentation describes the pre-release state in a few places. In the release pull request for `0.1.0`, remove:
 
-- the **Early development** warning in `README.md`, and the "Before the first release" line in its quick start;
+- the **Early development** warning in `README.md` and the pre-release checkout command in its quick start;
 - the pre-release note at the top of `docs/installation.md` and its **Build the image before the first release**
   section;
-- the "Until the first release" sentence in `charts/openbao-operator-console/README.md`;
-- the "no release yet" sentence at the top of this page.
+- the pre-release installation guidance in `charts/openbao-operator-console/README.md`;
+- the "no stable release yet" sentence at the top of this page and in `SECURITY.md`.
 
-Search for them with `git grep -n -i "first release\|no release"`.
+Search for them with `git grep -n -i "first.*release\|no.*release"`.
 
 ### Repository setup
 
-- **Actions permissions.** Allow GitHub Actions to create pull requests, or store a fine-grained token or GitHub App
-  token with contents, issues, and pull request write access as the `RELEASE_PLEASE_TOKEN` secret. Pull requests that
-  the default token opens do not trigger the **Check** workflow; close and reopen the release pull request to run them,
-  or use the secret.
-- **Package visibility.** After the first release, set the `openbao-operator-console` image package and the
-  `charts/openbao-operator-console` chart package in GHCR to public and link them to this repository.
+- **Release App.** Install the organization-owned `openbao-operator-console-release` GitHub App on this repository
+  only. Grant it repository **Contents**, **Issues**, and **Pull requests** permissions with read and write access.
+  Store its client ID in the `RELEASE_APP_CLIENT_ID` Actions variable and its PEM private key in the
+  `RELEASE_APP_PRIVATE_KEY` Actions secret. The workflow creates a temporary installation token scoped to this
+  repository and revokes it when the job ends. Release PRs created with this token trigger CI without manual workflow
+  approval. The workflow does not use a personal access token or fall back to `GITHUB_TOKEN` for Release Please.
+- **Publication credentials.** GHCR publishing uses the job's `GITHUB_TOKEN`. Signing and attestations use GitHub
+  Actions OIDC. No separate registry password or signing key is required.
+- **Package visibility.** After each package's first publication, set it to public and link it to this repository.
+  The packages are `openbao-operator-console`, `charts/openbao-operator-console`, and
+  `charts-edge/openbao-operator-console`. Check that anonymous image and chart pulls work.
 - **Artifact Hub.** Register the OCI repository `oci://ghcr.io/kubebao/charts/openbao-operator-console`, add the
   assigned `repositoryID` to `artifacthub-repo.yml`, and push the metadata once with [ORAS](https://oras.land/):
 
@@ -73,6 +78,95 @@ Search for them with `git grep -n -i "first release\|no release"`.
     --config /dev/null:application/vnd.cncf.artifacthub.config.v1+yaml \
     artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml
   ```
+
+## Edge builds
+
+Edge is an opt-in development channel for testing qualified `main` commits before a stable release. It includes the
+multi-architecture image, a Helm chart, and binary archives for Linux and macOS on `amd64` and `arm64`. Edge builds
+can change configuration and migrate PostgreSQL. Use a disposable database, or back up PostgreSQL and its encryption
+key before upgrading. A rollback across a schema change requires the pre-upgrade database backup; see
+[upgrading](upgrading.md).
+
+The **Check** workflow builds the OCI image once, builds all four binary archives, and packages the chart with that
+image's digest. It tests the native archive's version and installs the packaged chart against PostgreSQL 18 in a
+disposable kind cluster. It checks the chart's image reference, readiness, embedded UI, and content security policy.
+This test does not qualify a real OpenBao Operator, external identity provider, or remote credential renewal.
+
+After all Check jobs pass, CI attests the candidate bundle, chart, binary archives, and source metadata. **Publish
+Edge** waits for successful **Check** and **CodeQL** runs on the same current `main` commit. It accepts only pushes
+and manual runs in the public canonical repository. The publisher verifies the CI attestation before unpacking,
+validates the source identity and every artifact checksum, and imports the tested OCI image without rebuilding it.
+It signs and verifies the image and chart, publishes SBOM attestations, verifies the binary and chart CI provenance,
+and signs the download checksums before publishing the prerelease.
+
+An edge build has these references:
+
+- Image: `ghcr.io/kubebao/openbao-operator-console:0.0.0-edge.<run>.<attempt>.g<sha>`.
+- Moving image tag: `ghcr.io/kubebao/openbao-operator-console:edge`. It advances after publication only if the commit
+  is still the head of `main`.
+- Chart: `oci://ghcr.io/kubebao/charts-edge/openbao-operator-console`, with the same `0.0.0-edge...` version. Its
+  default image is pinned by digest.
+- Downloads: an **Edge** GitHub prerelease tagged `edge-<run>.<attempt>.g<sha>`, including all four binary archives,
+  the chart, SBOMs, license notices, `metadata.json`, `checksums.txt`, and `checksums.txt.sigstore.json`.
+
+Here `<sha>` is the first 12 characters of the full source commit. `metadata.json` records the full commit, producer
+run and attempt, image digests, and candidate file hashes. Each published version remains unchanged. Retries can
+resume a draft prerelease, but do not replace published download assets or conflicting image/chart content. Edge
+Git tags use a non-SemVer prefix so Release Please does not treat them as stable releases. Edge publication does not
+change the release manifest, changelog, or chart sources. The edge chart repository is not registered in Artifact Hub.
+
+### Install an edge build
+
+Select a published **Edge** prerelease from [GitHub releases](https://github.com/kubebao/openbao-operator-console/releases).
+Set `VERSION` to its chart version and `TAG` to its GitHub prerelease tag. Verify the image and chart signatures:
+
+```sh
+IDENTITY=https://github.com/kubebao/openbao-operator-console/.github/workflows/publish-edge.yml@refs/heads/main
+ISSUER=https://token.actions.githubusercontent.com
+cosign verify ghcr.io/kubebao/openbao-operator-console:$VERSION \
+  --certificate-identity "$IDENTITY" --certificate-oidc-issuer "$ISSUER"
+cosign verify ghcr.io/kubebao/charts-edge/openbao-operator-console:$VERSION \
+  --certificate-identity "$IDENTITY" --certificate-oidc-issuer "$ISSUER"
+```
+
+Follow the database and Secret setup in [installation](installation.md), then install the verified chart:
+
+```sh
+helm upgrade --install openbao-operator-console oci://ghcr.io/kubebao/charts-edge/openbao-operator-console \
+  --version "$VERSION" --namespace console-system --values console-values.yaml --wait
+```
+
+For binaries, download the archive for your platform, the metadata, and the signed checksums. This example uses
+Linux `amd64`:
+
+```sh
+gh release download "$TAG" --repo kubebao/openbao-operator-console \
+  --pattern "openbao-operator-console_${VERSION}_linux_amd64.tar.gz" \
+  --pattern metadata.json --pattern 'checksums.txt*'
+cosign verify-blob checksums.txt --bundle checksums.txt.sigstore.json \
+  --certificate-identity "$IDENTITY" --certificate-oidc-issuer "$ISSUER"
+sha256sum --check --ignore-missing checksums.txt
+gh attestation verify "openbao-operator-console_${VERSION}_linux_amd64.tar.gz" \
+  --repo kubebao/openbao-operator-console \
+  --signer-workflow kubebao/openbao-operator-console/.github/workflows/check.yml \
+  --source-ref refs/heads/main --source-digest "$(jq -r .commit metadata.json)"
+```
+
+Image and chart publication provenance and per-platform SBOM attestations use the **Publish Edge** signer. Verify
+them with the stable verification commands below, using the edge image/chart references and `publish-edge.yml`
+signer identity. Binary and chart archive build provenance uses the **Check** signer shown above.
+
+### Enable or retry edge publication
+
+Merge the workflows, make the repository public, and enable Actions. Enable **Check** and **CodeQL** if GitHub leaves
+them disabled. Both support manual runs on `main`, so the first edge build does not need an empty commit. Trigger both
+workflows for the same commit; the last one to succeed starts publication. Pull requests build and install the
+candidate without publishing or receiving registry credentials.
+
+If qualification fails, fix the failure and rerun Check. A failed-job rerun can reuse a successful candidate from an
+earlier attempt of that run. If publication fails, rerun the failed Publish Edge run while the selected Check artifact
+is retained (seven days). After it expires, run Check and CodeQL on current `main` again. Published edge versions and
+their registry digests have no automatic deletion policy.
 
 ## Third-party licenses
 

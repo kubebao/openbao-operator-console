@@ -18,7 +18,7 @@
 </div>
 
 > [!WARNING]
-> **Early development.** No release has been published yet, and configuration, Helm values, and the database schema
+> **Early development.** No stable release has been published yet, and configuration, Helm values, and the database schema
 > may change before 1.0.
 
 ![Attention workspace showing findings across the fleet](docs/images/attention.png)
@@ -63,7 +63,10 @@ docker run --rm -p 127.0.0.1:8090:8090 ghcr.io/kubebao/openbao-operator-console:
 
 Open <http://127.0.0.1:8090>. Demo mode has no login, so keep its port on `127.0.0.1`.
 
-Before the first release, run `make install build && ./bin/console --mode=demo` from a checkout instead.
+Before the first stable release, you can run `make install build && ./bin/console --mode=demo` from a checkout.
+
+[Edge builds](docs/releasing.md#edge-builds) provide development images, charts, and Linux and macOS binaries from
+qualified `main` commits.
 
 To try it against a real OpenBao Operator, [`make evaluation`](docs/evaluation.md) creates a disposable kind cluster
 with the operator, an OpenBao cluster, and the console. For your own clusters, follow the
