@@ -59,10 +59,14 @@ Search for them with `git grep -n -i "first release\|no release"`.
 
 ### Repository setup
 
-- **Actions permissions.** Allow GitHub Actions to create pull requests, or store a fine-grained token or GitHub App
-  token with contents, issues, and pull request write access as the `RELEASE_PLEASE_TOKEN` secret. Pull requests that
-  the default token opens do not trigger the **Check** workflow; close and reopen the release pull request to run them,
-  or use the secret.
+- **Release App.** Install the organization-owned `openbao-operator-console-release` GitHub App on this repository
+  only. Grant it repository **Contents**, **Issues**, and **Pull requests** permissions with read and write access.
+  Store its client ID in the `RELEASE_APP_CLIENT_ID` Actions variable and its PEM private key in the
+  `RELEASE_APP_PRIVATE_KEY` Actions secret. The workflow creates a temporary installation token scoped to this
+  repository and revokes it when the job ends. Release PRs created with this token trigger CI without manual workflow
+  approval. The workflow does not use a personal access token or fall back to `GITHUB_TOKEN` for Release Please.
+- **Publication credentials.** GHCR publishing uses the job's `GITHUB_TOKEN`. Signing and attestations use GitHub
+  Actions OIDC. No separate registry password or signing key is required.
 - **Package visibility.** After the first release, set the `openbao-operator-console` image package and the
   `charts/openbao-operator-console` chart package in GHCR to public and link them to this repository.
 - **Artifact Hub.** Register the OCI repository `oci://ghcr.io/kubebao/charts/openbao-operator-console`, add the
