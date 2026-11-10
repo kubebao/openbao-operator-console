@@ -1,0 +1,36 @@
+# Console values for the local evaluation in docs/evaluation.md. scripts/evaluation.sh
+# creates the referenced Secrets. Do not use these values for a deployment you keep.
+existingSecret: console-runtime
+publicURL: https://localhost:8443
+
+# The console serves HTTPS itself, so kubectl port-forward keeps TLS end to end.
+tls:
+  secretName: console-tls
+
+# The evaluation PostgreSQL runs in the same namespace without TLS.
+database:
+  sslMode: disable
+
+# Read access to the OpenBao namespace and the operator controller on this cluster.
+readerNamespaces: [openbao-demo]
+operatorReaders:
+  - namespace: openbao-operator-system
+    deployments: [openbao-operator-controller]
+
+# Connect this cluster on the first start, so the fleet shows the evaluation cluster at once.
+enrollment:
+  connections:
+    - id: evaluation
+      name: Evaluation cluster
+      region: local
+      namespaces:
+        - name: openbao-demo
+          team: Evaluation
+          environment: development
+          location: kind
+      operators:
+        - id: openbao-operator
+          namespace: openbao-operator-system
+          deployment: openbao-operator-controller
+          container: manager
+          namespaces: [openbao-demo]

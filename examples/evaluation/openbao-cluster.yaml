@@ -1,0 +1,31 @@
+# A disposable Development OpenBao cluster for the console evaluation, adapted from the
+# OpenBao Operator guide "Create the first cluster". Deleting it deletes its data.
+# scripts/evaluation.sh adds spec.network.apiServerEndpointIPs with the kind API server
+# address, because kindnet enforces NetworkPolicy on the post-NAT destination.
+apiVersion: openbao.org/v1alpha1
+kind: OpenBaoCluster
+metadata:
+  name: evaluation
+  namespace: openbao-demo
+spec:
+  version: "2.6.2"
+  replicas: 1
+  profile: Development
+  controllerJWTMode: Target
+  selfInit:
+    enabled: true
+    oidc:
+      enabled: true
+    requests:
+      - name: create-evaluation-policy
+        operation: update
+        path: sys/policies/acl/console-evaluation
+        policy:
+          policy: 'path "sys/health" { capabilities = ["read"] }'
+  tls:
+    enabled: true
+    mode: OperatorManaged
+    rotationPeriod: "720h"
+  storage:
+    size: 1Gi
+  deletionPolicy: DeleteAll

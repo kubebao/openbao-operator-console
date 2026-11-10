@@ -100,8 +100,10 @@ on `127.0.0.1` only.
 > ./bin/console --mode=demo
 > ```
 
-To run the console against real clusters, follow the [installation guide](docs/installation.md): PostgreSQL, one
-Secret, the Helm chart, and a guided first sign-in.
+To try it against a real OpenBao Operator, [`make evaluation`](docs/evaluation.md) creates a disposable kind cluster
+with the operator, an OpenBao cluster, PostgreSQL, and the console. To run the console against your own clusters,
+follow the [installation guide](docs/installation.md): PostgreSQL, one Secret, the Helm chart, and a guided first
+sign-in.
 
 ## How it works
 
@@ -135,6 +137,7 @@ A compatibility matrix with operator releases will be published with the first c
 
 | Guide | Contents |
 | --- | --- |
+| [Evaluate on a local cluster](docs/evaluation.md) | A disposable kind cluster with the operator, OpenBao, and the console |
 | [Installation](docs/installation.md) | Helm installation, runtime Secret, PostgreSQL, encryption key, and HTTPS |
 | [First administrator setup](docs/bootstrap.md) | Protected browser setup or automated identity bootstrap |
 | [Connect a Kubernetes cluster](docs/cluster-onboarding.md) | Guided onboarding, reader RBAC, verification, and credential replacement |
