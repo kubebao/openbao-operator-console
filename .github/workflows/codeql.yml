@@ -18,6 +18,10 @@ concurrency:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
+    # Code scanning needs GitHub Advanced Security, which this private repository lacks.
+    # The job runs again without changes when the repository becomes public. Publish Edge
+    # runs only in the public repository, so a skipped scan never gates a publication.
+    if: github.event.repository.private == false
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
