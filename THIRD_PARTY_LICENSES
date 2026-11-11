@@ -5010,7 +5010,7 @@ SOFTWARE.
 
 --------------------------------------------------------------------------------
 
-@tanstack/query-core 5.105.0
+@tanstack/query-core 5.105.3
 License: MIT
 
 MIT License
@@ -5037,7 +5037,7 @@ SOFTWARE.
 
 --------------------------------------------------------------------------------
 
-@tanstack/react-query 5.105.0
+@tanstack/react-query 5.105.3
 License: MIT
 
 MIT License
@@ -5452,7 +5452,7 @@ For more information, please refer to <http://unlicense.org/>
 
 --------------------------------------------------------------------------------
 
-lucide-react 1.62.0
+lucide-react 1.67.0
 License: ISC
 
 ISC License
