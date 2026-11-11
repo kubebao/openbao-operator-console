@@ -4,8 +4,8 @@ description: >-
   Read-only multi-cluster fleet console for the OpenBao Operator. Stores state in SQLite by default or optional
   PostgreSQL; an OpenID Connect provider is recommended.
 type: application
-version: 0.1.0 # x-release-please-version
-appVersion: "0.1.0" # x-release-please-version
+version: 0.1.0  # x-release-please-version
+appVersion: "0.1.0"  # x-release-please-version
 icon: https://raw.githubusercontent.com/kubebao/openbao-operator-console/main/web/public/brand/kubebao-github-avatar.png
 home: https://github.com/kubebao/openbao-operator-console
 sources:
@@ -26,7 +26,7 @@ annotations:
   artifacthub.io/license: Apache-2.0
   artifacthub.io/images: |
     - name: openbao-operator-console
-      image: ghcr.io/kubebao/openbao-operator-console:0.1.0 # x-release-please-version
+      image: ghcr.io/kubebao/openbao-operator-console:0.1.0  # x-release-please-version
   artifacthub.io/links: |
     - name: Documentation
       url: https://github.com/kubebao/openbao-operator-console/tree/main/docs
