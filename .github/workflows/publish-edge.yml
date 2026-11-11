@@ -123,31 +123,51 @@ jobs:
           subject-name: ghcr.io/${{ github.repository_owner }}/charts-edge/openbao-operator-console
           subject-digest: ${{ steps.chart.outputs.digest }}
           push-to-registry: true
-      - uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
-        id: syft
-        with:
-          syft-version: v1.57.1
-      - name: Generate SBOMs from the published platform digests
+      - name: Resolve published platform digests
         id: sbom
-        env:
-          SYFT: ${{ steps.syft.outputs.cmd }}
         run: |
           set -euo pipefail
           for arch in amd64 arm64; do
             platform_digest="$(jq -er --arg platform "linux/${arch}" '.image.platforms[$platform]' "${CANDIDATE}/metadata.json")"
-            "${SYFT}" scan "registry:${IMAGE}@${platform_digest}" \
-              --output "spdx-json=${CANDIDATE}/openbao-operator-console-${VERSION}-linux-${arch}.spdx.json"
             echo "${arch}_digest=${platform_digest}" >> "${GITHUB_OUTPUT}"
           done
+      - name: Generate SBOM (linux/amd64)
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: ${{ env.IMAGE }}@${{ steps.sbom.outputs.amd64_digest }}
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ github.token }}
+          syft-version: v1.57.1
+          format: spdx-json
+          output-file: ${{ env.CANDIDATE }}/openbao-operator-console-${{ env.VERSION }}-linux-amd64.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+      - name: Generate SBOM (linux/arm64)
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: ${{ env.IMAGE }}@${{ steps.sbom.outputs.arm64_digest }}
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ github.token }}
+          syft-version: v1.57.1
+          format: spdx-json
+          output-file: ${{ env.CANDIDATE }}/openbao-operator-console-${{ env.VERSION }}-linux-arm64.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
       - name: Attest SBOM (linux/amd64)
-        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        env:
+          NODE_OPTIONS: --max-http-header-size=32768
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.sbom.outputs.amd64_digest }}
           sbom-path: ${{ env.CANDIDATE }}/openbao-operator-console-${{ env.VERSION }}-linux-amd64.spdx.json
           push-to-registry: true
       - name: Attest SBOM (linux/arm64)
-        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        env:
+          NODE_OPTIONS: --max-http-header-size=32768
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.sbom.outputs.arm64_digest }}

@@ -5,8 +5,6 @@ GOLANGCI_LINT = go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null)
-BUILDINFO = github.com/kubebao/openbao-operator-console/internal/buildinfo
-LDFLAGS = -s -w -X $(BUILDINFO).Version=$(VERSION) -X $(BUILDINFO).Commit=$(COMMIT)
 IMAGE ?= openbao-operator-console:local
 
 install:
@@ -41,10 +39,7 @@ check: lint
 	pnpm --dir web build
 
 build:
-	pnpm --dir web build
-	cp -R web/dist/. internal/httpapi/assets/
-	mkdir -p bin
-	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/console ./cmd/console
+	./scripts/build.sh "$(VERSION)" "$(COMMIT)"
 
 # Release archives of the static binary for the CLI commands and running without Kubernetes.
 DIST_PLATFORMS ?= linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
@@ -145,7 +140,7 @@ check-licenses:
 
 check-release-tools:
 	python3 -m unittest discover -s scripts/tests -v
-	shellcheck -x scripts/edge-candidate.sh scripts/check-edge-install.sh scripts/publish-edge.sh scripts/test-postgres-tools.sh \
+	shellcheck -x scripts/build.sh scripts/edge-candidate.sh scripts/check-edge-install.sh scripts/publish-edge.sh scripts/test-postgres-tools.sh \
 		scripts/integration-cluster.sh
 	go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 

@@ -81,16 +81,23 @@ running checks. The jobs run in parallel:
 
 | Job | Runs |
 | --- | --- |
-| Go | `make lint`, `go test -race ./...`, and `make integration` against a PostgreSQL 18 service |
+| Go | `make lint` and one uncached `go test -race -count=1 ./...` run, including SQLite and PostgreSQL 18 persistence integration |
 | Web | Type checking, oxlint, Prettier, unit tests, and the production build |
-| E2E (development) | `make e2e` |
-| E2E (production) | `make e2e-production` |
+| E2E (development) | Browser workflows through the development server |
+| E2E (production) | One application build, compiled-application browser workflows, content security policy, and SQLite restart/restore |
 | Generated code | `make check-generated` |
 | Third-party licenses | `make check-licenses` |
 | Helm (v3 and v4) | `make helm-check` and chart-testing `ct lint` with `.github/ct.yaml` |
 | Go vulnerabilities | `make vulncheck` |
 | Web dependency audit | `make audit` |
 | Container image | A `linux/amd64` and `linux/arm64` Buildx build without push |
+
+The browser jobs use the official Playwright image, pinned by digest, with Chromium and its system libraries
+preinstalled. They do not install Ubuntu packages or restore a browser cache. Keep the image version in both jobs
+aligned with `@playwright/test` in `web/package.json` when updating Playwright.
+The production job builds once with `scripts/build.sh` and reuses the binary for both browser suites. `make build`
+uses the same script for local builds. The Go job includes persistence integration in its full test run, so it does
+not rerun those packages separately.
 
 The Container image job also builds edge archives and a digest-pinned chart, then installs it in a disposable kind
 cluster with SQLite persistence and optional PostgreSQL. `scripts/edge-tools.env` pins its registry, kind, and fixture versions. Release tooling checks
@@ -253,4 +260,5 @@ The migration does not qualify lifecycle operations or a new operator API group.
 
 Restore display selection uses `diagnose.LatestRestore` with the approved UID-binding contract and API version.
 Projection remains in the adapter. Rule set 8 retains all observed insufficiency causes. The console keeps its existing
-fleet mapping, history, and read-only collection scope. Client tagging remains on hold pending qualification.
+fleet mapping, history, and read-only collection scope. The console pins the public `v0.1.0` release. See
+[shared client qualification](shared-client-qualification.md) for the migration evidence and final tagged validation.
