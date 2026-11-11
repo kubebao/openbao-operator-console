@@ -95,6 +95,9 @@ running checks. The jobs run in parallel:
 The browser jobs use the official Playwright image, pinned by digest, with Chromium and its system libraries
 preinstalled. They do not install Ubuntu packages or restore a browser cache. Keep the image version in both jobs
 aligned with `@playwright/test` in `web/package.json` when updating Playwright.
+Each container trusts only the checked-out workspace path for Git operations. The development job compiles the API
+before launching Playwright and selects it with `CONSOLE_E2E_PREBUILT=1`, so a cold Go build does not consume the
+server-readiness timeout. Local development browser tests keep using `go run` by default.
 The production job builds once with `scripts/build.sh` and reuses the binary for both browser suites. `make build`
 uses the same script for local builds. The Go job includes persistence integration in its full test run, so it does
 not rerun those packages separately.
