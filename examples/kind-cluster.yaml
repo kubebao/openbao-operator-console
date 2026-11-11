@@ -1,3 +1,6 @@
+# The disposable development OpenBao cluster for the Kubernetes integration tests.
+# scripts/integration-cluster.sh adds spec.network.apiServerEndpointIPs with the kind API server
+# address, because kindnet enforces NetworkPolicy on the post-NAT destination.
 apiVersion: openbao.org/v1alpha1
 kind: OpenBaoCluster
 metadata:

@@ -140,36 +140,32 @@ volume; remove it only when its data is disposable.
 
 ## Isolated Kubernetes test
 
-Use a dedicated kind cluster and a separate kubeconfig so tests never touch your other clusters:
+`make integration-cluster` creates a dedicated kind cluster, `console-dev`, with its own kubeconfig in `.local`, so the
+tests never touch your other clusters. It needs Docker, kind, kubectl, Helm 3.x or 4, and Python 3. The script:
+
+1. Creates the cluster from the node image pinned in `scripts/edge-tools.env`.
+2. Installs the [OpenBao Operator](https://github.com/kubebao/openbao-operator) chart and image `0.6.1` in single-tenant
+   mode as the Helm release `console-operator` in `console-system`, targeting `console-sample`. Set
+   `OPENBAO_OPERATOR_VERSION` to test another version.
+3. Applies `examples/kind-cluster.yaml` with `spec.network.apiServerEndpointIPs` set to the kind API server address.
+   Without it, kindnet blocks the API server and the sample stays `Initializing`.
+4. Waits up to 10 minutes for `console-bao` to report `Available`, and fails with its conditions if it does not.
+5. Applies `examples/reader-rbac.yaml` and issues a one-hour reader kubeconfig in `.local/reader-kubeconfig`.
 
 ```sh
-mkdir -p .local
-kind create cluster --name console-dev --image kindest/node:v1.36.1 --kubeconfig .local/kubeconfig
-```
-
-Install the [OpenBao Operator](https://github.com/kubebao/openbao-operator) in single-tenant mode with `console-sample`
-as the target namespace, as the Helm release `console-operator` in `console-system`. `examples/reader-rbac.yaml` and the
-integration tests expect that controller Deployment name. Use an operator image and chart from the same version so admission policies match. Then apply
-`examples/kind-cluster.yaml`, which creates one disposable development OpenBao deployment with a 1 GiB volume.
-
-Apply `examples/reader-rbac.yaml` and issue a short-lived reader credential:
-
-```sh
-python3 scripts/reader-kubeconfig.py \
-  --admin-kubeconfig=.local/kubeconfig --context=kind-console-dev \
-  --namespace=console-system --service-account=console-reader \
-  --duration=1h --output=.local/reader-kubeconfig
+make integration-cluster
 export CONSOLE_TEST_KUBECONFIG="$PWD/.local/reader-kubeconfig"
 make integration
 ```
 
 For another isolated cluster, set `CONSOLE_TEST_CONTEXT` to its kubeconfig context name.
 
-The test reads only `console-sample` and expects the `console-bao` resource to declare OpenBao 2.7.0 and one replica. It
-does not run a restore or recovery. Delete the kind cluster when you are done:
+The test reads only `console-sample` and expects `console-bao` to declare OpenBao 2.7.0 and one replica, and to be
+healthy. It does not run a restore or recovery. The reader credential expires after one hour; run
+`make integration-cluster` again to reuse the cluster and issue a new one. Delete the cluster when you are done:
 
 ```sh
-kind delete cluster --name console-dev --kubeconfig .local/kubeconfig
+make integration-cluster-down
 ```
 
 ### Credential renewal
