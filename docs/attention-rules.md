@@ -1,6 +1,6 @@
 # Attention rules
 
-The console evaluates each collected OpenBao deployment against a fixed set of rules. A rule that matches creates a
+The console uses the shared operator client to evaluate each collected OpenBao deployment against selected rules. A rule that matches creates a
 finding with a severity. Findings appear in **Attention**, mark the matching tab on the deployment page, and highlight
 the evidence rows that triggered them.
 
@@ -18,8 +18,8 @@ finding instead of treating missing evidence as recovery.
 | --- | --- |
 | Critical | At least one critical finding. |
 | Attention | At least one high finding and no critical finding. |
-| Healthy | Ready replicas meet desired replicas and no finding applies. |
-| Unknown | Replica counts are missing or desired replicas are zero, and no finding applies. |
+| Healthy | Ready replicas meet positive desired replicas, selected rules have sufficient evidence, and no finding applies. |
+| Unknown | Replica counts are missing, desired replicas are zero, or analysis is incomplete, and no finding applies. |
 
 The Fleet view sorts by state in that order: critical, attention, unknown, then healthy.
 
@@ -32,16 +32,16 @@ The Fleet view sorts by state in that order: critical, attention, unknown, then 
 | Replicas need attention | Critical when 0 ready, otherwise high | Service availability | Ready replicas are below desired replicas after the startup grace period. The operator omits a zero ready count; it counts as zero once the operator has observed the current generation | Overview: ready / desired replicas |
 | OpenBao is sealed | Critical | Service availability | The operator reports `OpenBaoSealed=True` for the current resource generation | Conditions tab |
 | Upgrade requires investigation | High | Operations | The operator records an upgrade failure | Lifecycle tab |
-| Recovery requires investigation | High | Operations | A recovery request is failed or unknown, or its cleanup failed. A new request without a reported phase is pending during the startup grace period | Lifecycle tab |
-| Replica history conflict | Critical | Operations | A remote replica observation records conflicting histories | Lifecycle tab |
+| Recovery requires investigation | High | Operations | A UID-confirmed snapshot restore reports failure, an unknown outcome, failed cleanup, or failed follow-through. An omitted phase remains unknown; it does not imply acceptance | Lifecycle tab |
 | Backup failed | High | Backup protection | One or more consecutive backup attempts failed | Backups tab |
 | No successful backup observed | High | Backup protection | Backups are configured but no successful completion is recorded | Backups tab |
 | Backup is overdue | High | Backup protection | The last successful backup is older than the maximum backup age | Backups tab |
 | Restore test needs attention | High | Backup protection | The latest restore test failed or is blocked | Backups tab |
 | Collection is incomplete | High | Collection | The console cannot refresh this deployment's evidence | Overview: collection result |
 
-Paused clusters do not raise replica or sealed findings. Conditions observed for an older resource generation are
-ignored.
+Paused clusters do not raise replica or sealed findings. Condition acknowledgement must equal the positive resource generation. Missing, stale, and inconsistent
+acknowledgement cannot establish a current finding. Resource acknowledgement and individual condition acknowledgement
+remain separate.
 
 ## Policies
 
@@ -50,7 +50,7 @@ Administrators set two thresholds in **Settings → Policies**:
 | Policy | Default | Effect |
 | --- | --- | --- |
 | Maximum backup age | 24 hours | A configured backup older than this raises **Backup is overdue**. |
-| Startup grace | 10 minutes | Replica findings wait this long after a deployment is created. A recovery request without a reported phase counts as pending this long after it is created. |
+| Startup grace | 10 minutes | Replica findings wait this long after a deployment is created. |
 
 The Backups tab shows the age of the last successful backup against the maximum backup age, backup activity over the
 last seven days, and the latest restore test.
@@ -63,6 +63,13 @@ The collector reads every enrolled cluster on its own 30-second schedule. A conn
 for two minutes becomes stale. Stale and failed collections keep the last known deployments and findings, mark them as
 uncertain, and add **Collection is incomplete**. This high-severity finding makes the deployment at least **Attention**,
 so it is never shown as healthy while its collection is not current. Critical findings keep it **Critical**.
+
+Successful inventory collection can still leave analysis incomplete, for example after a denied restore read or an
+invalid producer value. The deployment page marks this state and retains prior unresolved findings with their last
+evaluation time. Missing backup failure counters remain unknown; the UI does not treat them as zero or calculate
+failure deltas across unknown observations.
+
+![Incomplete analysis with an unknown failure counter, using demonstration data](images/analysis-incomplete.png)
 
 The Attention page also shows banners when a cluster cannot provide current evidence or an enrolled operator Deployment
 is unavailable, progressing, or not observed. Deployments in an unreachable cluster cannot be discovered, so the console

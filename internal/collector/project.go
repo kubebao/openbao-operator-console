@@ -1,277 +1,161 @@
-// Package collector contains the Kubernetes boundary and approved projections.
 package collector
 
 import (
 	"math"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"github.com/kubebao/openbao-operator-client/adapter"
+	"github.com/kubebao/openbao-operator-client/diagnose"
+	shared "github.com/kubebao/openbao-operator-client/evidence"
 
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
 )
 
-var (
-	identifier    = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$`)
-	digestPattern = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
-	decimalIndex  = regexp.MustCompile(`^(0|[1-9][0-9]{0,19})$`)
-)
+func integerValue(value shared.Integer) int64 {
+	if value.Value == nil {
+		return 0
+	}
+	return *value.Value
+}
 
-func text(object map[string]any, fields ...string) string {
-	value, found, err := unstructured.NestedString(object, fields...)
-	if err != nil || !found || !identifier.MatchString(value) {
+func textValue(value shared.Text) string {
+	if value.Value == nil {
 		return ""
 	}
-	return value
+	return *value.Value
 }
 
-func optionalText(object map[string]any, fields ...string) *string {
-	value := text(object, fields...)
-	if value == "" {
+func countValue(value shared.Integer) *int32 {
+	if value.Value == nil || *value.Value < 0 || *value.Value > math.MaxInt32 {
 		return nil
 	}
-	return &value
+	n := int32(*value.Value)
+	return &n
 }
 
-func digest(object map[string]any, fields ...string) *string {
-	value, found, err := unstructured.NestedString(object, fields...)
-	if err != nil || !found || !digestPattern.MatchString(value) {
-		return nil
-	}
-	return &value
-}
-
-func timestamp(object map[string]any, fields ...string) *time.Time {
-	value, found, err := unstructured.NestedString(object, fields...)
-	if err != nil || !found {
-		return nil
-	}
-	parsed, err := time.Parse(time.RFC3339Nano, value)
-	if err != nil {
-		return nil
-	}
-	return &parsed
-}
-
-func count(object map[string]any, fields ...string) *int32 {
-	value, found, err := unstructured.NestedInt64(object, fields...)
-	if err != nil || !found || value < 0 || value > math.MaxInt32 {
-		return nil
-	}
-	result := int32(value)
-	return &result
-}
-
-func boolean(object map[string]any, fields ...string) bool {
-	value, found, err := unstructured.NestedBool(object, fields...)
-	return err == nil && found && value
-}
-
-// Project maps an OpenBaoCluster to approved fields. Evidence rules run separately,
-// after related recovery requests are attached.
-func Project(cluster unstructured.Unstructured, connection config.Connection, namespace config.Namespace, now time.Time) fleet.Deployment {
-	object := cluster.Object
+// projectCluster maps approved shared facts into the existing persisted model.
+// It does not evaluate diagnostics or infer missing producer values.
+func projectCluster(source shared.Cluster, connection config.Connection, namespace config.Namespace) fleet.Deployment {
+	id := source.Reference.Identity
 	result := fleet.Deployment{
-		ID:              fleet.DeploymentID(connection.ID, cluster.GetNamespace(), cluster.GetName(), string(cluster.GetUID())),
-		UID:             string(cluster.GetUID()),
-		Name:            cluster.GetName(),
-		Namespace:       cluster.GetNamespace(),
-		ConnectionID:    connection.ID,
-		Team:            namespace.Team,
-		Environment:     namespace.Environment,
-		Location:        namespace.Location,
-		Generation:      cluster.GetGeneration(),
-		ResourceVersion: cluster.GetResourceVersion(),
-		Version:         text(object, "status", "currentVersion"),
-		DesiredVersion:  text(object, "spec", "version"),
-		ReadyReplicas:   readyReplicas(object, cluster.GetGeneration()),
-		DesiredReplicas: count(object, "spec", "replicas"),
-		Role:            projectRole(object),
-		Health:          fleet.HealthUnknown,
-		Conditions:      projectConditions(object),
-		Issues:          []fleet.Issue{},
+		ID: fleet.DeploymentID(connection.ID, id.Namespace, id.Name, id.UID), UID: id.UID, Name: id.Name, Namespace: id.Namespace,
+		ConnectionID: connection.ID, Team: namespace.Team, Environment: namespace.Environment, Location: namespace.Location,
+		Generation: integerValue(source.Generation), ResourceVersion: textValue(source.Reference.ResourceVersion),
+		Version: textValue(source.ObservedVersion), DesiredVersion: textValue(source.DesiredVersion),
+		ReadyReplicas: countValue(source.ReadyReplicas), DesiredReplicas: countValue(source.DesiredReplicas),
+		Role: fleet.RolePrimary, Health: fleet.HealthUnknown, Conditions: []fleet.Condition{}, Issues: []fleet.Issue{},
 		Evidence: fleet.Evidence{
-			Collection:        fleet.EvidenceCollectionCurrent,
-			CollectedAt:       now,
-			LastAttemptAt:     now,
-			ProducerFreshness: fleet.FreshnessUnknown,
+			Collection: fleet.EvidenceCollectionCurrent, CollectedAt: *source.Reference.CollectedAt.Value,
+			LastAttemptAt: *source.Reference.CollectedAt.Value, ProducerFreshness: fleet.FreshnessUnknown,
 		},
-		Backup:  projectBackup(object),
-		Replica: projectReplica(object),
 	}
-	if reason := text(object, "status", "upgrade", "failure", "reason"); reason != "" {
-		result.UpgradeFailure = &fleet.OperationFailure{Reason: reason, At: timestamp(object, "status", "upgrade", "failure", "at")}
-	}
-	return result
-}
-
-// readyReplicas reads status.readyReplicas. The operator API omits a zero count, so an
-// absent count is zero once the operator has reconciled the current generation and a
-// desired count exists. Before that observation, readiness remains unknown.
-func readyReplicas(object map[string]any, generation int64) *int32 {
-	if ready := count(object, "status", "readyReplicas"); ready != nil {
-		return ready
-	}
-	if _, found, err := unstructured.NestedFieldNoCopy(object, "status", "readyReplicas"); err != nil || found {
-		return nil
-	}
-	observed, found, err := unstructured.NestedInt64(object, "status", "observedGeneration")
-	if err != nil || !found || observed < generation || count(object, "spec", "replicas") == nil {
-		return nil
-	}
-	zero := int32(0)
-	return &zero
-}
-
-// A remote replica becomes a primary once the operator records its activation.
-func projectRole(object map[string]any) fleet.Role {
-	remote, found, err := unstructured.NestedMap(object, "spec", "remoteReplica")
-	if err != nil || !found || len(remote) == 0 || timestamp(object, "status", "recovery", "activatedAt") != nil {
-		return fleet.RolePrimary
-	}
-	return fleet.RoleReplica
-}
-
-func projectConditions(object map[string]any) []fleet.Condition {
-	result := []fleet.Condition{}
-	conditions, _, _ := unstructured.NestedSlice(object, "status", "conditions")
-	for _, raw := range conditions {
-		condition, ok := raw.(map[string]any)
-		if !ok {
-			continue
-		}
-		status := fleet.ConditionStatus(text(condition, "status"))
-		if !status.Valid() {
-			status = fleet.ConditionStatusUnknown
-		}
-		generation, _, _ := unstructured.NestedInt64(condition, "observedGeneration")
-		result = append(result, fleet.Condition{
-			Type:               text(condition, "type"),
-			Status:             status,
-			Reason:             text(condition, "reason"),
-			ObservedGeneration: generation,
-			LastTransitionAt:   timestamp(condition, "lastTransitionTime"),
+	for _, condition := range source.Conditions.Values {
+		result.Conditions = append(result.Conditions, fleet.Condition{
+			Type:   condition.Type,
+			Status: fleet.ConditionStatus(condition.Status),
+			Reason: textValue(
+				condition.Reason,
+			),
+			ObservedGeneration: integerValue(condition.ObservedGeneration),
+			LastTransitionAt:   condition.LastTransitionAt.Value,
 		})
 	}
+	if source.Upgrade.Failure.State == shared.ObjectReported && source.Upgrade.Failure.Reason.State == shared.ValueReported {
+		result.UpgradeFailure = &fleet.OperationFailure{
+			Reason: textValue(source.Upgrade.Failure.Reason),
+			At:     source.Upgrade.Failure.At.Value,
+		}
+	}
+	if source.Backup.Configuration == shared.ObjectReported {
+		b := source.Backup
+		result.Backup = &fleet.Backup{
+			LastSuccessAt: b.LastSuccessAt.Value, NextAt: b.NextScheduledAt.Value, Key: b.SnapshotKey.Value,
+			ConsecutiveFailures: countValue(b.ConsecutiveFailures), Digest: b.SnapshotDigest.Value, SizeBytes: b.SizeBytes.Value,
+		}
+		if b.RestoreTest.State == shared.ObjectReported {
+			test := b.RestoreTest
+			outcome := fleet.RestoreOutcomeUnknown
+			switch {
+			case test.Active == shared.ObjectReported:
+				outcome = fleet.RestoreOutcomeRunning
+			case test.LastOutcome.State == shared.ValueReported:
+				outcome = fleet.RestoreOutcome(strings.ToLower(*test.LastOutcome.Value))
+			case test.Active == shared.ObjectAbsent && test.Last == shared.ObjectAbsent:
+				outcome = fleet.RestoreOutcomeNotRun
+			}
+			result.Backup.RestoreTest = &fleet.RestoreTest{
+				Outcome: outcome, LastSuccessAt: test.LastSuccessAt.Value, FinishedAt: test.FinishedAt.Value,
+				Key: test.SnapshotKey.Value, Reason: textValue(test.LastReason), Digest: test.SnapshotDigest.Value,
+			}
+		}
+	}
 	return result
 }
 
-func projectBackup(object map[string]any) *fleet.Backup {
-	if _, configured, err := unstructured.NestedMap(object, "spec", "backup"); err != nil || !configured {
-		return nil
+// applyRestoreTestPresentation uses the rule's confirmed condition reference to
+// distinguish a blocked test without implementing its interpretation a second time.
+func applyRestoreTestPresentation(deployment *fleet.Deployment, source shared.Cluster, report diagnose.Report) {
+	if deployment.Backup == nil || deployment.Backup.RestoreTest == nil {
+		return
 	}
-	backup := &fleet.Backup{
-		LastSuccessAt: timestamp(object, "status", "backup", "lastBackupTime"),
-		NextAt:        timestamp(object, "status", "backup", "nextScheduledBackup"),
-		Key:           optionalText(object, "status", "backup", "lastBackupName"),
-		Digest:        digest(object, "status", "backup", "latestSnapshot", "digest"),
-	}
-	if failures := count(object, "status", "backup", "consecutiveFailures"); failures != nil {
-		backup.ConsecutiveFailures = *failures
-	}
-	if size, found, err := unstructured.NestedInt64(object, "status", "backup", "lastBackupSize"); err == nil && found && size >= 0 {
-		backup.SizeBytes = &size
-	}
-	if test, found, err := unstructured.NestedMap(object, "status", "backup", "restoreTest"); err == nil && found {
-		backup.RestoreTest = projectRestoreTest(test)
-	}
-	return backup
-}
-
-func projectRestoreTest(test map[string]any) *fleet.RestoreTest {
-	result := &fleet.RestoreTest{
-		Outcome:       fleet.RestoreOutcomeNotRun,
-		LastSuccessAt: timestamp(test, "lastSuccessTime"),
-		FinishedAt:    timestamp(test, "last", "finishedAt"),
-		Key:           optionalText(test, "last", "key"),
-		Reason:        text(test, "last", "reason"),
-		Digest:        digest(test, "last", "digest"),
-	}
-	switch text(test, "last", "outcome") {
-	case "Passed":
-		result.Outcome = fleet.RestoreOutcomePassed
-	case "Failed":
-		result.Outcome = fleet.RestoreOutcomeFailed
-	}
-	if _, active, err := unstructured.NestedMap(test, "active"); err == nil && active {
-		result.Outcome = fleet.RestoreOutcomeRunning
-	}
-	// A failed Passed condition with any reason other than Failed blocks the test.
-	checks, _, _ := unstructured.NestedSlice(test, "conditions")
-	for _, raw := range checks {
-		check, ok := raw.(map[string]any)
-		if !ok || text(check, "type") != "Passed" || text(check, "status") != "False" {
+	for _, finding := range report.Findings {
+		if finding.Rule != diagnose.RuleRestoreTest {
 			continue
 		}
-		result.Reason = text(check, "reason")
-		if result.Reason != "Failed" {
-			result.Outcome = fleet.RestoreOutcomeBlocked
+		for _, ref := range finding.References {
+			if ref.Field != "status.backup.restoreTest.conditions[type=Passed]" {
+				continue
+			}
+			deployment.Backup.RestoreTest.Outcome = fleet.RestoreOutcomeBlocked
+			for _, condition := range source.Backup.RestoreTest.Conditions.Values {
+				if condition.Type == "Passed" {
+					deployment.Backup.RestoreTest.Reason = textValue(condition.Reason)
+				}
+			}
 		}
 	}
-	return result
 }
 
-func projectReplica(object map[string]any) *fleet.Replica {
-	observation, found, err := unstructured.NestedMap(object, "status", "remoteReplicaObservation")
+func projectRecovery(request shared.Restore) *fleet.Recovery {
+	phase := fleet.RecoveryPhaseUnknown
+	if request.Phase.State == shared.ValueReported {
+		phase = fleet.RecoveryPhase(strings.ToLower(*request.Phase.Value))
+	}
+	cleanup := fleet.RecoveryCleanupUnknown
+	if request.Target.Cleanup.State == shared.ValueReported {
+		cleanup = fleet.RecoveryCleanup(strings.ToLower(*request.Target.Cleanup.Value))
+	}
+	return &fleet.Recovery{
+		RequestName: request.Reference.Identity.Name, Mechanism: fleet.RecoveryMechanismSnapshot, Phase: phase,
+		Stage: textValue(request.Execution.Stage), StartedAt: request.StartedAt.Value, CompletedAt: request.CompletedAt.Value,
+		Cleanup: cleanup, ApplicationConfirmedAt: request.Target.AppliedAt.Value,
+	}
+}
+
+func attachRecovery(deployment *fleet.Deployment, cluster shared.Cluster, requests []shared.Restore) {
+	latest, found, err := diagnose.LatestRestore(cluster, requests, string(adapter.V1Alpha1Snapshot), "openbao.org/v1alpha1")
 	if err != nil || !found {
-		return nil
+		return
 	}
-	return &fleet.Replica{
-		ObservedAt:      timestamp(observation, "observedAt"),
-		HistoryConflict: boolean(observation, "historyConflict"),
-		LocalIndex:      appliedIndex(observation, "freshness", "highestAppliedIndex"),
-		SourceIndex:     appliedIndex(observation, "source", "appliedIndex"),
+	deployment.Recovery = projectRecovery(latest)
+	if cluster.RestoreOrigin.State == shared.ValueReported && *cluster.RestoreOrigin.Value == latest.Reference.Identity.UID {
+		deployment.Role = fleet.RoleRecoveryTarget
 	}
 }
 
-// Raft indexes exceed the JSON safe integer range, so they stay exact decimal strings.
-func appliedIndex(object map[string]any, fields ...string) *string {
-	value, found, err := unstructured.NestedString(object, fields...)
-	if err != nil || !found || !decimalIndex.MatchString(value) {
-		return nil
+func analysisPolicy(at time.Time, policy fleet.Policy) diagnose.Policy {
+	result := diagnose.DefaultPolicy(at, []string{string(adapter.V1Alpha1Snapshot)})
+	if policy.MaxBackupAge > 0 {
+		result.MaxBackupAge = policy.MaxBackupAge
 	}
-	if _, err := strconv.ParseUint(value, 10, 64); err != nil {
-		return nil
+	if policy.StartupGrace > 0 {
+		result.StartupGrace = policy.StartupGrace
+	} else {
+		result.StartupGrace = 0
 	}
-	return &value
-}
-
-// ProjectRecovery maps a restore or recovery request. A request without a reported phase
-// is pending until the startup grace after its creation ends, and unknown afterwards.
-func ProjectRecovery(
-	request unstructured.Unstructured,
-	mechanism fleet.RecoveryMechanism,
-	now time.Time,
-	grace time.Duration,
-) *fleet.Recovery {
-	object := request.Object
-	phase := fleet.RecoveryPhase(strings.ToLower(text(object, "status", "phase")))
-	reported, found, err := unstructured.NestedFieldNoCopy(object, "status", "phase")
-	absent := err == nil && (!found || reported == nil || reported == "")
-	switch {
-	case absent && now.Sub(request.GetCreationTimestamp().Time) < grace:
-		phase = fleet.RecoveryPhasePending
-	case !phase.Valid():
-		phase = fleet.RecoveryPhaseUnknown
-	}
-	result := &fleet.Recovery{
-		RequestName:            request.GetName(),
-		Mechanism:              mechanism,
-		Phase:                  phase,
-		Stage:                  text(object, "status", "execution", "stage"),
-		StartedAt:              timestamp(object, "status", "startTime"),
-		CompletedAt:            timestamp(object, "status", "completionTime"),
-		Cleanup:                fleet.RecoveryCleanupNotApplicable,
-		ApplicationConfirmedAt: timestamp(object, "status", "target", "appliedAt"),
-	}
-	if cleanup := fleet.RecoveryCleanup(strings.ToLower(text(object, "status", "target", "cleanup"))); cleanup.Valid() {
-		result.Cleanup = cleanup
-	}
-	if value, found, err := unstructured.NestedBool(object, "spec", "exclusionAcknowledged"); err == nil && found {
-		result.ExclusionAcknowledged = &value
-	}
+	result.MaxSubjects = 10001
+	result.RestoreUIDBindingContracts = []string{string(adapter.V1Alpha1Snapshot)}
 	return result
 }

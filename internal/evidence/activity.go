@@ -1,6 +1,7 @@
 package evidence
 
 import (
+	"strings"
 	"time"
 
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
@@ -8,7 +9,7 @@ import (
 
 // Transitions lists the activity events between two observations of one deployment, in a
 // fixed order: health, collection, raised and changed findings in evaluation order, then
-// resolved findings. Findings are compared by rule. A finding whose detail changed without
+// resolved findings. Findings are compared by ID. A finding whose detail changed without
 // a severity change records history but no event, so failure counters do not flood the
 // activity feed.
 func Transitions(previous, current fleet.Deployment, at time.Time) []fleet.Activity {
@@ -38,31 +39,31 @@ func Transitions(previous, current fleet.Deployment, at time.Time) []fleet.Activ
 		change.Collection = &fleet.CollectionChange{From: previous.Evidence.Collection, To: current.Evidence.Collection}
 		events = append(events, change)
 	}
-	before := make(map[fleet.Rule]fleet.Issue, len(previous.Issues))
+	before := make(map[string]fleet.Issue, len(previous.Issues))
 	for _, issue := range previous.Issues {
-		before[issue.Rule] = issue
+		before[issue.ID] = issue
 	}
-	after := make(map[fleet.Rule]fleet.Issue, len(current.Issues))
+	after := make(map[string]fleet.Issue, len(current.Issues))
 	for _, issue := range current.Issues {
-		after[issue.Rule] = issue
+		after[issue.ID] = issue
 	}
 	for _, issue := range current.Issues {
-		old, existed := before[issue.Rule]
+		old, existed := before[issue.ID]
 		switch {
 		case !existed:
-			change := event(fleet.ActivityFindingRaised, string(issue.Rule))
+			change := event(fleet.ActivityFindingRaised, strings.TrimPrefix(issue.ID, current.ID+":"))
 			change.Finding = &fleet.FindingChange{Rule: issue.Rule, Severity: issue.Severity}
 			events = append(events, change)
 		case old.Severity != issue.Severity:
-			change := event(fleet.ActivityFindingSeverityChanged, string(issue.Rule))
+			change := event(fleet.ActivityFindingSeverityChanged, strings.TrimPrefix(issue.ID, current.ID+":"))
 			previousSeverity := old.Severity
 			change.Finding = &fleet.FindingChange{Rule: issue.Rule, Severity: issue.Severity, PreviousSeverity: &previousSeverity}
 			events = append(events, change)
 		}
 	}
 	for _, issue := range previous.Issues {
-		if _, remains := after[issue.Rule]; !remains {
-			change := event(fleet.ActivityFindingResolved, string(issue.Rule))
+		if _, remains := after[issue.ID]; !remains {
+			change := event(fleet.ActivityFindingResolved, strings.TrimPrefix(issue.ID, current.ID+":"))
 			change.Finding = &fleet.FindingChange{Rule: issue.Rule, Severity: issue.Severity}
 			events = append(events, change)
 		}

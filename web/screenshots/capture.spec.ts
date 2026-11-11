@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test'
+import { snapshotSchema } from '../src/api/schema'
 import { expect, test } from '@playwright/test'
 
 const output = '../docs/images'
@@ -46,4 +47,26 @@ test('documentation screenshots', async ({ page }) => {
   await page.goto('/topology/relationships/payments-recovery')
   await expect(page.getByText('Snapshot repository', { exact: true })).toBeVisible()
   await capture(page, 'recovery-path')
+})
+
+test('incomplete analysis documentation screenshot', async ({ page }) => {
+  await page.route('**/api/v1/snapshot', async (route) => {
+    const response = await route.fetch()
+    const snapshot = snapshotSchema.parse(await response.json())
+    const deployments = snapshot.deployments.map((deployment) =>
+      deployment.id === 'customer-x' && deployment.backup
+        ? {
+            ...deployment,
+            evidence: { ...deployment.evidence, analysisIncomplete: true },
+            backup: { ...deployment.backup, consecutiveFailures: null },
+          }
+        : deployment,
+    )
+    await route.fulfill({ response, json: { ...snapshot, deployments } })
+  })
+  await page.goto('/deployments/customer-x?tab=backups')
+  await expect(
+    page.getByText('Some diagnostic rules could not be evaluated.', { exact: false }),
+  ).toBeVisible()
+  await capture(page, 'analysis-incomplete')
 })

@@ -26,6 +26,8 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/net/html"
 
 	"github.com/kubebao/openbao-operator-console/internal/auth"
@@ -59,6 +61,10 @@ type keycloakSettings struct {
 }
 
 func qualificationConnection(id, kubeconfig string) config.Connection {
+	contextName := os.Getenv("CONSOLE_TEST_CONTEXT")
+	if contextName == "" {
+		contextName = "kind-console-dev"
+	}
 	return config.Connection{
 		ID:         id,
 		Name:       "Qualification",
@@ -72,7 +78,7 @@ func qualificationConnection(id, kubeconfig string) config.Connection {
 				Namespaces: []string{"console-sample"},
 			},
 		},
-		Access: config.Access{Mode: config.AccessKubeconfig, Kubeconfig: kubeconfig, Context: "kind-console-dev"},
+		Access: config.Access{Mode: config.AccessKubeconfig, Kubeconfig: kubeconfig, Context: contextName},
 	}
 }
 
@@ -256,6 +262,31 @@ func qualifyReader(t *testing.T, ctx context.Context, connection config.Connecti
 	return batch
 }
 
+// isolatedLiveDSN returns dsn bound to a new schema that the test drops afterwards, so the
+// live session never reads or migrates data left in console_test by earlier runs.
+func isolatedLiveDSN(t *testing.T, ctx context.Context, dsn string) string {
+	t.Helper()
+	endpoint, err := url.Parse(dsn)
+	if err != nil {
+		t.Fatal("cannot parse CONSOLE_TEST_DATABASE_URL")
+	}
+	owner, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(owner.Close)
+	name := fmt.Sprintf("live_test_%d", time.Now().UnixNano())
+	schema := pgx.Identifier{name}.Sanitize()
+	if _, err := owner.Exec(ctx, "CREATE SCHEMA "+schema); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = owner.Exec(context.Background(), "DROP SCHEMA "+schema+" CASCADE") })
+	query := endpoint.Query()
+	query.Set("search_path", name)
+	endpoint.RawQuery = query.Encode()
+	return endpoint.String()
+}
+
 func testLiveSession(t *testing.T, keycloak bool) {
 	t.Helper()
 	dsn, kubeconfig := os.Getenv("CONSOLE_TEST_DATABASE_URL"), os.Getenv("CONSOLE_TEST_KUBECONFIG")
@@ -270,7 +301,7 @@ func testLiveSession(t *testing.T, keycloak bool) {
 	identity, providerContext, ca := liveIdentity(t, ctx, keycloak)
 	connection := qualificationConnection(fmt.Sprintf("qualification-%d", time.Now().UnixNano()), kubeconfig)
 	batch := qualifyReader(t, ctx, connection)
-	repository, err := store.Open(ctx, dsn, 24*time.Hour)
+	repository, err := store.Open(ctx, isolatedLiveDSN(t, ctx, dsn), 24*time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}

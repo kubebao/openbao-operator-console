@@ -166,10 +166,13 @@ export interface BackupEvent {
 export function backupEvents(observations: readonly Observation[]): BackupEvent[] {
   const events: BackupEvent[] = []
   const completed = new Set<string>()
-  let failures = 0
+  let failures: number | null = null
   for (const observation of ascending(observations)) {
     const backup = observation.deployment.backup
-    if (!backup) continue
+    if (!backup) {
+      failures = null
+      continue
+    }
     if (backup.lastSuccessAt && !completed.has(backup.lastSuccessAt)) {
       completed.add(backup.lastSuccessAt)
       events.push({
@@ -179,7 +182,11 @@ export function backupEvents(observations: readonly Observation[]): BackupEvent[
         count: 1,
       })
     }
-    if (backup.consecutiveFailures > failures)
+    if (
+      backup.consecutiveFailures !== null &&
+      failures !== null &&
+      backup.consecutiveFailures > failures
+    )
       events.push({
         at: observation.recordedAt,
         kind: 'failure',

@@ -3,13 +3,13 @@ package collector
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"encoding/pem"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -101,12 +101,11 @@ func TestManagedCollectionAddsPausesAndReconfiguresReaders(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"apiVersion": "openbao.org/v1alpha1",
-			"kind":       "List",
-			"items":      []any{},
-			"metadata":   map[string]any{},
-		})
+		resource := "openbaoclusters"
+		if strings.HasSuffix(r.URL.Path, "openbaorestores") {
+			resource = "openbaorestores"
+		}
+		writeList(w, resource, []any{}, "")
 	}))
 	defer server.Close()
 	credential := &config.Credential{

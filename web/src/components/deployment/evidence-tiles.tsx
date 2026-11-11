@@ -66,7 +66,7 @@ function sealedState(deployment: Deployment): string {
 
 function backupFooter(backup: Backup): ReactNode {
   const failures = backup.consecutiveFailures
-  if (failures > 0)
+  if (failures !== null && failures > 0)
     return `${String(failures)} consecutive ${failures === 1 ? 'failure' : 'failures'}`
   if (!backup.nextAt) return 'No schedule reported'
   return (
@@ -78,8 +78,10 @@ function backupFooter(backup: Backup): ReactNode {
 
 function reconciliationFooter(deployment: Deployment): string {
   const generation = observedGeneration(deployment)
-  if (generation === null) return 'Reconciliation not reported'
-  if (generation >= deployment.generation) return 'Operator caught up with spec'
+  if (generation === null || generation <= 0 || deployment.generation <= 0)
+    return 'Reconciliation not reported'
+  if (generation === deployment.generation) return 'Operator caught up with spec'
+  if (generation > deployment.generation) return 'Reported generation is inconsistent'
   return `Operator at generation ${String(generation)} of ${String(deployment.generation)}`
 }
 

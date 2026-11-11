@@ -841,6 +841,7 @@ const (
 	RecoveryCleanupFailed        RecoveryCleanup = "failed"
 	RecoveryCleanupNotApplicable RecoveryCleanup = "notApplicable"
 	RecoveryCleanupPending       RecoveryCleanup = "pending"
+	RecoveryCleanupUnknown       RecoveryCleanup = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the RecoveryCleanup enum.
@@ -853,6 +854,8 @@ func (e RecoveryCleanup) Valid() bool {
 	case RecoveryCleanupNotApplicable:
 		return true
 	case RecoveryCleanupPending:
+		return true
+	case RecoveryCleanupUnknown:
 		return true
 	default:
 		return false
@@ -953,6 +956,7 @@ const (
 	RestoreTestOutcomeNotRun  RestoreTestOutcome = "notRun"
 	RestoreTestOutcomePassed  RestoreTestOutcome = "passed"
 	RestoreTestOutcomeRunning RestoreTestOutcome = "running"
+	RestoreTestOutcomeUnknown RestoreTestOutcome = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the RestoreTestOutcome enum.
@@ -967,6 +971,8 @@ func (e RestoreTestOutcome) Valid() bool {
 	case RestoreTestOutcomePassed:
 		return true
 	case RestoreTestOutcomeRunning:
+		return true
+	case RestoreTestOutcomeUnknown:
 		return true
 	default:
 		return false
@@ -1094,7 +1100,7 @@ type AuthenticatorEnrollment struct {
 
 // Backup defines model for Backup.
 type Backup struct {
-	ConsecutiveFailures int32        `json:"consecutiveFailures"`
+	ConsecutiveFailures *int32       `json:"consecutiveFailures"`
 	Digest              *string      `json:"digest"`
 	Key                 *string      `json:"key"`
 	LastSuccessAt       *time.Time   `json:"lastSuccessAt"`
@@ -1301,6 +1307,7 @@ type EnrollmentToken struct {
 
 // Evidence defines model for Evidence.
 type Evidence struct {
+	AnalysisIncomplete *bool                     `json:"analysisIncomplete,omitempty"`
 	CollectedAt        time.Time                 `json:"collectedAt"`
 	Collection         EvidenceCollection        `json:"collection"`
 	LastAttemptAt      time.Time                 `json:"lastAttemptAt"`

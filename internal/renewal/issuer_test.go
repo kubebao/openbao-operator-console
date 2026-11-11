@@ -77,11 +77,15 @@ func (c *tokenCluster) read(t *testing.T, w http.ResponseWriter, r *http.Request
 		r.Header.Get("Authorization") != "Bearer "+serviceToken("new") {
 		t.Error("validation escaped read-only namespace scope")
 	}
+	kind := "OpenBaoClusterList"
+	if strings.HasSuffix(r.URL.Path, "openbaorestores") {
+		kind = "OpenBaoRestoreList"
+	}
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"apiVersion": "openbao.org/v1alpha1",
-		"kind":       "List",
+		"kind":       kind,
 		"items":      []any{},
-		"metadata":   map[string]any{},
+		"metadata":   map[string]any{"resourceVersion": "100"},
 	})
 }
 

@@ -392,3 +392,28 @@ test('mobile navigation shows every destination and tables fit as cards', async 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   }
 })
+
+test('incomplete analysis shows unknown counters and unresolved findings', async ({ page }) => {
+  await page.route('**/api/v1/snapshot', async (route) => {
+    const response = await route.fetch()
+    const snapshot = snapshotSchema.parse(await response.json())
+    const deployments = snapshot.deployments.map((deployment) =>
+      deployment.id === 'customer-x' && deployment.backup
+        ? {
+            ...deployment,
+            evidence: { ...deployment.evidence, analysisIncomplete: true },
+            backup: { ...deployment.backup, consecutiveFailures: null },
+          }
+        : deployment,
+    )
+    await route.fulfill({ response, json: { ...snapshot, deployments } })
+  })
+  await page.goto('/deployments/customer-x')
+  await expect(
+    page.getByText('Some diagnostic rules could not be evaluated.', { exact: false }),
+  ).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'customer-x-bao', exact: true })).toBeVisible()
+  await expect(page.getByText('Backup failed', { exact: true }).first()).toBeVisible()
+  await page.getByRole('tab', { name: /^Backups/ }).click()
+  await expect(page.locator('.backup-summary')).toContainText('Unknown')
+})

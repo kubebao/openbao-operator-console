@@ -121,21 +121,21 @@ func previewCluster(t *testing.T, now time.Time) *httptest.Server {
 		`{
 			"apiVersion": "openbao.org/v1alpha1",
 			"kind": "OpenBaoClusterList",
-			"metadata": {},
+			"metadata": {"resourceVersion":"100"},
 			"items": [
 				{
 					"apiVersion": "openbao.org/v1alpha1",
 					"kind": "OpenBaoCluster",
-					"metadata": {"name": "bao", "namespace": "team", "uid": "bao-uid"},
+					"metadata": {"name": "bao", "namespace": "team", "uid": "bao-uid", "generation":1},
 					"spec": {"replicas": 3, "backup": {}, "unapprovedPrivateField": "private-resource-field"},
-					"status": {"readyReplicas": 3, "backup": {"lastBackupTime": "%s"}}
+					"status": {"observedGeneration":1,"readyReplicas": 3, "backup": {"consecutiveFailures":0,"lastBackupTime": "%s"}}
 				},
 				{
 					"apiVersion": "openbao.org/v1alpha1",
 					"kind": "OpenBaoCluster",
-					"metadata": {"name": "starting", "namespace": "team", "uid": "starting-uid", "creationTimestamp": "%s"},
+					"metadata": {"name": "starting", "namespace": "team", "uid": "starting-uid", "generation":1, "creationTimestamp": "%s"},
 					"spec": {"replicas": 3},
-					"status": {"readyReplicas": 0}
+					"status": {"observedGeneration":1,"readyReplicas": 0}
 				}
 			]
 		}`,

@@ -60,7 +60,10 @@ export function assessCondition(condition: Condition, generation: number): Condi
   return {
     condition,
     assessment: assess(condition),
-    outdated: condition.observedGeneration < generation,
+    outdated:
+      generation <= 0 ||
+      condition.observedGeneration <= 0 ||
+      condition.observedGeneration !== generation,
   }
 }
 

@@ -1,4 +1,4 @@
-.PHONY: evaluation evaluation-open evaluation-down install dev generate check check-generated build dist e2e integration helm-check e2e-production screenshots lint lint-fix \
+.PHONY: evaluation evaluation-open evaluation-down install dev generate check check-generated build dist e2e integration integration-cluster integration-cluster-down helm-check e2e-production screenshots lint lint-fix \
 	image vulncheck audit licenses check-licenses check-release-tools e2e-storage
 
 GOLANGCI_LINT = go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
@@ -71,6 +71,12 @@ e2e:
 e2e-production: build
 	CONSOLE_E2E_PRODUCTION=1 pnpm --dir web test:e2e
 
+integration-cluster:
+	./scripts/integration-cluster.sh up
+
+integration-cluster-down:
+	./scripts/integration-cluster.sh down
+
 integration:
 	test -n "$$CONSOLE_TEST_DATABASE_URL"
 	go test -race -count=1 ./internal/store ./internal/collector ./internal/httpapi ./internal/renewal
@@ -139,7 +145,8 @@ check-licenses:
 
 check-release-tools:
 	python3 -m unittest discover -s scripts/tests -v
-	shellcheck -x scripts/edge-candidate.sh scripts/check-edge-install.sh scripts/publish-edge.sh scripts/test-postgres-tools.sh
+	shellcheck -x scripts/edge-candidate.sh scripts/check-edge-install.sh scripts/publish-edge.sh scripts/test-postgres-tools.sh \
+		scripts/integration-cluster.sh
 	go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 
 # Real SQLite setup, restart, and backup restore through the production browser UI.

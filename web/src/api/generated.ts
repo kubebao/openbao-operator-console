@@ -416,6 +416,7 @@ export interface components {
             readonly producerObservedAt: string | null;
             /** @enum {string} */
             readonly producerFreshness: "unknown" | "fresh" | "stale";
+            readonly analysisIncomplete?: boolean;
         };
         readonly Condition: {
             readonly type: string;
@@ -430,7 +431,7 @@ export interface components {
         };
         readonly RestoreTest: {
             /** @enum {string} */
-            readonly outcome: "notRun" | "running" | "passed" | "failed" | "blocked";
+            readonly outcome: "notRun" | "running" | "passed" | "failed" | "blocked" | "unknown";
             /** Format: date-time */
             readonly finishedAt: string | null;
             /** Format: date-time */
@@ -449,7 +450,7 @@ export interface components {
             /** Format: int64 */
             readonly sizeBytes: number | null;
             /** Format: int32 */
-            readonly consecutiveFailures: number;
+            readonly consecutiveFailures: number | null;
             readonly restoreTest: components["schemas"]["RestoreTest"] | null;
         };
         readonly Recovery: {
@@ -466,7 +467,7 @@ export interface components {
             /** Format: date-time */
             readonly applicationConfirmedAt: string | null;
             /** @enum {string} */
-            readonly cleanup: "notApplicable" | "pending" | "complete" | "failed";
+            readonly cleanup: "notApplicable" | "pending" | "complete" | "failed" | "unknown";
             readonly exclusionAcknowledged: boolean | null;
         };
         readonly Replica: {

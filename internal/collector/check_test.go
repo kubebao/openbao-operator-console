@@ -6,16 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic/fake"
-	ktesting "k8s.io/client-go/testing"
-
-	"github.com/kubebao/openbao-operator-console/internal/config"
 )
 
 func TestCheckDiagnosticClassifiesFailuresWithoutRawDetails(t *testing.T) {
@@ -45,28 +42,21 @@ func TestCheckDiagnosticClassifiesFailuresWithoutRawDetails(t *testing.T) {
 }
 
 func TestCheckOptionalWarningsAndCredentialFailures(t *testing.T) {
-	client := fake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{
-		{Group: "openbao.org", Version: "v1alpha1", Resource: "openbaoclusters"}:   "OpenBaoClusterList",
-		{Group: "openbao.org", Version: "v1alpha1", Resource: "openbaorestores"}:   "OpenBaoRestoreList",
-		{Group: "openbao.org", Version: "v1alpha1", Resource: "openbaorecoveries"}: "OpenBaoRecoveryList",
+	code := 403
+	reader := testReader(t, func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "openbaorestores") {
+			w.WriteHeader(code)
+			return
+		}
+		writeList(w, "openbaoclusters", []any{}, "")
 	})
-	client.PrependReactor("list", "openbaorestores", func(action ktesting.Action) (bool, runtime.Object, error) {
-		return true, nil, apierrors.NewForbidden(action.GetResource().GroupResource(), "team", nil)
-	})
-	reader := &Reader{
-		client:     client,
-		connection: config.Connection{ID: "one", Namespaces: []config.Namespace{{Name: "team", Environment: "production"}}},
-	}
 	batch, diagnostic := reader.Check(context.Background(), time.Now())
-	if diagnostic.State != "available" || batch.Connection.Collection != "current" || len(batch.Deployments) != 0 ||
-		batch.Connection.Capabilities[1].State != "denied" {
-		t.Fatal("empty cluster or optional denied API blocked the required access check")
+	if diagnostic.State != "available" || batch.Connection.Collection != "current" || batch.Connection.Capabilities[1].State != "denied" {
+		t.Fatal("optional denial blocked inventory check")
 	}
-	client.PrependReactor("list", "openbaorecoveries", func(action ktesting.Action) (bool, runtime.Object, error) {
-		return true, nil, apierrors.NewUnauthorized("private-message")
-	})
+	code = 401
 	batch, diagnostic = reader.Check(context.Background(), time.Now())
 	if diagnostic.State != "unauthorized" || batch.Connection.Collection != "denied" {
-		t.Fatal("rejected credential became an optional API warning")
+		t.Fatal("rejected credential became optional warning")
 	}
 }

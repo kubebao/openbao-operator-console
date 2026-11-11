@@ -24,13 +24,17 @@ EOF
 # Build the tool for the host, then report the dependencies of the Linux image build.
 GOBIN="$scratch" go install "$GO_LICENSES"
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 "$scratch/go-licenses" report ./cmd/console \
-  --ignore "$MODULE" --template "$scratch/go.tmpl" 2> "$scratch/go.log" > "$scratch/go.tsv" || {
+  --ignore "$MODULE/" --template "$scratch/go.tmpl" 2> "$scratch/go.log" > "$scratch/go.tsv" || {
   cat "$scratch/go.log" >&2
   exit 1
 }
 if grep -q $'\tUnknown\t' "$scratch/go.tsv"; then
   echo "go-licenses could not identify a license:" >&2
   grep $'\tUnknown\t' "$scratch/go.tsv" >&2
+  exit 1
+fi
+if ! grep -q '^github.com/kubebao/openbao-operator-client[[:space:]]' "$scratch/go.tsv"; then
+  echo "go-licenses omitted the shared client license" >&2
   exit 1
 fi
 
@@ -74,6 +78,11 @@ EOF
     separator
     printf '%s %s\nLicense: %s\n\n' "$name" "$version" "$licenses"
     cat "$path"
+    notice="$(dirname "$path")/NOTICE"
+    if [[ -f "$notice" ]]; then
+      printf '\nNOTICE\n\n'
+      cat "$notice"
+    fi
   done < "$scratch/go-grouped.tsv"
 
   cat <<'EOF'

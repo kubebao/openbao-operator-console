@@ -6,9 +6,9 @@ The console helps platform teams find issues across an OpenBao fleet. It observe
 by the [OpenBao Operator](https://github.com/kubebao/openbao-operator) and retains operational evidence. It does not run
 lifecycle operations, manage secrets, or contact OpenBao.
 
-Some operator APIs that the console reads are still in development, such as restore tests, snapshot restores, native
-recovery, and remote replica observations. The console reads only fields that the installed schema supplies; missing
-fields remain unknown. The `OpenBaoBackup` catalog is out of scope.
+The shared client adapter projects approved cluster, backup, upgrade, restore-test, and snapshot-restore fields.
+Native recovery and remote-replication observations are unsupported by its pinned public API contract. New collections
+do not read or project them. Historical records remain readable. The `OpenBaoBackup` catalog is out of scope.
 
 The collector and reader RBAC target the operator's `openbao.org/v1alpha1` API group.
 
@@ -44,8 +44,10 @@ flowchart LR
 ```
 
 Go owns interpretation, authorization, and persistence. React owns presentation and view filters. OpenAPI generates both
-Go DTOs and TypeScript types. Kubernetes unstructured objects remain inside the collector package. The collector,
-evidence rules, and store share the `fleet` domain model; only the HTTP layer maps it to the generated API types.
+Go DTOs and TypeScript types. The shared client owns OpenBao projections, bounded collection, and pure diagnostic rules. The collector maps shared
+evidence and findings into the persisted `fleet` model. Named controller Deployment projections remain in the console.
+The HTTP layer maps `fleet` into the generated API types. React condition colors and lifecycle summaries are presentation;
+they do not create or resolve findings.
 
 Resource identity includes enrollment ID, namespace, name, and UID. Relationships are administrator-defined and bound to
 authorized resource identities. An endpoint match alone does not establish a relationship.
@@ -82,8 +84,9 @@ transition times are not reconciliation heartbeats. A backup completion time is 
 does not establish client login, secret reads, or a cross-cluster recovery drill.
 
 Retain last-known deployments when collection fails. Record collection state separately from workload state. Record
-first-seen time by resource identity and rule identity, and resolve findings only after a successful relevant
-observation.
+first-seen time by finding ID, and resolve findings only after a successful relevant evaluation. Restore findings
+include the request identity so separate requests keep separate episodes. An incomplete evaluation retains unresolved
+findings and their last confirmed evaluation time.
 
 Activity records one structured event per transition: a health change, a collection change, or a finding that was
 raised, resolved, or changed severity. Events carry a bounded `kind` and typed fields, never prose; the UI renders the

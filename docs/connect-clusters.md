@@ -34,7 +34,7 @@ for one enrolled connection:
 
 The command prints manifests. It does not contact Kubernetes or apply them. Create the reader namespace if required,
 then apply the manifests through the administrator context for that connection. Generated Roles grant namespace-scoped
-`list` for `openbaoclusters`, `openbaorestores`, and `openbaorecoveries`. Controller Roles grant `get` for named
+`list` for `openbaoclusters` and `openbaorestores`. Controller Roles grant `get` for named
 Deployments. They do not grant Deployment listing, Secret access, or cluster-wide resource discovery.
 
 To create a short-lived credential for testing, without copying administrator credentials into the reader:
@@ -64,14 +64,15 @@ replicas or a sealed OpenBao deployment can still pass the transport check; insp
 | Result        | Meaning                                  | Action                                                             |
 | ------------- | ---------------------------------------- | ------------------------------------------------------------------ |
 | `available`   | The namespace list succeeded.            | Inspect workload evidence.                                         |
-| `unsupported` | The resource API is not served.          | Install a compatible operator feature build if that API is needed. |
+| `unsupported` | The API is not served, or the adapter does not support it.          | Check the pinned adapter contract before changing the operator. |
 | `denied`      | Kubernetes denied the read.              | Check RBAC and credential expiry.                                  |
 | `unreachable` | The read or reader configuration failed. | Check the kubeconfig, context, API endpoint, and network.          |
 | `notChecked`  | Collection stopped before this API read. | Resolve the preceding failure.                                     |
 
 API availability does not verify an unreleased field schema or an enabled controller feature gate. Absent optional
-restore or recovery APIs do not block core inventory. Forbidden optional reads remain capability warnings and leave the
-affected evidence unknown. Authentication or transport failures still fail collection and preserve previous inventory. A
+restore APIs do not block core inventory. Incomplete optional reads remain capability warnings and leave the
+affected analysis incomplete. Rejected credentials and failed required reads preserve previous inventory. The native
+recovery capability is unsupported by the adapter and has no read timestamp; the console does not request it. A
 missing or denied controller Deployment affects operator evidence independently of OpenBao collection.
 
 ## Seed enrollment with Helm

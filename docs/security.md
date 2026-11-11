@@ -9,7 +9,7 @@ The collector needs only namespace-scoped read access:
 
 | Permission | Scope | Purpose |
 | --- | --- | --- |
-| `list` on `openbaoclusters`, `openbaorestores`, `openbaorecoveries` | Each enrolled namespace | OpenBao resource evidence |
+| `list` on `openbaoclusters` and `openbaorestores` | Each enrolled namespace | OpenBao resource evidence |
 | `get` on named Deployments | The declared operator Deployment only | Operator health and version |
 | `create` on `serviceaccounts/token` | The reader's own ServiceAccount only, when renewal is enabled | Automatic token renewal |
 

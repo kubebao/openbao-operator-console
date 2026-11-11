@@ -153,8 +153,7 @@ client adds itself are ignored. The address is used for rate limits and logs onl
 
 - A Deployment and Service for the console, and a ConfigMap with the first-start enrollment.
 - A ServiceAccount for the console, unless `serviceAccount.create` is false.
-- For each `readerNamespaces` entry, a Role and RoleBinding that allow `list` on `openbaoclusters`, `openbaorestores`,
-  and `openbaorecoveries`.
+- For each `readerNamespaces` entry, a Role and RoleBinding that allow `list` on `openbaoclusters` and `openbaorestores`.
 - For each `operatorReaders` entry, a Role and RoleBinding that allow `get` on the named Deployments only.
 - An Ingress when `ingress.enabled` is true, and a NetworkPolicy when `networkPolicy.enabled` is true.
 

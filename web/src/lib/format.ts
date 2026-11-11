@@ -158,6 +158,7 @@ export function operatorHealthText(operator: Pick<Operator, 'health' | 'collecti
 }
 
 export const restoreOutcomes = {
+  unknown: 'Unknown',
   notRun: 'Not run',
   running: 'Running',
   passed: 'Passed',
@@ -173,6 +174,7 @@ export const recoveryPhases = {
   unknown: 'Unknown',
 } as const
 export const cleanupStates = {
+  unknown: 'Unknown',
   notApplicable: 'Not applicable',
   pending: 'Pending',
   complete: 'Complete',

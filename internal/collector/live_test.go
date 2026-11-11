@@ -16,6 +16,10 @@ func TestKindOperatorProjection(t *testing.T) {
 	if path == "" {
 		t.Skip("set CONSOLE_TEST_KUBECONFIG to the isolated console-dev cluster")
 	}
+	contextName := os.Getenv("CONSOLE_TEST_CONTEXT")
+	if contextName == "" {
+		contextName = "kind-console-dev"
+	}
 	reader, err := New(
 		config.Connection{
 			ID:         "kind-console-dev",
@@ -30,7 +34,7 @@ func TestKindOperatorProjection(t *testing.T) {
 					Namespaces: []string{"console-sample"},
 				},
 			},
-			Access: config.Access{Mode: config.AccessKubeconfig, Kubeconfig: path, Context: "kind-console-dev"},
+			Access: config.Access{Mode: config.AccessKubeconfig, Kubeconfig: path, Context: contextName},
 		},
 		fleet.Policy{MaxBackupAge: 24 * time.Hour, StartupGrace: 10 * time.Minute},
 	)
@@ -53,7 +57,7 @@ func TestKindOperatorProjection(t *testing.T) {
 			continue
 		}
 		if d.UID == "" || d.DesiredVersion != "2.7.0" || d.DesiredReplicas == nil || *d.DesiredReplicas != 1 || d.ResourceVersion == "" ||
-			len(d.Conditions) == 0 ||
+			len(d.Conditions) == 0 || d.Evidence.AnalysisIncomplete || d.Health != fleet.HealthHealthy ||
 			d.Evidence.Collection != "current" ||
 			d.OperatorID == nil ||
 			*d.OperatorID != "operator" {

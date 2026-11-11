@@ -66,7 +66,7 @@ export function ConditionsTab({
                       className="badge status-unknown"
                       title="The operator has not reported this condition for the current resource generation. Attention rules ignore it."
                     >
-                      Outdated · generation {condition.observedGeneration} of{' '}
+                      Not current · generation {condition.observedGeneration} of{' '}
                       {deployment.generation}
                     </span>
                   )}
