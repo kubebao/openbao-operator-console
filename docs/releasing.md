@@ -92,8 +92,8 @@ pull request or publishing artifacts. These commands do not change repository vi
      --input .github/main-protection.json
    ```
 
-   The configuration requires up-to-date branches, checks from GitHub Actions, resolved review threads, and linear
-   history. It protects administrators and blocks force pushes and deletion. It sets no minimum approval count for
+   The configuration requires up-to-date branches, checks from GitHub Actions and the DCO app, resolved review threads,
+   and linear history. It protects administrators and blocks force pushes and deletion. It sets no minimum approval count for
    this single-maintainer repository. Keep the check names aligned with the workflow job names.
    **Edge candidate provenance** is excluded because it runs only on `main` after PR qualification.
 
