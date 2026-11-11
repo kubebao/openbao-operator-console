@@ -135,7 +135,7 @@ func projectRecovery(request shared.Restore) *fleet.Recovery {
 }
 
 func attachRecovery(deployment *fleet.Deployment, cluster shared.Cluster, requests []shared.Restore) {
-	latest, found, err := adapter.LatestRestore(cluster, requests)
+	latest, found, err := diagnose.LatestRestore(cluster, requests, string(adapter.V1Alpha1Snapshot), "openbao.org/v1alpha1")
 	if err != nil || !found {
 		return
 	}

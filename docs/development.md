@@ -224,7 +224,7 @@ information and the OCI image labels.
 ## Shared client migration
 
 The console pins `github.com/kubebao/openbao-operator-client` at
-`v0.0.0-20261111115206-1edeecfd35ae`. This is the common milestone 6 candidate, not a release tag.
+`v0.0.0-20261111134438-0e0f536c49b4`. Client PR #19 merges the contract fixes; this remains an untagged milestone 6 candidate.
 Build with Go 1.27.4 or newer. Final qualification uses `GOWORK=off`
 and no local replacement. The public module needs no private dependency credentials.
 
@@ -252,3 +252,7 @@ native-recovery/remote-replication projections are removed from new live observa
 new UID-confirmed request episodes receive new IDs because names cannot prove historical ownership.
 In-progress confirmed restores can produce informational findings.
 The migration does not qualify lifecycle operations or a new operator API group.
+
+Restore display selection uses `diagnose.LatestRestore` with the approved UID-binding contract and API version.
+Projection remains in the adapter. Rule set 8 retains all observed insufficiency causes. The console keeps its existing
+fleet mapping, history, and read-only collection scope. Client tagging remains on hold pending qualification.
