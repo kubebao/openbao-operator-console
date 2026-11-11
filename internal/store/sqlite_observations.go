@@ -119,7 +119,7 @@ func writeSQLiteChanges(ctx context.Context, queries *sqlitedb.Queries, changes 
 			return err
 		}
 	}
-	recordedAt := changes.connection.LastAttemptAt.UnixMicro()
+	recordedAt := changes.recordedAt.UnixMicro()
 	for _, deployment := range changes.observations {
 		projection, err := json.Marshal(deployment)
 		if err != nil {

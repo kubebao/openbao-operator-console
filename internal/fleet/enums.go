@@ -158,6 +158,7 @@ const (
 type RestoreOutcome string
 
 const (
+	RestoreOutcomeUnknown RestoreOutcome = "unknown"
 	RestoreOutcomeNotRun  RestoreOutcome = "notRun"
 	RestoreOutcomeRunning RestoreOutcome = "running"
 	RestoreOutcomePassed  RestoreOutcome = "passed"
@@ -195,6 +196,7 @@ func (p RecoveryPhase) Valid() bool {
 type RecoveryCleanup string
 
 const (
+	RecoveryCleanupUnknown       RecoveryCleanup = "unknown"
 	RecoveryCleanupNotApplicable RecoveryCleanup = "notApplicable"
 	RecoveryCleanupPending       RecoveryCleanup = "pending"
 	RecoveryCleanupComplete      RecoveryCleanup = "complete"
@@ -203,7 +205,7 @@ const (
 
 func (c RecoveryCleanup) Valid() bool {
 	switch c {
-	case RecoveryCleanupNotApplicable, RecoveryCleanupPending, RecoveryCleanupComplete, RecoveryCleanupFailed:
+	case RecoveryCleanupUnknown, RecoveryCleanupNotApplicable, RecoveryCleanupPending, RecoveryCleanupComplete, RecoveryCleanupFailed:
 		return true
 	}
 	return false

@@ -159,3 +159,53 @@ func TestObservationWithoutTransitionRecordsNoActivity(t *testing.T) {
 		t.Fatalf("finding change activity = %+v", result.activity)
 	}
 }
+
+func TestIncompleteEvaluationRetainsEpisodeAndRecovery(t *testing.T) {
+	old := observationFixture()
+	old.Issues = []fleet.Issue{
+		{
+			ID:            old.ID + ":restore:request",
+			Rule:          fleet.RuleRecoveryInvestigate,
+			Severity:      fleet.SeverityHigh,
+			FirstSeenAt:   old.Evidence.CollectedAt.Add(-time.Hour),
+			LastCheckedAt: old.Evidence.CollectedAt,
+		},
+	}
+	old.Recovery = &fleet.Recovery{RequestName: "bound-request", Phase: fleet.RecoveryPhaseFailed}
+	current := old
+	current.Issues = nil
+	current.Recovery = nil
+	current.Evidence.AnalysisIncomplete = true
+	completed := old.Evidence.CollectedAt.Add(time.Minute)
+	batch := Batch{
+		Connection: fleet.Connection{
+			ID:            old.ConnectionID,
+			Collection:    fleet.ConnectionCollectionCurrent,
+			LastAttemptAt: old.Evidence.CollectedAt,
+		},
+		CompletedAt: completed,
+		Deployments: []fleet.Deployment{current},
+		Unresolved:  map[string][]fleet.Rule{old.ID: {fleet.RuleRecoveryInvestigate}},
+	}
+	result := merge(batch, nil, []fleet.Deployment{old})
+	got := result.deployments[0]
+	if len(got.Issues) != 1 || got.Issues[0] != old.Issues[0] || got.Recovery == nil || got.Recovery.RequestName != "bound-request" ||
+		got.Health != fleet.HealthAttention {
+		t.Fatalf("lost last confirmed evidence: %+v", got)
+	}
+	if result.recordedAt != completed {
+		t.Fatal("history used attempt time instead of completion time")
+	}
+	for _, event := range result.activity {
+		if event.Kind == fleet.ActivityFindingResolved {
+			t.Fatal("incomplete evaluation resolved an episode")
+		}
+	}
+	current.Evidence.AnalysisIncomplete = false
+	batch.Deployments = []fleet.Deployment{current}
+	batch.Unresolved = nil
+	result = merge(batch, nil, []fleet.Deployment{got})
+	if len(result.deployments[0].Issues) != 0 || result.deployments[0].Recovery != nil {
+		t.Fatal("confirmed resolution retained the episode")
+	}
+}

@@ -24,6 +24,7 @@ export const producerFreshnessTone: Record<Deployment['evidence']['producerFresh
 }
 
 export const restoreTone: Record<RestoreOutcome, Tone> = {
+  unknown: 'unknown',
   passed: 'healthy',
   failed: 'critical',
   blocked: 'attention',

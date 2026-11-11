@@ -24,7 +24,7 @@ const condition = z.object({
   lastTransitionAt: timestamp.nullable(),
 })
 const restoreTest = z.object({
-  outcome: z.enum(['notRun', 'running', 'passed', 'failed', 'blocked']),
+  outcome: z.enum(['notRun', 'running', 'passed', 'failed', 'blocked', 'unknown']),
   finishedAt: timestamp.nullable(),
   lastSuccessAt: timestamp.nullable(),
   key: z.string().nullable(),
@@ -56,6 +56,7 @@ const deploymentObject = z.object({
     lastAttemptAt: timestamp,
     producerObservedAt: timestamp.nullable(),
     producerFreshness: z.enum(['unknown', 'fresh', 'stale']),
+    analysisIncomplete: z.boolean().exactOptional(),
   }),
   conditions: z.array(condition),
   backup: z
@@ -65,7 +66,7 @@ const deploymentObject = z.object({
       key: z.string().nullable(),
       digest: z.string().nullable(),
       sizeBytes: z.number().int().nonnegative().nullable(),
-      consecutiveFailures: z.number().int().nonnegative(),
+      consecutiveFailures: z.number().int().nonnegative().nullable(),
       restoreTest: restoreTest.nullable(),
     })
     .nullable(),
@@ -79,7 +80,7 @@ const deploymentObject = z.object({
       startedAt: timestamp.nullable(),
       completedAt: timestamp.nullable(),
       applicationConfirmedAt: timestamp.nullable(),
-      cleanup: z.enum(['notApplicable', 'pending', 'complete', 'failed']),
+      cleanup: z.enum(['notApplicable', 'pending', 'complete', 'failed', 'unknown']),
       exclusionAcknowledged: z.boolean().nullable(),
     })
     .nullable(),

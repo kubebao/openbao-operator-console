@@ -14,7 +14,7 @@ metadata:
   namespace: console-sample
 rules:
   - apiGroups: [openbao.org]
-    resources: [openbaoclusters, openbaorestores, openbaorecoveries]
+    resources: [openbaoclusters, openbaorestores]
     verbs: [list]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

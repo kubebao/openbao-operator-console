@@ -54,7 +54,7 @@ func WriteRBAC(w io.Writer, connection Connection, serviceAccount, serviceNamesp
 			rules[namespace.Name],
 			rule{
 				APIGroups: []string{"openbao.org"},
-				Resources: []string{"openbaoclusters", "openbaorestores", "openbaorecoveries"},
+				Resources: []string{"openbaoclusters", "openbaorestores"},
 				Verbs:     []string{"list"},
 			},
 		)

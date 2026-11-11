@@ -211,6 +211,7 @@ func deployment(row fixture, now time.Time) fleet.Deployment {
 			},
 		},
 		Backup: &fleet.Backup{
+			ConsecutiveFailures: ptr(int32(0)),
 			LastSuccessAt: ptr(
 				now.Add(-14 * time.Minute),
 			),
@@ -266,7 +267,7 @@ func deployment(row fixture, now time.Time) fleet.Deployment {
 		}
 	}
 	if row.id == "customer-x" {
-		d.Backup.ConsecutiveFailures = 2
+		d.Backup.ConsecutiveFailures = ptr(int32(2))
 		d.Backup.LastSuccessAt = ptr(now.Add(-19 * time.Hour))
 	}
 	if row.id == "staging" {
@@ -289,7 +290,7 @@ func deployment(row fixture, now time.Time) fleet.Deployment {
 		d.ReadyReplicas = nil
 		d.Evidence.CollectedAt = now.Add(-24 * time.Hour)
 	}
-	evidence.Evaluate(
+	evaluateFixture(
 		&d,
 		now.Add(-7*24*time.Hour),
 		false,
@@ -387,7 +388,7 @@ func history(current fleet.Deployment, now time.Time) []fleet.Observation {
 	if backup := current.Backup; backup != nil && backup.LastSuccessAt != nil {
 		last := *backup.LastSuccessAt
 		later(last)
-		state.Backup.ConsecutiveFailures = 0
+		state.Backup.ConsecutiveFailures = ptr(int32(0))
 		if test := state.Backup.RestoreTest; test != nil {
 			test.FinishedAt, test.LastSuccessAt = ptr(now.Add(-9*24*time.Hour)), ptr(now.Add(-9*24*time.Hour))
 		}
@@ -396,7 +397,8 @@ func history(current fleet.Deployment, now time.Time) []fleet.Observation {
 			size := int64(float64(*backup.SizeBytes) * (1 - 0.012*float64(day)))
 			key := fmt.Sprintf("%s/%s.snapshot", current.Namespace, at.Format("2006-01-02"))
 			events = append(events, demoEvent{at, func(d *fleet.Deployment) {
-				d.Backup.LastSuccessAt, d.Backup.SizeBytes, d.Backup.Key, d.Backup.ConsecutiveFailures = ptr(at), ptr(size), ptr(key), 0
+				d.Backup.LastSuccessAt, d.Backup.SizeBytes = ptr(at), ptr(size)
+				d.Backup.Key, d.Backup.ConsecutiveFailures = ptr(key), ptr(int32(0))
 			}})
 		}
 		if test := backup.RestoreTest; test != nil && test.FinishedAt != nil {
@@ -419,7 +421,10 @@ func history(current fleet.Deployment, now time.Time) []fleet.Observation {
 				d.ReadyReplicas, d.Conditions = current.ReadyReplicas, current.Conditions
 			}})
 	case "customer-x":
-		events = append(events, demoEvent{now.Add(-8 * time.Hour), func(d *fleet.Deployment) { d.Backup.ConsecutiveFailures = 1 }})
+		events = append(
+			events,
+			demoEvent{now.Add(-8 * time.Hour), func(d *fleet.Deployment) { d.Backup.ConsecutiveFailures = ptr(int32(1)) }},
+		)
 		later(now.Add(-2 * time.Hour))
 	case "staging":
 		state.DesiredVersion, state.Version, state.Generation = "2.6.1", "2.6.1", 2
@@ -458,7 +463,7 @@ func history(current fleet.Deployment, now time.Time) []fleet.Observation {
 	record := func(at time.Time, d fleet.Deployment) {
 		d.ResourceVersion = fmt.Sprintf("demo-%d", len(observations)+1)
 		d.Evidence.CollectedAt, d.Evidence.LastAttemptAt, d.Evidence.Collection = at, at, fleet.EvidenceCollectionCurrent
-		evidence.Evaluate(&d, created, false, policy, at)
+		evaluateFixture(&d, created, false, policy, at)
 		observations = append(observations, fleet.Observation{RecordedAt: at, Deployment: d})
 	}
 	if final.After(start) {

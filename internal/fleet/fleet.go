@@ -127,6 +127,7 @@ type Issue struct {
 
 // Evidence separates collection time from the producer's own observation time.
 type Evidence struct {
+	AnalysisIncomplete bool               `json:"analysisIncomplete,omitempty"`
 	Collection         EvidenceCollection `json:"collection"`
 	CollectedAt        time.Time          `json:"collectedAt"`
 	LastAttemptAt      time.Time          `json:"lastAttemptAt"`
@@ -143,7 +144,7 @@ type Backup struct {
 	LastSuccessAt       *time.Time   `json:"lastSuccessAt"`
 	NextAt              *time.Time   `json:"nextAt"`
 	Key                 *string      `json:"key"`
-	ConsecutiveFailures int32        `json:"consecutiveFailures"`
+	ConsecutiveFailures *int32       `json:"consecutiveFailures"`
 	Digest              *string      `json:"digest"`
 	SizeBytes           *int64       `json:"sizeBytes"`
 	RestoreTest         *RestoreTest `json:"restoreTest"`

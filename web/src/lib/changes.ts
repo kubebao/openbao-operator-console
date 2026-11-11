@@ -38,6 +38,7 @@ const assessmentTone: Record<ConditionAssessment, ChangeTone> = {
 }
 
 const restoreTone: Record<RestoreTest['outcome'], ChangeTone> = {
+  unknown: 'neutral',
   passed: 'success',
   failed: 'warning',
   blocked: 'warning',
@@ -84,17 +85,17 @@ function stateChanges(previous: Deployment, current: Deployment): Change[] {
 }
 
 function findingChanges(previous: Deployment, current: Deployment): Change[] {
-  const before = new Map(previous.issues.map((issue) => [issue.rule, issue]))
-  const after = new Map(current.issues.map((issue) => [issue.rule, issue]))
+  const before = new Map(previous.issues.map((issue) => [issue.id, issue]))
+  const after = new Map(current.issues.map((issue) => [issue.id, issue]))
   const raised = [...after.values()]
-    .filter((issue) => !before.has(issue.rule))
+    .filter((issue) => !before.has(issue.id))
     .map((issue): Change => ({
       title: `Finding raised: ${issue.title}`,
       detail: issue.detail,
       tone: issue.severity === 'critical' ? 'critical' : 'warning',
     }))
   const resolved = [...before.values()]
-    .filter((issue) => !after.has(issue.rule))
+    .filter((issue) => !after.has(issue.id))
     .map((issue): Change => ({ title: `Finding resolved: ${issue.title}`, tone: 'success' }))
   return [...raised, ...resolved]
 }
@@ -195,7 +196,10 @@ function backupChanges(previous: Deployment, current: Deployment): Change[] {
     })
   else if (backup.nextAt && old && backup.nextAt !== old.nextAt)
     changes.push({ title: 'Backup schedule updated', tone: 'neutral' })
-  const added = backup.consecutiveFailures - (old?.consecutiveFailures ?? 0)
+  const added =
+    backup.consecutiveFailures !== null && old?.consecutiveFailures != null
+      ? backup.consecutiveFailures - old.consecutiveFailures
+      : 0
   if (added > 0)
     changes.push({
       title: added === 1 ? 'Backup failed' : `${String(added)} backup failures observed`,

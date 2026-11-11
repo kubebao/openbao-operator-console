@@ -55,9 +55,10 @@ function RecoverySteps({ recovery }: { recovery: Recovery }) {
 }
 
 function generationLabel(observed: number | null, requested: number): string {
-  if (observed === null) return 'No conditions reported'
-  if (observed >= requested) return `Generation ${String(observed)} (current)`
-  return `Generation ${String(observed)} of ${String(requested)}`
+  if (observed === null || observed <= 0 || requested <= 0)
+    return 'Condition acknowledgement unknown'
+  if (observed === requested) return `Generation ${String(observed)} (current)`
+  return `Generation ${String(observed)} of ${String(requested)}${observed > requested ? ' (inconsistent)' : ''}`
 }
 
 function VersionSection({ deployment }: { deployment: Deployment }) {

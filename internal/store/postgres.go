@@ -242,7 +242,7 @@ func writeChanges(ctx context.Context, queries *database.Queries, changes change
 			return err
 		}
 	}
-	recordedAt := pgtype.Timestamptz{Time: changes.connection.LastAttemptAt, Valid: true}
+	recordedAt := pgtype.Timestamptz{Time: changes.recordedAt, Valid: true}
 	for _, deployment := range changes.observations {
 		projection, err := json.Marshal(deployment)
 		if err != nil {

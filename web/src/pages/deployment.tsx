@@ -91,6 +91,12 @@ function DeploymentDetails({ snapshot }: { snapshot: Snapshot }) {
           </span>
         </div>
       )}
+      {deployment.evidence.collection === 'current' && deployment.evidence.analysisIncomplete && (
+        <p className="notice notice-warning">
+          Some diagnostic rules could not be evaluated. Prior unresolved findings remain visible
+          with their last evaluation time.
+        </p>
+      )}
       <Tabs.Root
         value={search.tab}
         onValueChange={(value) => {

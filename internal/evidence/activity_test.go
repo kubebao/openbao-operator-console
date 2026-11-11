@@ -16,8 +16,13 @@ func transitionFixture() fleet.Deployment {
 		Health:       fleet.HealthAttention,
 		Evidence:     fleet.Evidence{Collection: fleet.EvidenceCollectionCurrent},
 		Issues: []fleet.Issue{
-			{Rule: fleet.RuleBackupFailed, Severity: fleet.SeverityHigh, Detail: "1 consecutive failure"},
-			{Rule: fleet.RuleRestoreTest, Severity: fleet.SeverityInfo},
+			{
+				ID:       "deployment:" + string(fleet.RuleBackupFailed),
+				Rule:     fleet.RuleBackupFailed,
+				Severity: fleet.SeverityHigh,
+				Detail:   "1 consecutive failure",
+			},
+			{ID: "deployment:" + string(fleet.RuleRestoreTest), Rule: fleet.RuleRestoreTest, Severity: fleet.SeverityInfo},
 		},
 	}
 }
@@ -29,8 +34,13 @@ func TestTransitionsRecordEachChangeAsStructuredEvent(t *testing.T) {
 	current.Health = fleet.HealthCritical
 	current.Evidence.Collection = fleet.EvidenceCollectionStale
 	current.Issues = []fleet.Issue{
-		{Rule: fleet.RuleSealed, Severity: fleet.SeverityCritical},
-		{Rule: fleet.RuleBackupFailed, Severity: fleet.SeverityCritical, Detail: "2 consecutive failures"},
+		{ID: "deployment:" + string(fleet.RuleSealed), Rule: fleet.RuleSealed, Severity: fleet.SeverityCritical},
+		{
+			ID:       "deployment:" + string(fleet.RuleBackupFailed),
+			Rule:     fleet.RuleBackupFailed,
+			Severity: fleet.SeverityCritical,
+			Detail:   "2 consecutive failures",
+		},
 	}
 	events := Transitions(previous, current, at)
 	want := []struct {
@@ -91,5 +101,19 @@ func TestTransitionsIgnoreDetailOnlyFindingChanges(t *testing.T) {
 	current.Issues[0].Detail = "3 consecutive failures"
 	if events := Transitions(previous, current, time.Now()); len(events) != 0 {
 		t.Fatalf("detail change produced events: %+v", events)
+	}
+}
+
+func TestTransitionsKeepRestoreEpisodesIndependent(t *testing.T) {
+	previous := transitionFixture()
+	previous.Issues = []fleet.Issue{
+		{ID: "deployment:restore:a", Rule: fleet.RuleRecoveryInvestigate, Severity: fleet.SeverityHigh},
+		{ID: "deployment:restore:b", Rule: fleet.RuleRecoveryInvestigate, Severity: fleet.SeverityHigh},
+	}
+	current := previous
+	current.Issues = append([]fleet.Issue{}, previous.Issues[1:]...)
+	events := Transitions(previous, current, time.Now())
+	if len(events) != 1 || events[0].Kind != fleet.ActivityFindingResolved {
+		t.Fatalf("restore episodes collapsed: %+v", events)
 	}
 }

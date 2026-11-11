@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
+	"net/http"
 	"time"
 
+	"github.com/kubebao/openbao-operator-client/adapter"
+	clientcollect "github.com/kubebao/openbao-operator-client/collect"
+	"github.com/kubebao/openbao-operator-client/diagnose"
+	shared "github.com/kubebao/openbao-operator-client/evidence"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
@@ -25,6 +27,8 @@ import (
 
 type Reader struct {
 	client     dynamic.Interface
+	shared     *clientcollect.Client
+	transport  *observationTransport
 	connection config.Connection
 	policy     fleet.Policy
 }
@@ -56,6 +60,25 @@ func clientConfig(connection config.Connection) (*rest.Config, error) {
 	}
 }
 
+// observationTransport retains only transient error classification for check previews.
+// Neither raw provider errors nor response bodies enter observations or HTTP output.
+type observationTransport struct {
+	base    http.RoundTripper
+	status  int
+	failure error
+}
+
+func (t *observationTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	request = request.Clone(request.Context())
+	request.Header.Set("User-Agent", buildinfo.UserAgent())
+	response, err := t.base.RoundTrip(request)
+	t.status, t.failure = 0, err
+	if response != nil {
+		t.status = response.StatusCode
+	}
+	return response, err
+}
+
 func New(connection config.Connection, policy fleet.Policy) (*Reader, error) {
 	restConfig, err := clientConfig(connection)
 	if err != nil {
@@ -71,28 +94,12 @@ func New(connection config.Connection, policy fleet.Policy) (*Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Reader{client: client, connection: connection, policy: policy}, nil
-}
-
-func (r *Reader) list(ctx context.Context, namespace, resource string) ([]unstructured.Unstructured, error) {
-	gvr := schema.GroupVersionResource{Group: "openbao.org", Version: "v1alpha1", Resource: resource}
-	result := []unstructured.Unstructured{}
-	continuation := ""
-	for {
-		page, err := r.client.Resource(gvr).Namespace(namespace).List(ctx, metav1.ListOptions{Limit: 200, Continue: continuation})
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, page.Items...)
-		if len(result) > 10000 {
-			return nil, errors.New("connector resource limit exceeded")
-		}
-		continuation = page.GetContinue()
-		if continuation == "" {
-			break
-		}
+	transport := &observationTransport{base: httpClient.Transport}
+	sharedClient, err := clientcollect.NewClient(restConfig.Host, transport)
+	if err != nil {
+		return nil, fmt.Errorf("configure bounded reader: %w", err)
 	}
-	return result, nil
+	return &Reader{client: client, shared: sharedClient, transport: transport, connection: connection, policy: policy}, nil
 }
 
 func collectionState(err error) fleet.ConnectionCollection {
@@ -106,16 +113,86 @@ func collectionState(err error) fleet.ConnectionCollection {
 	}
 }
 
-func capabilityState(err error) fleet.CapabilityState {
-	switch {
-	case err == nil:
+func capabilityOutcome(outcome shared.CollectionOutcome) fleet.CapabilityState {
+	switch outcome {
+	case shared.CollectionComplete:
 		return fleet.CapabilityStateAvailable
-	case apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err):
+	case shared.CollectionDenied:
 		return fleet.CapabilityStateDenied
-	case apierrors.IsNotFound(err):
+	case shared.CollectionUnsupported:
 		return fleet.CapabilityStateUnsupported
 	default:
 		return fleet.CapabilityStateUnreachable
+	}
+}
+
+func (r *Reader) request(namespace, resource string) clientcollect.Request {
+	limits := clientcollect.DefaultLimits()
+	limits.MaxPages, limits.MaxCandidates, limits.PageSize = 64, 10000, 200
+	limits.MaxBytes, limits.MaxResponseBytes, limits.MaxRetainedBytes = 64*1024*1024, 8*1024*1024, 64*1024*1024
+	limits.Timeout = 10 * time.Second
+	projection := adapter.DefaultProjectionLimits()
+	projection.MaxBytes = limits.MaxResponseBytes
+	return clientcollect.Request{Scope: shared.Scope{
+		Origin: r.connection.ID, Group: "openbao.org", Version: "v1alpha1", Resource: resource,
+		Namespace: namespace, Action: shared.ReadList,
+	}, Contract: adapter.V1Alpha1Snapshot, Limits: limits, Projection: projection}
+}
+
+func (r *Reader) readError(outcome shared.CollectionOutcome) error {
+	if r.transport != nil && r.transport.failure != nil {
+		return r.transport.failure
+	}
+	switch outcome {
+	case shared.CollectionDenied:
+		if r.transport != nil && r.transport.status == http.StatusUnauthorized {
+			return apierrors.NewUnauthorized("reader credential rejected")
+		}
+		return apierrors.NewForbidden(schema.GroupResource{Group: "openbao.org", Resource: "openbaoclusters"}, "", nil)
+	case shared.CollectionUnsupported:
+		return apierrors.NewNotFound(schema.GroupResource{Group: "openbao.org", Resource: "openbaoclusters"}, "")
+	case shared.CollectionTimeout:
+		return context.DeadlineExceeded
+	case shared.CollectionCancelled:
+		return context.Canceled
+	default:
+		return errors.New("bounded resource collection failed")
+	}
+}
+
+func (r *Reader) pending(now time.Time) fleet.Connection {
+	result := fleet.Connection{
+		ID: r.connection.ID, Name: r.connection.Name, Region: r.connection.Region, Collection: fleet.ConnectionCollectionCurrent,
+		LastAttemptAt: now, Namespaces: []string{}, Operators: []fleet.Operator{}, Capabilities: []fleet.Capability{},
+	}
+	for _, namespace := range r.connection.Namespaces {
+		result.Namespaces = append(result.Namespaces, namespace.Name)
+		resources := []fleet.CapabilityResource{
+			fleet.CapabilityResourceClusters, fleet.CapabilityResourceRestores, fleet.CapabilityResourceRecoveries,
+		}
+		for _, resource := range resources {
+			state := fleet.CapabilityStateNotChecked
+			// The pinned contract has no native-recovery API. This is adapter support,
+			// not an attempted read or a claim about API discovery.
+			if resource == fleet.CapabilityResourceRecoveries {
+				state = fleet.CapabilityStateUnsupported
+			}
+			result.Capabilities = append(result.Capabilities, fleet.Capability{Namespace: namespace.Name, Resource: resource, State: state})
+		}
+	}
+	return result
+}
+
+func capability(connection *fleet.Connection, namespace string, resource fleet.CapabilityResource, read shared.Collection) {
+	for i := range connection.Capabilities {
+		value := &connection.Capabilities[i]
+		if value.Namespace == namespace && value.Resource == resource {
+			value.State = capabilityOutcome(read.Outcome)
+			if !read.Interval.CompletedAt.IsZero() {
+				at := read.Interval.CompletedAt
+				value.CheckedAt = &at
+			}
+		}
 	}
 }
 
@@ -123,161 +200,137 @@ func (r *Reader) Collect(ctx context.Context, now time.Time) store.Batch {
 	return r.collect(ctx, now, nil)
 }
 
-// pending lists every enrolled namespace and API before any read succeeds.
-func (r *Reader) pending(now time.Time) fleet.Connection {
-	connection := fleet.Connection{
-		ID:            r.connection.ID,
-		Name:          r.connection.Name,
-		Region:        r.connection.Region,
-		Collection:    fleet.ConnectionCollectionCurrent,
-		LastAttemptAt: now,
-		Namespaces:    []string{},
-		Operators:     []fleet.Operator{},
-		Capabilities:  []fleet.Capability{},
-	}
-	for _, namespace := range r.connection.Namespaces {
-		connection.Namespaces = append(connection.Namespaces, namespace.Name)
-		for _, resource := range []fleet.CapabilityResource{
-			fleet.CapabilityResourceClusters,
-			fleet.CapabilityResourceRestores,
-			fleet.CapabilityResourceRecoveries,
-		} {
-			connection.Capabilities = append(
-				connection.Capabilities,
-				fleet.Capability{Namespace: namespace.Name, Resource: resource, State: fleet.CapabilityStateNotChecked},
-			)
-		}
-	}
-	return connection
-}
-
 func (r *Reader) collect(ctx context.Context, now time.Time, diagnostic *CheckDiagnostic) store.Batch {
-	batch := store.Batch{Connection: r.pending(now), Deployments: []fleet.Deployment{}}
-	diagnose := func(err error) {
+	batch := store.Batch{Connection: r.pending(now), Deployments: []fleet.Deployment{}, Unresolved: map[string][]fleet.Rule{}}
+	fail := func(err error) store.Batch {
 		if diagnostic != nil {
 			*diagnostic = checkDiagnostic(err)
 		}
+		batch.Connection.Collection = collectionState(err)
+		batch.Deployments = nil
+		r.client, r.shared = nil, nil
+		batch.CompletedAt = time.Now().UTC()
+		return batch
 	}
-	if r.client == nil {
+	if r.client == nil || r.shared == nil {
 		configured, err := New(r.connection, r.policy)
 		if err != nil {
-			diagnose(err)
-			batch.Connection.Collection = fleet.ConnectionCollectionUnreachable
 			for _, operator := range r.connection.Operators {
 				batch.Connection.Operators = append(
 					batch.Connection.Operators,
 					enrolledOperator(operator, fleet.OperatorCollectionUnreachable, now),
 				)
 			}
-			return batch
+			return fail(err)
 		}
-		r.client = configured.client
+		r.client, r.shared, r.transport = configured.client, configured.shared, configured.transport
 	}
 	for _, operator := range r.connection.Operators {
 		batch.Connection.Operators = append(batch.Connection.Operators, r.operator(ctx, operator, now))
 	}
 	for _, namespace := range r.connection.Namespaces {
-		deployments, err := r.namespace(ctx, &batch.Connection, namespace, now)
+		deployments, unresolved, err := r.namespace(ctx, &batch.Connection, namespace, now)
 		if err != nil {
-			diagnose(err)
-			batch.Connection.Collection = collectionState(err)
-			batch.Deployments = nil
-			r.client = nil
-			return batch
+			return fail(err)
 		}
 		batch.Deployments = append(batch.Deployments, deployments...)
+		for id, rules := range unresolved {
+			batch.Unresolved[id] = rules
+		}
 	}
-	batch.Connection.LastSuccessAt = &now
+	batch.CompletedAt = time.Now().UTC()
+	batch.Connection.LastSuccessAt = &batch.CompletedAt
 	return batch
 }
 
-// read lists one API in one namespace and records the result as a capability.
-// Optional APIs that are absent or forbidden yield no items instead of an error.
-func (r *Reader) read(
-	ctx context.Context,
-	connection *fleet.Connection,
-	namespace string,
-	resource fleet.CapabilityResource,
-	optional bool,
-	now time.Time,
-) ([]unstructured.Unstructured, error) {
-	items, err := r.list(ctx, namespace, string(resource))
-	for i := range connection.Capabilities {
-		capability := &connection.Capabilities[i]
-		if capability.Namespace == namespace && capability.Resource == resource {
-			capability.CheckedAt = &now
-			capability.State = capabilityState(err)
+func (r *Reader) namespace(ctx context.Context, connection *fleet.Connection, namespace config.Namespace, attempted time.Time) (
+	[]fleet.Deployment, map[string][]fleet.Rule, error,
+) {
+	request := r.request(namespace.Name, "openbaoclusters")
+	initial, err := r.shared.Clusters(ctx, request)
+	if err != nil {
+		return nil, nil, err
+	}
+	capability(connection, namespace.Name, fleet.CapabilityResourceClusters, initial.Collection)
+	if initial.Collection.Outcome != shared.CollectionComplete {
+		return nil, nil, r.readError(initial.Collection.Outcome)
+	}
+	restores, err := r.shared.Restores(ctx, r.request(namespace.Name, "openbaorestores"))
+	if err != nil {
+		return nil, nil, err
+	}
+	capability(connection, namespace.Name, fleet.CapabilityResourceRestores, restores.Collection)
+	if restores.Collection.Outcome == shared.CollectionDenied && r.transport != nil && r.transport.status == http.StatusUnauthorized {
+		return nil, nil, r.readError(restores.Collection.Outcome)
+	}
+	final, err := r.shared.Clusters(ctx, request)
+	if err != nil {
+		return nil, nil, err
+	}
+	if final.Collection.Outcome != shared.CollectionComplete {
+		return nil, nil, r.readError(final.Collection.Outcome)
+	}
+	if int64(len(initial.Observations))*int64(len(final.Observations)+len(restores.Observations)+1) > 1000000 {
+		return nil, nil, errors.New("connector analysis limit exceeded")
+	}
+	result, unresolved := []fleet.Deployment{}, map[string][]fleet.Rule{}
+	reference := time.Now().UTC()
+	for _, cluster := range initial.Observations {
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
 		}
-	}
-	if optional && (apierrors.IsNotFound(err) || apierrors.IsForbidden(err)) {
-		return []unstructured.Unstructured{}, nil
-	}
-	return items, err
-}
-
-func (r *Reader) namespace(
-	ctx context.Context,
-	connection *fleet.Connection,
-	namespace config.Namespace,
-	now time.Time,
-) ([]fleet.Deployment, error) {
-	clusters, err := r.read(ctx, connection, namespace.Name, fleet.CapabilityResourceClusters, false, now)
-	if err != nil {
-		return nil, err
-	}
-	restores, err := r.read(ctx, connection, namespace.Name, fleet.CapabilityResourceRestores, true, now)
-	if err != nil {
-		return nil, err
-	}
-	recoveries, err := r.read(ctx, connection, namespace.Name, fleet.CapabilityResourceRecoveries, true, now)
-	if err != nil {
-		return nil, err
-	}
-	requests := slices.Concat(restores, recoveries)
-	result := []fleet.Deployment{}
-	for _, cluster := range clusters {
-		deployment := Project(cluster, r.connection, namespace, now)
-		fleet.AssignOperator(&deployment, connection.Operators)
-		deployment.Recovery = latestRecovery(requests, deployment, cluster.GetCreationTimestamp().Time, now, r.policy)
-		evidence.Evaluate(&deployment, cluster.GetCreationTimestamp().Time, boolean(cluster.Object, "spec", "paused"), r.policy, now)
-		result = append(result, deployment)
-	}
-	return result, nil
-}
-
-// latestRecovery selects the newest restore or recovery request that targets the
-// deployment. A request bound to another UID never applies to a replacement. A request
-// without a bound UID applies only when it was created at or after the cluster, so a
-// request for an earlier cluster with the same name never attaches to its replacement.
-func latestRecovery(
-	requests []unstructured.Unstructured,
-	deployment fleet.Deployment,
-	clusterCreated, now time.Time,
-	policy fleet.Policy,
-) *fleet.Recovery {
-	var result *fleet.Recovery
-	var newest time.Time
-	for _, request := range requests {
-		mechanism := fleet.RecoveryMechanismSnapshot
-		name := text(request.Object, "spec", "cluster")
-		uid := text(request.Object, "status", "execution", "targetUID")
-		if request.GetKind() == "OpenBaoRecovery" {
-			mechanism = fleet.RecoveryMechanismNative
-			name = text(request.Object, "spec", "clusterRef", "name")
-			uid = text(request.Object, "status", "clusterRef", "uid")
+		verification, err := shared.NewTargetVerification(cluster, final.Collection, final.Observations)
+		if err != nil {
+			return nil, nil, fmt.Errorf("verify collected target: %w", err)
 		}
-		created := request.GetCreationTimestamp().Time
-		if name != deployment.Name || (uid != "" && uid != deployment.UID) || (uid == "" && created.Before(clusterCreated)) ||
-			created.Before(newest) {
+		if verification.State == shared.VerificationDeleted || verification.State == shared.VerificationReplaced {
 			continue
 		}
-		newest = created
-		result = ProjectRecovery(request, mechanism, now, policy.StartupGrace)
+		input := diagnose.ClusterInput{
+			Subject:         cluster.Reference.Identity,
+			AdapterContract: cluster.AdapterContract,
+			Observation:     &cluster,
+			Collection:      initial.Collection,
+			Verification:    &verification,
+			Restores: &diagnose.ResourceInput[shared.Restore]{
+				AdapterContract: cluster.AdapterContract,
+				Collection:      restores.Collection,
+				Observations:    restores.Observations,
+			},
+		}
+		policy := analysisPolicy(reference, r.policy)
+		policy.Rules = evidence.Rules()
+		// Console restore-test presentation exists only for configured backups.
+		if cluster.Backup.Configuration == shared.ObjectAbsent {
+			selected := policy.Rules[:0]
+			for _, rule := range policy.Rules {
+				if rule != diagnose.RuleRestoreTest {
+					selected = append(selected, rule)
+				}
+			}
+			policy.Rules = selected
+		}
+		report, err := diagnose.Analyze(
+			diagnose.Capture{SchemaVersion: shared.SchemaVersion, Clusters: []diagnose.ClusterInput{input}},
+			policy,
+		)
+		if err != nil {
+			return nil, nil, fmt.Errorf("analyze collected evidence: %w", err)
+		}
+		deployment := projectCluster(cluster, r.connection, namespace)
+		deployment.Evidence.LastAttemptAt = attempted
+		if restores.Collection.Outcome == shared.CollectionComplete {
+			attachRecovery(&deployment, cluster, restores.Observations)
+		}
+		applyRestoreTestPresentation(&deployment, cluster, report)
+		fleet.AssignOperator(&deployment, connection.Operators)
+		unresolved[deployment.ID] = evidence.Apply(&deployment, report)
+		result = append(result, deployment)
 	}
-	return result
+	return result, unresolved, nil
 }
 
-// Sink persists collection batches and forgets connections that left the enrollment.
+// Sink persists collection batches and forgets connections that left enrollment.
 type Sink interface {
 	Apply(context.Context, store.Batch) error
 	RetainConnections(context.Context, []string) error

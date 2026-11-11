@@ -17,7 +17,8 @@ type changes struct {
 	observations []fleet.Deployment
 	activity     []fleet.Activity
 	// complete reports a successful collection. Stored deployments absent from it no longer exist.
-	complete bool
+	complete   bool
+	recordedAt time.Time
 }
 
 // merge combines a batch with the stored state of its connection. A failed collection
@@ -39,10 +40,15 @@ func merge(batch Batch, previous *fleet.Connection, stored []fleet.Deployment) c
 	if !result.complete {
 		deployments = lastKnown(&result.connection, stored)
 	}
-	at := result.connection.LastAttemptAt
+	at := batch.CompletedAt
+	if at.IsZero() {
+		at = result.connection.LastAttemptAt
+	}
+	result.recordedAt = at
 	for _, current := range deployments {
 		old, exists := byID[current.ID]
 		if exists {
+			retainIncomplete(&current, old, batch.Unresolved[current.ID])
 			preserveFirstSeen(&current, old)
 		}
 		result.deployments = append(result.deployments, current)
@@ -103,6 +109,28 @@ func preserveOperatorEvidence(current *fleet.Connection, previous fleet.Connecti
 			next.LastSuccessAt = old.LastSuccessAt
 		}
 	}
+}
+
+// retainIncomplete preserves an unresolved episode without advancing its last
+// confirmed evaluation time. A successful inventory read can still have denied
+// optional reads or unknown producer fields.
+func retainIncomplete(current *fleet.Deployment, previous fleet.Deployment, rules []fleet.Rule) {
+	if len(rules) == 0 {
+		return
+	}
+	for _, old := range previous.Issues {
+		if !slices.Contains(rules, old.Rule) {
+			continue
+		}
+		found := slices.ContainsFunc(current.Issues, func(next fleet.Issue) bool { return next.ID == old.ID })
+		if !found {
+			current.Issues = append(current.Issues, old)
+		}
+	}
+	if current.Recovery == nil && slices.Contains(rules, fleet.RuleRecoveryInvestigate) {
+		current.Recovery = previous.Recovery
+	}
+	evidence.RefreshHealth(current)
 }
 
 func preserveFirstSeen(current *fleet.Deployment, previous fleet.Deployment) {

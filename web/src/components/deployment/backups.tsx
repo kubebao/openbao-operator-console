@@ -146,8 +146,10 @@ export function BackupsTab({
         </div>
         <div className={`summary-stat${failureFinding ? ` finding-${failureFinding}` : ''}`}>
           <span>Consecutive failures</span>
-          <strong>{backup.consecutiveFailures}</strong>
-          {backup.consecutiveFailures > 0 && <small>Since the last successful backup</small>}
+          <strong>{backup.consecutiveFailures ?? 'Unknown'}</strong>
+          {backup.consecutiveFailures !== null && backup.consecutiveFailures > 0 && (
+            <small>Since the last successful backup</small>
+          )}
         </div>
       </div>
 

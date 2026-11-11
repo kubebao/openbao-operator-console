@@ -9,11 +9,11 @@ workflow and conventions, and [installation](installation.md) for running the co
 | --- | --- |
 | `cmd/console` | Executable entry point, CLI flags, and first-start configuration |
 | `internal/auth` | OpenID Connect login and sessions |
-| `internal/collector` | Kubernetes collection and evidence adapters |
+| `internal/collector` | Shared client orchestration and mappings; named controller observation |
 | `internal/config` | Enrollment, credential validation, and reader RBAC generation |
 | `internal/contract` | Generated API transport types |
 | `internal/demo` | Demonstration fixtures |
-| `internal/evidence` | Attention rules |
+| `internal/evidence` | Shared finding mappings, product health, and activity transitions |
 | `internal/fleet` | Domain model for deployments, connections, and controllers; defines the stored observation format |
 | `internal/httpapi` | HTTP API, contract projection, and embedded web assets |
 | `internal/kube` | Kubernetes REST clients for embedded reader credentials; never follow redirects |
@@ -163,6 +163,8 @@ export CONSOLE_TEST_KUBECONFIG="$PWD/.local/reader-kubeconfig"
 make integration
 ```
 
+For another isolated cluster, set `CONSOLE_TEST_CONTEXT` to its kubeconfig context name.
+
 The test reads only `console-sample` and expects the `console-bao` resource to declare OpenBao 2.7.0 and one replica. It
 does not run a restore or recovery. Delete the kind cluster when you are done:
 
@@ -217,3 +219,35 @@ distroless image that runs as user and group 65532. The build stages run on the 
 target platform, so a multi-platform build needs no emulation. Corepack installs the pnpm version from the
 `packageManager` field in `web/package.json`. The `VERSION` and `COMMIT` build arguments set the embedded build
 information and the OCI image labels.
+
+
+## Shared client migration
+
+The console pins `github.com/kubebao/openbao-operator-client` at
+`v0.0.0-20261111084856-7926f09468de`. Build with Go 1.27.4 or newer. Final qualification uses `GOWORK=off`
+and no local replacement. The public module needs no private dependency credentials.
+
+The library owns public OpenBao projections, bounded namespace LISTs, UID/generation verification, and diagnostic rules.
+Enrollment, named controller reads, renewal, authorization, persistence, scheduling, HTTP contracts, and rendering remain
+console responsibilities. No Pod reads, cluster-wide lists, or mutations are added. Reader RBAC drops the unsupported
+`openbaorecoveries` resource.
+
+Each namespace collection runs a cluster LIST, a restore LIST, then a second cluster LIST to verify targets. Each LIST
+allows 64 pages, 200 candidates per page, 10,000 candidates, 64 MiB transferred and retained, 8 MiB per response, and a
+10-second deadline. A namespace round rejects more than 1,000,000 cluster verification and restore candidate comparisons.
+Failed required reads preserve previous inventory. Incomplete optional reads preserve unresolved diagnostic episodes.
+A verified deleted or replaced UID is removed; a replacement is collected on the next round.
+
+Stored deployment IDs and singleton finding IDs remain stable. Restore finding IDs include a hash of the library's
+canonical subject-specific identity. Activity and history compare finding IDs rather than rule IDs. First-seen times
+remain attached to unresolved episodes. Observation and activity timestamps use completion time; attempt time and
+resource collection time remain separate.
+
+The persisted JSON model remains readable without a database migration. The HTTP contract intentionally permits
+`backup.consecutiveFailures: null`, adds restore-test outcome and recovery cleanup state `unknown`, and adds optional
+`evidence.analysisIncomplete`. Old numeric counters decode into the nullable field. Previously inferred ownership from
+names or creation times, missing phases treated as pending, future generations treated as current, and unsupported
+native-recovery/remote-replication projections are removed from new live observations. Old history remains readable. Missing cleanup stays unknown. Earlier recovery findings used one cluster-level ID;
+new UID-confirmed request episodes receive new IDs because names cannot prove historical ownership.
+In-progress confirmed restores can produce informational findings.
+The migration does not qualify lifecycle operations or a new operator API group.

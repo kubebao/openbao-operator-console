@@ -59,6 +59,10 @@ type keycloakSettings struct {
 }
 
 func qualificationConnection(id, kubeconfig string) config.Connection {
+	contextName := os.Getenv("CONSOLE_TEST_CONTEXT")
+	if contextName == "" {
+		contextName = "kind-console-dev"
+	}
 	return config.Connection{
 		ID:         id,
 		Name:       "Qualification",
@@ -72,7 +76,7 @@ func qualificationConnection(id, kubeconfig string) config.Connection {
 				Namespaces: []string{"console-sample"},
 			},
 		},
-		Access: config.Access{Mode: config.AccessKubeconfig, Kubeconfig: kubeconfig, Context: "kind-console-dev"},
+		Access: config.Access{Mode: config.AccessKubeconfig, Kubeconfig: kubeconfig, Context: contextName},
 	}
 }
 

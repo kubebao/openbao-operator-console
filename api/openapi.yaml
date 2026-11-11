@@ -1134,6 +1134,7 @@
                     },
                   "producerFreshness":
                     { "type": "string", "enum": ["unknown", "fresh", "stale"] },
+                  "analysisIncomplete": { "type": "boolean" },
                 },
             },
           "Condition":
@@ -1185,7 +1186,14 @@
                     {
                       "type": "string",
                       "enum":
-                        ["notRun", "running", "passed", "failed", "blocked"],
+                        [
+                          "notRun",
+                          "running",
+                          "passed",
+                          "failed",
+                          "blocked",
+                          "unknown",
+                        ],
                     },
                   "finishedAt":
                     {
@@ -1237,7 +1245,7 @@
                   "sizeBytes":
                     { "type": "integer", "format": "int64", "nullable": true },
                   "consecutiveFailures":
-                    { "type": "integer", "format": "int32" },
+                    { "type": "integer", "format": "int32", "nullable": true },
                   "restoreTest":
                     {
                       "nullable": true,
@@ -1302,7 +1310,7 @@
                     {
                       "type": "string",
                       "enum":
-                        ["notApplicable", "pending", "complete", "failed"],
+                        ["notApplicable", "pending", "complete", "failed", "unknown"],
                     },
                   "exclusionAcknowledged":
                     { "type": "boolean", "nullable": true },

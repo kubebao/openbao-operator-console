@@ -120,6 +120,7 @@ func deploymentContract(d fleet.Deployment) contract.Deployment {
 		Issues:          mapSlice(d.Issues, issueContract),
 		Evidence: contract.Evidence{
 			Collection:         contract.EvidenceCollection(d.Evidence.Collection),
+			AnalysisIncomplete: optionalTrue(d.Evidence.AnalysisIncomplete),
 			CollectedAt:        d.Evidence.CollectedAt,
 			LastAttemptAt:      d.Evidence.LastAttemptAt,
 			ProducerFreshness:  contract.EvidenceProducerFreshness(d.Evidence.ProducerFreshness),
@@ -252,4 +253,11 @@ func activityContract(a fleet.Activity) contract.Activity {
 
 func observationContract(o fleet.Observation) contract.Observation {
 	return contract.Observation{RecordedAt: o.RecordedAt, Deployment: deploymentContract(o.Deployment)}
+}
+
+func optionalTrue(value bool) *bool {
+	if !value {
+		return nil
+	}
+	return &value
 }

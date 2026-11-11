@@ -300,3 +300,57 @@ describe('conditions', () => {
     expect(transitions.get('OpenBaoSealed')).toEqual({ from: 'False', at: '2026-10-06T10:00:00Z' })
   })
 })
+
+describe('shared evidence migration', () => {
+  it('does not count failures across unknown counters', () => {
+    const base = deployment()
+    const values = [0, null, 4, 5]
+    const observations = values.map((counter, i) =>
+      observation(
+        `2026-10-06T0${String(i + 1)}:00:00Z`,
+        deployment({ backup: { ...backupOf(base), consecutiveFailures: counter } }),
+      ),
+    )
+    expect(
+      backupEvents(observations)
+        .filter((event) => event.kind === 'failure')
+        .map((event) => event.count),
+    ).toEqual([1])
+    expect(
+      describeChange(observations[1]?.deployment ?? base, observations[2]?.deployment ?? base).some(
+        (change) => change.title.includes('failure'),
+      ),
+    ).toBe(false)
+  })
+
+  it('marks missing and inconsistent condition acknowledgement as not current', () => {
+    for (const generation of [0, 2, 4]) {
+      const base = deployment()
+      const condition = base.conditions[0]
+      if (!condition) throw new Error('fixture condition missing')
+      const value = deployment({ conditions: [{ ...condition, observedGeneration: generation }] })
+      expect(assessConditions(value)[0]?.outdated).toBe(true)
+    }
+  })
+
+  it('resolves one restore episode while another remains', () => {
+    const base = deployment()
+    const issue = {
+      id: 'restore-a',
+      deploymentId: base.id,
+      rule: 'recovery-investigate',
+      severity: 'high',
+      category: 'operations',
+      title: 'Recovery requires investigation',
+      detail: 'Restore failed',
+      firstSeenAt: '2026-10-06T01:00:00Z',
+      lastCheckedAt: '2026-10-06T02:00:00Z',
+    } satisfies Deployment['issues'][number]
+    const other = { ...issue, id: 'restore-b' }
+    const changes = describeChange(
+      deployment({ issues: [issue, other] }),
+      deployment({ issues: [other] }),
+    )
+    expect(changes.filter((change) => change.title.startsWith('Finding resolved'))).toHaveLength(1)
+  })
+})
