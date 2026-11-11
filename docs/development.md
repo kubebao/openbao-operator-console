@@ -96,9 +96,9 @@ The Container image job also builds edge archives and a digest-pinned chart, the
 cluster with SQLite persistence and optional PostgreSQL. `scripts/edge-tools.env` pins its registry, kind, and fixture versions. Release tooling checks
 require Python 3.11 or later and ShellCheck. `make check-release-tools` runs actionlint through its pinned Go module.
 
-Other workflows run CodeQL for Go and TypeScript, OpenSSF Scorecard, and dependency review on pull requests. CodeQL
-and dependency review need GitHub Advanced Security, so their jobs are skipped while the repository is private and run
-again when it is public. Every
+Other workflows run CodeQL for Go and TypeScript, OpenSSF Scorecard, and dependency review. These jobs run only while
+the repository is public: CodeQL and dependency review require the unavailable private-repository security features,
+and Scorecard publishes public results. Every
 action is pinned to a commit SHA, and workflows default to read-only repository permissions. Dependabot proposes weekly
 updates for Go modules, web dependencies, actions, and base images.
 
@@ -222,7 +222,7 @@ information and the OCI image labels.
 ## Shared client migration
 
 The console pins `github.com/kubebao/openbao-operator-client` at
-`v0.0.0-20261111134438-0e0f536c49b4`. Client PR #19 merges the contract fixes; this remains an untagged milestone 6 candidate.
+`v0.0.0-20261111144544-1ab29173f8b9`.
 Build with Go 1.27.4 or newer. Final qualification uses `GOWORK=off`
 and no local replacement. The public module needs no private dependency credentials.
 
