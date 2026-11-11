@@ -1,6 +1,13 @@
 # Shared client migration qualification
 
-This record covers the console migration to client commit `7926f09468de82a04e5322b2062e1d579f9fbdf4`, published as
+The console pins the public client release `v0.1.0`, commit `1ab29173f8b94b9607058b7ccc04e98f35f59224`.
+The [final candidate qualification](https://github.com/kubebao/openbao-operator-console/pull/26) records local
+application, browser, SQLite/PostgreSQL, scoped operator, and distribution checks against that commit.
+The [tagged dependency update](https://github.com/kubebao/openbao-operator-console/pull/27) records independent public
+module consumption, local checks, and tagged distribution verification. Hosted CI did not pass for those updates;
+their local results do not qualify hosted publication.
+
+The migration record below covers the earlier client commit `7926f09468de82a04e5322b2062e1d579f9fbdf4`, published as
 `v0.0.0-20261111084856-7926f09468de`. Validation ran locally on 11 November 2026 with Go 1.27.4.
 It does not qualify lifecycle operations, native recovery, remote replication, or another operator API group.
 

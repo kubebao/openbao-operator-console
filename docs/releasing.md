@@ -79,6 +79,58 @@ Search for them with `git grep -n -i "first.*release\|no.*release"`.
     artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml
   ```
 
+### Public repository controls
+
+The current private-repository plan does not provide branch protection or secret scanning. Private vulnerability
+reporting also requires a public repository. After changing visibility, complete these steps before merging a release
+pull request or publishing artifacts. These commands do not change repository visibility.
+
+1. Require pull requests and the current CI and security checks on `main`:
+
+   ```sh
+   gh api --method PUT repos/kubebao/openbao-operator-console/branches/main/protection \
+     --input .github/main-protection.json
+   ```
+
+   The configuration requires up-to-date branches, checks from GitHub Actions and the DCO app, resolved review threads,
+   and linear history. It protects administrators and blocks force pushes and deletion. It sets no minimum approval count for
+   this single-maintainer repository. Keep the check names aligned with the workflow job names.
+   **Edge candidate provenance** is excluded because it runs only on `main` after PR qualification.
+
+2. Enable secret scanning and push protection, then enable private vulnerability reporting:
+
+   ```sh
+   gh api --method PATCH repos/kubebao/openbao-operator-console --input - <<'JSON'
+   {
+     "security_and_analysis": {
+       "secret_scanning": { "status": "enabled" },
+       "secret_scanning_push_protection": { "status": "enabled" }
+     }
+   }
+   JSON
+   gh api --method PUT repos/kubebao/openbao-operator-console/private-vulnerability-reporting
+   ```
+
+3. Verify that the settings took effect and the security reporting link in `SECURITY.md` opens the private report form:
+
+   ```sh
+   gh api repos/kubebao/openbao-operator-console/branches/main/protection
+   gh api repos/kubebao/openbao-operator-console --jq .security_and_analysis
+   gh api repos/kubebao/openbao-operator-console/private-vulnerability-reporting
+   gh api repos/kubebao/openbao-operator-console/secret-scanning/alerts \
+     --jq 'map({number, state, secret_type_display_name})'
+   ```
+
+4. Run **Check**, **CodeQL**, and **Scorecard** on the same current `main` commit. All three workflows support manual
+   runs. Confirm successful runs; private-repository skips do not qualify the public repository. Test
+   **Dependency Review** on a new pull request. **Publish Edge** starts when Check and CodeQL pass, so retain its
+   public-repository and source-verification gates.
+
+The publication workflows use `anchore/sbom-action` and `actions/attest`, pinned to approved commits. The SBOM action
+generates local files without uploading release assets, workflow artifacts, or dependency snapshots. Existing
+publication steps sign, attest, and upload those files. Do not broaden the organization Actions allowlist to repair a
+workflow that can use these approved actions.
+
 ## Edge builds
 
 Edge is an opt-in development channel for testing qualified `main` commits before a stable release. It includes the

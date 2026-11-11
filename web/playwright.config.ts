@@ -25,7 +25,10 @@ export default defineConfig({
         ]
       : [
           {
-            command: 'go run ./cmd/console --mode=demo --listen=127.0.0.1:8097',
+            command:
+              process.env['CONSOLE_E2E_PREBUILT'] === '1'
+                ? './bin/console --mode=demo --listen=127.0.0.1:8097'
+                : 'go run ./cmd/console --mode=demo --listen=127.0.0.1:8097',
             cwd: '..',
             url: 'http://127.0.0.1:8097/healthz',
             reuseExistingServer: false,
