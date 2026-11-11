@@ -224,7 +224,8 @@ information and the OCI image labels.
 ## Shared client migration
 
 The console pins `github.com/kubebao/openbao-operator-client` at
-`v0.0.0-20261111084856-7926f09468de`. Build with Go 1.27.4 or newer. Final qualification uses `GOWORK=off`
+`v0.0.0-20261111115206-1edeecfd35ae`. This is the common milestone 6 candidate, not a release tag.
+Build with Go 1.27.4 or newer. Final qualification uses `GOWORK=off`
 and no local replacement. The public module needs no private dependency credentials.
 
 The library owns public OpenBao projections, bounded namespace LISTs, UID/generation verification, and diagnostic rules.

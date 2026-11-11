@@ -249,6 +249,14 @@ Apache License
    See the License for the specific language governing permissions and
    limitations under the License.
 
+NOTICE
+
+CoreOS Project
+Copyright 2014 CoreOS, Inc
+
+This product includes software developed at CoreOS, Inc.
+(http://www.coreos.com/).
+
 --------------------------------------------------------------------------------
 
 github.com/davecgh/go-spew/spew v1.1.2-0.20180830191138-d8f796af33cc
@@ -944,7 +952,7 @@ SOFTWARE.
 
 --------------------------------------------------------------------------------
 
-github.com/kubebao/openbao-operator-client v0.0.0-20261111084856-7926f09468de
+github.com/kubebao/openbao-operator-client v0.0.0-20261111115206-1edeecfd35ae
 License: Apache-2.0
 
                                  Apache License
@@ -1137,6 +1145,34 @@ License: Apache-2.0
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+NOTICE
+
+OpenBao Operator client
+Copyright 2026 OpenBao Operator client contributors
+
+Scaffolding and tooling conventions were adapted from:
+  github.com/kubebao/openbao-operator-cli
+  commit adbe0f42fac62bdc6dd2d7995a8aecb36102e9a3
+
+Engineering, repository governance, and public API projection contracts were adapted from:
+  github.com/kubebao/openbao-operator
+  commit 9671c30623d609f948cf073e167f376de4ea9a85
+
+Both reference projects use the Apache License, Version 2.0.
+Console and CLI implementation extraction is tracked in docs/plan.md.
+
+Behavioral specifications, synthetic baseline harnesses, and diagnostic rules also reference:
+  github.com/kubebao/openbao-operator-console
+  commit 9e7b6900f781e8fbac736ca42e6a51f7f807087b
+  Licensed under the Apache License, Version 2.0.
+
+Kubernetes workload projection contracts reference public API declarations from:
+  k8s.io/api v0.37.2
+  commit 1bc0c529309723075aed339d50f16d4b311d908d
+  k8s.io/apimachinery v0.37.2
+  commit 97adf147c7378229d45db0fc7511af84d0c3c092
+  Licensed under the Apache License, Version 2.0.
 
 --------------------------------------------------------------------------------
 
@@ -1889,6 +1925,22 @@ License: Apache-2.0
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+NOTICE
+
+Copyright 2011-2016 Canonical Ltd.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
 --------------------------------------------------------------------------------
 
@@ -3891,6 +3943,33 @@ License: Apache-2.0
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+NOTICE
+
+When donating the randfill project to the CNCF, we could not reach all the
+gofuzz contributors to sign the CNCF CLA. As such, according to the CNCF rules
+to donate a repository, we must add a NOTICE referencing section 7 of the CLA
+with a list of developers who could not be reached.
+
+`7. Should You wish to submit work that is not Your original creation, You may
+submit it to the Foundation separately from any Contribution, identifying the
+complete details of its source and of any license or other restriction
+(including, but not limited to, related patents, trademarks, and license
+agreements) of which you are personally aware, and conspicuously marking the
+work as "Submitted on behalf of a third-party: [named here]".`
+
+Submitted on behalf of a third-party: @dnephin (Daniel Nephin)
+Submitted on behalf of a third-party: @AlekSi (Alexey Palazhchenko)
+Submitted on behalf of a third-party: @bbigras (Bruno Bigras)
+Submitted on behalf of a third-party: @samirkut (Samir)
+Submitted on behalf of a third-party: @posener (Eyal Posener)
+Submitted on behalf of a third-party: @Ashikpaul (Ashik Paul)
+Submitted on behalf of a third-party: @kwongtailau (Kwongtai)
+Submitted on behalf of a third-party: @ericcornelissen (Eric Cornelissen)
+Submitted on behalf of a third-party: @eclipseo (Robert-André Mauchin)
+Submitted on behalf of a third-party: @yanzhoupan (Andrew Pan)
+Submitted on behalf of a third-party: @STRRL (Zhiqiang ZHOU)
+Submitted on behalf of a third-party: @disconnect3d (Disconnect3d)
 
 --------------------------------------------------------------------------------
 
