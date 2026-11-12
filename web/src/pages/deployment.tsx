@@ -76,11 +76,6 @@ function DeploymentDetails({ snapshot }: { snapshot: Snapshot }) {
         Back to fleet
       </Link>
       <DeploymentHeader deployment={deployment} connection={connection} operator={operator} />
-      {history.hasNextPage && (
-        <p className="notice">
-          Older observations are available. Load them in History to extend the charts.
-        </p>
-      )}
       {deployment.evidence.collection !== 'current' && (
         <div className="notice notice-warning">
           <AlertTriangle size={17} />
@@ -139,8 +134,6 @@ function DeploymentDetails({ snapshot }: { snapshot: Snapshot }) {
           <BackupsTab
             deployment={deployment}
             maxBackupAgeHours={snapshot.policy.maxBackupAgeHours}
-            observations={observations}
-            earlierUnloaded={history.hasNextPage}
             now={Date.parse(snapshot.generatedAt)}
           />
         </Tabs.Content>

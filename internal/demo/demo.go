@@ -525,6 +525,24 @@ func (r *Repository) Activity(_ context.Context, scopes []config.Scope, page fle
 	return fleet.ActivityPage{Events: events, Next: next}, nil
 }
 
+// Charts returns all chart changes in the fixture window and its baseline.
+func (r *Repository) Charts(_ context.Context, id string, start, end time.Time) (fleet.ChartHistory, error) {
+	var baseline *fleet.ChartObservation
+	points := []fleet.ChartObservation{}
+	for _, observation := range r.history[id] {
+		point := observation.Chart()
+		if observation.RecordedAt.Before(start) {
+			if baseline == nil || observation.RecordedAt.After(baseline.RecordedAt) {
+				baseline = &point
+			}
+		} else if !observation.RecordedAt.After(end) {
+			points = append(points, point)
+		}
+	}
+	slices.Reverse(points)
+	return fleet.CompleteCharts(start, end, baseline, points), nil
+}
+
 // History returns one page of a fixture history with the store's window and cursor rules.
 // Cursor IDs are zero-padded sequence numbers, so they order like stored row IDs.
 func (r *Repository) History(_ context.Context, id string, query fleet.HistoryQuery) (fleet.HistoryPage, error) {

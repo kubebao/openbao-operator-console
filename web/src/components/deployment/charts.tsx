@@ -10,9 +10,9 @@ const dayFormat = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'n
 // Midnight ticks inside a time window, used under the state band and backup strip.
 function dayTicks(start: number, end: number): number[] {
   const ticks: number[] = []
-  const first = new Date(start)
-  first.setHours(24, 0, 0, 0)
-  for (let tick = first.getTime(); tick < end; tick += 24 * 60 * 60 * 1000) ticks.push(tick)
+  const day = new Date(start)
+  day.setHours(24, 0, 0, 0)
+  for (; day.getTime() < end; day.setDate(day.getDate() + 1)) ticks.push(day.getTime())
   return ticks
 }
 
@@ -42,6 +42,9 @@ export function StateBand({
   end: number
 }) {
   const present = new Set(segments.map((segment) => segment.state))
+  const incidents = segments.filter((segment) =>
+    ['attention', 'critical', 'uncollected'].includes(segment.state),
+  )
   return (
     <figure className="state-band">
       <div
@@ -49,15 +52,24 @@ export function StateBand({
         role="img"
         aria-label={`Recorded state from ${absolute(start)} to ${absolute(end)}: ${segments.map((segment) => bandLabels[segment.state]).join(', then ')}.`}
       >
-        {segments.map((segment) => (
+        {segments.map((segment, index) => (
           <span
             key={segment.start}
-            className={`band-${segment.state}`}
+            className={`state-segment band-${segment.state}${index === segments.length - 1 ? ' state-last' : ''}`}
             style={{
               left: position(segment.start, start, end),
               width: position(segment.end - segment.start + start, start, end),
             }}
             title={`${bandLabels[segment.state]}: ${absolute(segment.start)} – ${absolute(segment.end)}`}
+          />
+        ))}
+        {incidents.map((segment) => (
+          <span
+            key={`marker-${String(segment.start)}`}
+            className={`state-incident band-${segment.state}`}
+            style={{ left: position(segment.start, start, end) }}
+            title={`${bandLabels[segment.state]}: ${absolute(segment.start)} – ${absolute(segment.end)}`}
+            aria-hidden="true"
           />
         ))}
       </div>
@@ -72,6 +84,22 @@ export function StateBand({
             </span>
           ))}
       </figcaption>
+      {incidents.length > 0 && (
+        <details className="chart-incidents">
+          <summary>
+            {incidents.length} recorded {incidents.length === 1 ? 'incident' : 'incidents'} ·
+            markers show occurrence, not duration
+          </summary>
+          <ul>
+            {incidents.map((segment) => (
+              <li key={segment.start}>
+                {bandLabels[segment.state]}: {absolute(segment.start)} – {absolute(segment.end)} (
+                {duration(segment.end - segment.start)})
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </figure>
   )
 }
@@ -85,6 +113,7 @@ const hourStateLabels: Record<HourState, string> = {
   unrecorded: 'Not recorded',
   unloaded: 'Not loaded',
   future: '',
+  outside: '',
 }
 
 function cellTitle(cell: HourCell): string {
@@ -127,11 +156,13 @@ export function BackupWeek({ rows }: { rows: readonly DayRow[] }) {
             <span className="backup-week-day" aria-hidden="true">
               {dayFormat.format(row.start)}
             </span>
-            {row.cells.map((cell) => (
+            {row.cells.map((cell, hourOfDay) => (
               <span
-                key={cell.start}
+                key={hourOfDay}
                 className={`backup-hour hour-${cell.state}`}
-                title={cell.state === 'future' ? undefined : cellTitle(cell)}
+                title={
+                  cell.state === 'future' || cell.state === 'outside' ? undefined : cellTitle(cell)
+                }
               />
             ))}
           </Fragment>

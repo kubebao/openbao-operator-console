@@ -29,6 +29,12 @@ type memoryFleet struct {
 	snapshotReads  int
 	activityScopes []config.Scope
 	historyReads   int
+	chartReads     int
+}
+
+func (m *memoryFleet) Charts(_ context.Context, _ string, start, end time.Time) (fleet.ChartHistory, error) {
+	m.chartReads++
+	return fleet.CompleteCharts(start, end, nil, nil), nil
 }
 
 func (m *memoryFleet) Snapshot(context.Context) (fleet.Snapshot, error) {

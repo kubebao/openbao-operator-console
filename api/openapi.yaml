@@ -103,6 +103,41 @@
                 },
             },
         },
+      "/api/v1/deployments/{id}/charts":
+        {
+          "get":
+            {
+              "operationId": "getDeploymentCharts",
+              "description": "Complete chart evidence for the last seven days of one visible deployment. Independent of observation pagination. Only chart-relevant fields are returned; consecutive equal projections are coalesced without losing state or backup changes.",
+              "parameters":
+                [
+                  {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": { "type": "string" },
+                  },
+                ],
+              "responses":
+                {
+                  "200":
+                    {
+                      "description": "Complete chart window",
+                      "content":
+                        {
+                          "application/json":
+                            {
+                              "schema":
+                                { "$ref": "#/components/schemas/ChartHistory" },
+                            },
+                        },
+                    },
+                  "401": { "$ref": "#/components/responses/Unauthenticated" },
+                  "404": { "$ref": "#/components/responses/NotFound" },
+                  "503": { "$ref": "#/components/responses/Unavailable" },
+                },
+            },
+        },
       "/api/v1/settings":
         {
           "get":
@@ -1310,7 +1345,13 @@
                     {
                       "type": "string",
                       "enum":
-                        ["notApplicable", "pending", "complete", "failed", "unknown"],
+                        [
+                          "notApplicable",
+                          "pending",
+                          "complete",
+                          "failed",
+                          "unknown",
+                        ],
                     },
                   "exclusionAcknowledged":
                     { "type": "boolean", "nullable": true },
@@ -1830,6 +1871,108 @@
                       "type": "string",
                       "nullable": true,
                       "description": "Pass as cursor to read the next, older page. Null on the last page.",
+                    },
+                },
+            },
+          "ChartBackup":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["lastSuccessAt", "consecutiveFailures", "sizeBytes"],
+              "properties":
+                {
+                  "lastSuccessAt":
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true,
+                    },
+                  "consecutiveFailures":
+                    { "type": "integer", "minimum": 0, "nullable": true },
+                  "sizeBytes":
+                    {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0,
+                      "nullable": true,
+                    },
+                },
+            },
+          "ChartEvidence":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["collection"],
+              "properties":
+                {
+                  "collection":
+                    {
+                      "type": "string",
+                      "enum":
+                        [
+                          "current",
+                          "stale",
+                          "denied",
+                          "unreachable",
+                          "unsupported",
+                        ],
+                    },
+                },
+            },
+          "ChartDeployment":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["health", "evidence", "backup"],
+              "properties":
+                {
+                  "health":
+                    {
+                      "type": "string",
+                      "enum": ["healthy", "attention", "critical", "unknown"],
+                    },
+                  "evidence": { "$ref": "#/components/schemas/ChartEvidence" },
+                  "backup":
+                    {
+                      "nullable": true,
+                      "allOf": [{ "$ref": "#/components/schemas/ChartBackup" }],
+                    },
+                },
+            },
+          "ChartObservation":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["recordedAt", "deployment"],
+              "properties":
+                {
+                  "recordedAt": { "type": "string", "format": "date-time" },
+                  "deployment":
+                    { "$ref": "#/components/schemas/ChartDeployment" },
+                },
+            },
+          "ChartHistory":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["start", "end", "observations", "baseline"],
+              "properties":
+                {
+                  "start": { "type": "string", "format": "date-time" },
+                  "end": { "type": "string", "format": "date-time" },
+                  "observations":
+                    {
+                      "type": "array",
+                      "items":
+                        { "$ref": "#/components/schemas/ChartObservation" },
+                      "description": "Chart-relevant changes, newest first. Contains the complete window, without a cursor.",
+                    },
+                  "baseline":
+                    {
+                      "nullable": true,
+                      "allOf":
+                        [{ "$ref": "#/components/schemas/ChartObservation" }],
+                      "description": "Newest retained chart state before the window, when available.",
                     },
                 },
             },

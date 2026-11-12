@@ -125,6 +125,52 @@ func (q *Queries) DeleteRemovedLocalCredentials(ctx context.Context, dollar_1 []
 	return err
 }
 
+const getCharts = `-- name: GetCharts :many
+SELECT recorded_at, jsonb_build_object(
+  'health', projection->'health',
+  'evidence', jsonb_build_object('collection', projection#>'{evidence,collection}'),
+  'backup', CASE WHEN projection->'backup' IS NULL OR projection->'backup' = 'null'::jsonb THEN NULL
+    ELSE jsonb_build_object('lastSuccessAt', projection#>'{backup,lastSuccessAt}',
+      'consecutiveFailures', projection#>'{backup,consecutiveFailures}',
+      'sizeBytes', projection#>'{backup,sizeBytes}') END
+)::jsonb AS chart_projection
+FROM console_observation
+WHERE deployment_id = $1 AND recorded_at >= $2 AND recorded_at <= $3
+ORDER BY recorded_at ASC, id ASC
+`
+
+type GetChartsParams struct {
+	DeploymentID string
+	Since        pgtype.Timestamptz
+	Until        pgtype.Timestamptz
+}
+
+type GetChartsRow struct {
+	RecordedAt      pgtype.Timestamptz
+	ChartProjection []byte
+}
+
+// Project the chart window in SQL instead of transferring every full observation.
+func (q *Queries) GetCharts(ctx context.Context, arg GetChartsParams) ([]GetChartsRow, error) {
+	rows, err := q.db.Query(ctx, getCharts, arg.DeploymentID, arg.Since, arg.Until)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetChartsRow{}
+	for rows.Next() {
+		var i GetChartsRow
+		if err := rows.Scan(&i.RecordedAt, &i.ChartProjection); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getConnection = `-- name: GetConnection :one
 SELECT projection FROM console_connection WHERE id = $1
 `

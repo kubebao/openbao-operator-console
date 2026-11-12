@@ -54,6 +54,23 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/api/v1/deployments/{id}/charts": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** @description Complete chart evidence for the last seven days of one visible deployment. Independent of observation pagination. Only chart-relevant fields are returned; consecutive equal projections are coalesced without losing state or backup changes. */
+        readonly get: operations["getDeploymentCharts"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/api/v1/settings": {
         readonly parameters: {
             readonly query?: never;
@@ -630,6 +647,38 @@ export interface components {
             /** @description Pass as cursor to read the next, older page. Null on the last page. */
             readonly nextCursor: string | null;
         };
+        readonly ChartBackup: {
+            /** Format: date-time */
+            readonly lastSuccessAt: string | null;
+            readonly consecutiveFailures: number | null;
+            /** Format: int64 */
+            readonly sizeBytes: number | null;
+        };
+        readonly ChartEvidence: {
+            /** @enum {string} */
+            readonly collection: "current" | "stale" | "denied" | "unreachable" | "unsupported";
+        };
+        readonly ChartDeployment: {
+            /** @enum {string} */
+            readonly health: "healthy" | "attention" | "critical" | "unknown";
+            readonly evidence: components["schemas"]["ChartEvidence"];
+            readonly backup: components["schemas"]["ChartBackup"] | null;
+        };
+        readonly ChartObservation: {
+            /** Format: date-time */
+            readonly recordedAt: string;
+            readonly deployment: components["schemas"]["ChartDeployment"];
+        };
+        readonly ChartHistory: {
+            /** Format: date-time */
+            readonly start: string;
+            /** Format: date-time */
+            readonly end: string;
+            /** @description Chart-relevant changes, newest first. Contains the complete window, without a cursor. */
+            readonly observations: readonly components["schemas"]["ChartObservation"][];
+            /** @description Newest retained chart state before the window, when available. */
+            readonly baseline: components["schemas"]["ChartObservation"] | null;
+        };
         readonly History: {
             readonly observations: readonly components["schemas"]["Observation"][];
             /** @description The newest observation recorded before since: the state at the start of the window. Set only on the first page of a request with since. */
@@ -1157,6 +1206,31 @@ export interface operations {
                 };
             };
             readonly 400: components["responses"]["BadRequest"];
+            readonly 401: components["responses"]["Unauthenticated"];
+            readonly 404: components["responses"]["NotFound"];
+            readonly 503: components["responses"]["Unavailable"];
+        };
+    };
+    readonly getDeploymentCharts: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly id: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Complete chart window */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["ChartHistory"];
+                };
+            };
             readonly 401: components["responses"]["Unauthenticated"];
             readonly 404: components["responses"]["NotFound"];
             readonly 503: components["responses"]["Unavailable"];

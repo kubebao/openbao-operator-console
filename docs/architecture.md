@@ -73,9 +73,19 @@ Each request resolves current access. Activity applies namespace scopes in SQL b
 authorizes the deployment before reading its observations.
 
 History accepts an RFC 3339 `since` timestamp. Its first page also returns the newest observation before that window
-as `baseline`, when one exists. The UI loads 100 records at a time and offers controls to load older records. Until all
-pages in the window are loaded, it marks earlier time as **Not loaded** and does not connect the baseline across that
-gap. A failed page read keeps the loaded records visible.
+as `baseline`, when one exists. The observation list loads 100 records at a time. **Load older observations** loads the
+next page. A failed page read keeps the loaded records visible.
+
+`GET /api/v1/deployments/{id}/charts` returns the complete rolling seven-day window and its baseline independently of
+list pagination. The server authorizes the deployment before reading chart data. It reads the window and baseline in
+one database snapshot and projects only health, collection state, and backup completion, failure-counter, and size
+fields. Consecutive identical chart values are coalesced; every change and its first observation time remain. The UI
+refreshes charts every 30 seconds. Missing retained evidence remains **Not recorded**.
+
+State bands preserve the time scale. Incident markers keep brief attention, critical, and collection-failure periods
+visible; their width indicates occurrence, not duration. Expand the incident list to read the recorded interval.
+Backup charts use the same window. Each cell covers one local clock hour and can contain multiple completions. Partial
+dates at the window boundaries remain visible, so a rolling seven-day window can span eight date rows.
 
 ## Evidence
 
