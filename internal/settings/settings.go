@@ -44,6 +44,7 @@ type Repository interface {
 	LoadCredentials(context.Context) ([]CredentialRecord, error)
 	SaveCredential(context.Context, int64, CredentialRecord) error
 	SettingsHistory(context.Context) ([]Change, error)
+	RetainedConnectionIDs(context.Context, int) ([]string, error)
 }
 
 type Service struct {
@@ -58,6 +59,7 @@ type Service struct {
 	cipher           cipher.AEAD
 	revision         int64
 	configuration    config.Config
+	apiGroups        map[string]config.APIGroup
 	changed          chan struct{}
 	credentials      map[string]StoredCredential
 	readerGeneration uint64
@@ -68,6 +70,7 @@ type stored struct {
 	revision      int64
 	payload       []byte
 	configuration config.Config
+	apiGroups     map[string]config.APIGroup
 	credentials   map[string]StoredCredential
 }
 
@@ -127,9 +130,19 @@ func (s *Service) load(ctx context.Context) (stored, error) {
 	if err != nil {
 		return stored{}, err
 	}
-	configuration, err := s.decrypt(record.Payload, record.Revision)
+	configuration, apiGroups, missingBindings, err := s.decryptConfiguration(record.Payload, record.Revision)
 	if err != nil {
 		return stored{}, errors.New("configuration cannot be decrypted with the supplied key")
+	}
+	if missingBindings {
+		ids, readErr := s.repository.RetainedConnectionIDs(ctx, maxConnectionAPIGroups+1)
+		if readErr != nil {
+			return stored{}, fmt.Errorf("load retained connection identities: %w", readErr)
+		}
+		apiGroups, err = legacyAPIGroups(ids, configuration)
+		if err != nil {
+			return stored{}, err
+		}
 	}
 	rows, err := s.repository.LoadCredentials(ctx)
 	if err != nil {
@@ -161,7 +174,13 @@ func (s *Service) load(ctx context.Context) (stored, error) {
 	if !hasAdmin(configuration) {
 		return stored{}, errors.New("stored configuration has no administrator")
 	}
-	return stored{revision: record.Revision, payload: record.Payload, configuration: configuration, credentials: credentials}, nil
+	return stored{
+		revision:      record.Revision,
+		payload:       record.Payload,
+		configuration: configuration,
+		apiGroups:     apiGroups,
+		credentials:   credentials,
+	}, nil
 }
 
 // publish replaces the in-memory state. A changed revision or reader credential starts a
@@ -175,6 +194,7 @@ func (s *Service) publish(state stored) {
 	}
 	s.revision = state.revision
 	s.configuration = state.configuration
+	s.apiGroups = state.apiGroups
 	s.credentials = state.credentials
 	if changed {
 		s.readerGeneration++
@@ -346,6 +366,10 @@ func (s *Service) save(
 		return 0, ErrConflict
 	}
 	configuration = clone(configuration)
+	apiGroups, err := bindAPIGroups(s.apiGroups, configuration)
+	if err != nil {
+		return 0, err
+	}
 	replace := map[string]bool{}
 	for _, id := range replacements {
 		replace[id] = true
@@ -412,6 +436,7 @@ func (s *Service) save(
 	}
 	s.mu.Lock()
 	s.configuration = configuration
+	s.apiGroups = apiGroups
 	s.credentials = states
 	s.revision = next
 	s.mu.Unlock()
@@ -427,16 +452,26 @@ func (s *Service) notify() {
 }
 
 func (s *Service) encrypt(configuration config.Config, revision int64) ([]byte, error) {
-	return s.seal(configuration, configurationData(revision))
+	apiGroups, err := bindAPIGroups(s.apiGroups, configuration)
+	if err != nil {
+		return nil, err
+	}
+	return s.seal(storedConfiguration{Config: configuration, APIGroups: apiGroups}, configurationData(revision))
 }
 
 func (s *Service) decrypt(payload []byte, revision int64) (config.Config, error) {
+	configuration, _, _, err := s.decryptConfiguration(payload, revision)
+	return configuration, err
+}
+
+func (s *Service) decryptConfiguration(payload []byte, revision int64) (config.Config, map[string]config.APIGroup, bool, error) {
 	var stored struct {
 		config.Config
 		AccessIssuer json.RawMessage `json:"accessIssuer"`
+		APIGroups    json.RawMessage `json:"connectionAPIGroups"`
 	}
 	if err := s.unseal(payload, configurationData(revision), &stored); err != nil {
-		return config.Config{}, err
+		return config.Config{}, nil, false, err
 	}
 	// Before issuer binding, stored access belonged to the stored provider. Interpret
 	// only an absent field as that legacy format. An empty or mismatched declared
@@ -446,9 +481,13 @@ func (s *Service) decrypt(payload []byte, revision int64) (config.Config, error)
 			stored.Config.AccessIssuer = stored.Identity.Issuer
 		}
 	} else if err := json.Unmarshal(stored.AccessIssuer, &stored.Config.AccessIssuer); err != nil {
-		return config.Config{}, err
+		return config.Config{}, nil, false, err
 	}
-	return stored.Config, nil
+	apiGroups, err := readAPIGroups(stored.APIGroups, stored.Config)
+	if err != nil {
+		return config.Config{}, nil, false, err
+	}
+	return stored.Config, apiGroups, stored.APIGroups == nil, nil
 }
 
 func Summary(previous, next config.Config) string {

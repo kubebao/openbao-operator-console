@@ -32,8 +32,10 @@ func scopesInput(scopes []contract.Scope) []config.Scope {
 }
 
 func connectionView(c config.Connection) contract.ManagedConnection {
+	group := contract.ManagedConnectionApiGroup(c.EffectiveAPIGroup())
 	result := contract.ManagedConnection{
 		Id:             c.ID,
+		ApiGroup:       &group,
 		Name:           c.Name,
 		Region:         c.Region,
 		Disabled:       c.Disabled,
@@ -85,6 +87,12 @@ func connectionInput(c contract.ManagedConnection) (config.Connection, error) {
 		Disabled:   c.Disabled,
 		Namespaces: []config.Namespace{},
 		Operators:  []config.Operator{},
+	}
+	if c.ApiGroup != nil {
+		if !c.ApiGroup.Valid() {
+			return result, errors.New("choose the openbao.org or kubebao.org operator API group")
+		}
+		result.APIGroup = config.APIGroup(*c.ApiGroup)
 	}
 	switch c.Authentication {
 	case contract.ManagedConnectionAuthenticationLocal:
@@ -369,6 +377,9 @@ func (s *Server) readerRBAC(w http.ResponseWriter, r *http.Request, _ config.Use
 	connection, err := connectionInput(input.Connection)
 	if err != nil {
 		return invalidRequest(err)
+	}
+	if err := s.Settings.ValidateConnectionAPIGroup(connection); err != nil {
+		return err
 	}
 	access, err := s.readerAccess(connection, input.Connection.Authentication)
 	if err != nil {

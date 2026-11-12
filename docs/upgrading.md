@@ -82,7 +82,14 @@ backup to independent storage; another file on the state PVC does not protect ag
 
 ## Roll back
 
-If the schema version did not change, restore the previous binary or Helm revision and values.
+Check configuration compatibility as well as the SQL schema version before restoring an older binary or Helm revision.
+
+Native API adoption stores each connection's API group and a private binding of connection IDs to API groups. Older
+console versions do not understand these fields. After native enrollment or a native binding exists, stop the console
+and restore a compatible pre-adoption backup with its matching encryption key before running an older version. A Helm
+rollback alone does not restore that configuration and can cause an older reader to select the legacy API.
+
+If both the SQL schema and stored configuration remain compatible, restore the previous binary or Helm revision and values.
 
 If it changed, stop the console and restore the pre-upgrade backup before starting the previous binary. For SQLite,
 restore to a new directory and select that file; do not leave old `-wal` or `-shm` files beside a replacement database.

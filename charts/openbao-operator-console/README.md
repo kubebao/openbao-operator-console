@@ -67,7 +67,8 @@ the release name `openbao-operator-console`, the Deployment, Service, and Servic
 | `serviceAccount.create` | `true` | Create the console ServiceAccount. |
 | `serviceAccount.name` | `""` | ServiceAccount name. Defaults to the full resource name. Required when `serviceAccount.create` is false. |
 | `serviceAccount.annotations` | `{}` | ServiceAccount annotations. |
-| `readerNamespaces` | `[]` | Namespaces on the hosting cluster where the console's ServiceAccount may list OpenBao resources. |
+| `readerNamespaces` | `[]` | Hosting-cluster namespaces where the console may list legacy `openbao.org` clusters and restores. |
+| `readerScopes` | `[]` | Hosting-cluster LIST grants with required `namespace` and `apiGroup` (`kubebao.org` or `openbao.org`). |
 | `operatorReaders` | `[]` | Named operator Deployments on the hosting cluster that the console may `get`, one entry per namespace. |
 | `enrollment` | see `values.yaml` | Optional first-start seed: connections, users, groups, relationships, and policies. Ignored after initialization. |
 | `kubeconfigSecrets` | `[]` | Secrets with remote reader kubeconfigs, mounted read-only with mode `0440` for the first-start seed. |
@@ -153,7 +154,9 @@ client adds itself are ignored. The address is used for rate limits and logs onl
 
 - A Deployment and Service for the console, and a ConfigMap with the first-start enrollment.
 - A ServiceAccount for the console, unless `serviceAccount.create` is false.
-- For each `readerNamespaces` entry, a Role and RoleBinding that allow `list` on `openbaoclusters` and `openbaorestores`.
+- For each namespace declared by `readerNamespaces` or `readerScopes`, one Role and RoleBinding that allow `list` on
+  `openbaoclusters` and `openbaorestores` in only the declared API groups. `readerNamespaces` contributes legacy
+  `openbao.org` only; observing both groups requires both grants to be declared.
 - For each `operatorReaders` entry, a Role and RoleBinding that allow `get` on the named Deployments only.
 - An Ingress when `ingress.enabled` is true, and a NetworkPolicy when `networkPolicy.enabled` is true.
 

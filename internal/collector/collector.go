@@ -80,6 +80,9 @@ func (t *observationTransport) RoundTrip(request *http.Request) (*http.Response,
 }
 
 func New(connection config.Connection, policy fleet.Policy) (*Reader, error) {
+	if contractForGroup(connection.EffectiveAPIGroup()) == "" {
+		return nil, errors.New("unsupported enrolled operator API group")
+	}
 	restConfig, err := clientConfig(connection)
 	if err != nil {
 		return nil, fmt.Errorf("configure connector %q: %w", connection.ID, err)
@@ -134,9 +137,9 @@ func (r *Reader) request(namespace, resource string) clientcollect.Request {
 	projection := adapter.DefaultProjectionLimits()
 	projection.MaxBytes = limits.MaxResponseBytes
 	return clientcollect.Request{Scope: shared.Scope{
-		Origin: r.connection.ID, Group: "openbao.org", Version: "v1alpha1", Resource: resource,
+		Origin: r.connection.ID, Group: string(r.connection.EffectiveAPIGroup()), Version: "v1alpha1", Resource: resource,
 		Namespace: namespace, Action: shared.ReadList,
-	}, Contract: adapter.V1Alpha1Snapshot, Limits: limits, Projection: projection}
+	}, Contract: contractForGroup(r.connection.EffectiveAPIGroup()), Limits: limits, Projection: projection}
 }
 
 func (r *Reader) readError(outcome shared.CollectionOutcome) error {
@@ -148,9 +151,13 @@ func (r *Reader) readError(outcome shared.CollectionOutcome) error {
 		if r.transport != nil && r.transport.status == http.StatusUnauthorized {
 			return apierrors.NewUnauthorized("reader credential rejected")
 		}
-		return apierrors.NewForbidden(schema.GroupResource{Group: "openbao.org", Resource: "openbaoclusters"}, "", nil)
+		return apierrors.NewForbidden(
+			schema.GroupResource{Group: string(r.connection.EffectiveAPIGroup()), Resource: "openbaoclusters"},
+			"",
+			nil,
+		)
 	case shared.CollectionUnsupported:
-		return apierrors.NewNotFound(schema.GroupResource{Group: "openbao.org", Resource: "openbaoclusters"}, "")
+		return apierrors.NewNotFound(schema.GroupResource{Group: string(r.connection.EffectiveAPIGroup()), Resource: "openbaoclusters"}, "")
 	case shared.CollectionTimeout:
 		return context.DeadlineExceeded
 	case shared.CollectionCancelled:
@@ -298,7 +305,7 @@ func (r *Reader) namespace(ctx context.Context, connection *fleet.Connection, na
 				Observations:    restores.Observations,
 			},
 		}
-		policy := analysisPolicy(reference, r.policy)
+		policy := analysisPolicy(reference, r.policy, contractForGroup(r.connection.EffectiveAPIGroup()))
 		policy.Rules = evidence.Rules()
 		// Console restore-test presentation exists only for configured backups.
 		if cluster.Backup.Configuration == shared.ObjectAbsent {

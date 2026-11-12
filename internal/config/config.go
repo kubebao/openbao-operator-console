@@ -21,6 +21,7 @@ type Namespace struct {
 
 type Connection struct {
 	ID         string        `json:"id"`
+	APIGroup   APIGroup      `json:"apiGroup,omitempty"`
 	Name       string        `json:"name"`
 	Region     string        `json:"region"`
 	Access     Access        `json:"access"`
@@ -28,6 +29,22 @@ type Connection struct {
 	Operators  []Operator    `json:"operators"`
 	Disabled   bool          `json:"disabled,omitempty"`
 	Renewal    *TokenRenewal `json:"renewal,omitempty"`
+}
+
+// APIGroup selects one inspected operator API. Omitted enrollment fields retain
+// the legacy API so existing settings do not change their collection scope.
+type APIGroup string
+
+const (
+	APIGroupOpenBao APIGroup = "openbao.org"
+	APIGroupKubeBao APIGroup = "kubebao.org"
+)
+
+func (c Connection) EffectiveAPIGroup() APIGroup {
+	if c.APIGroup == "" {
+		return APIGroupOpenBao
+	}
+	return c.APIGroup
 }
 
 // Operator binds one named controller Deployment to enrolled namespaces.
@@ -150,6 +167,7 @@ type enrollmentFile struct {
 
 type enrollmentConnection struct {
 	ID         string        `json:"id"`
+	APIGroup   APIGroup      `json:"apiGroup,omitempty"`
 	Name       string        `json:"name"`
 	Region     string        `json:"region"`
 	Kubeconfig string        `json:"kubeconfig"`
@@ -179,6 +197,7 @@ func (f enrollmentFile) config() Config {
 		}
 		result.Connections = append(result.Connections, Connection{
 			ID:         c.ID,
+			APIGroup:   c.APIGroup,
 			Name:       c.Name,
 			Region:     c.Region,
 			Access:     access,

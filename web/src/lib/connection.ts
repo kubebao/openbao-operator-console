@@ -3,6 +3,11 @@ import type { ManagedConnection } from '../api/schema'
 export type ManagedNamespace = ManagedConnection['namespaces'][number]
 export type ManagedOperator = ManagedConnection['operators'][number]
 export type Environment = ManagedNamespace['environment']
+export type APIGroup = NonNullable<ManagedConnection['apiGroup']>
+
+export function isAPIGroup(value: string): value is APIGroup {
+  return value === 'openbao.org' || value === 'kubebao.org'
+}
 
 export const environments = [
   'production',
@@ -35,6 +40,7 @@ function newNamespace(): ManagedNamespace {
 export function newConnection(): ManagedConnection {
   return {
     id: '',
+    apiGroup: 'kubebao.org',
     name: '',
     region: '',
     authentication: 'remote',

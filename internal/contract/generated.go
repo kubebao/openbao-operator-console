@@ -706,6 +706,24 @@ func (e LocalAccountState) Valid() bool {
 	}
 }
 
+// Defines values for ManagedConnectionApiGroup.
+const (
+	KubebaoOrg ManagedConnectionApiGroup = "kubebao.org"
+	OpenbaoOrg ManagedConnectionApiGroup = "openbao.org"
+)
+
+// Valid indicates whether the value is a known member of the ManagedConnectionApiGroup enum.
+func (e ManagedConnectionApiGroup) Valid() bool {
+	switch e {
+	case KubebaoOrg:
+		return true
+	case OpenbaoOrg:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ManagedConnectionAuthentication.
 const (
 	ManagedConnectionAuthenticationLocal  ManagedConnectionAuthentication = "local"
@@ -1587,6 +1605,8 @@ type LoginRedirect struct {
 
 // ManagedConnection defines model for ManagedConnection.
 type ManagedConnection struct {
+	// ApiGroup Operator API group. Omitted fields select openbao.org. An enrolled connection cannot change API group.
+	ApiGroup             *ManagedConnectionApiGroup      `json:"apiGroup,omitempty"`
 	Authentication       ManagedConnectionAuthentication `json:"authentication"`
 	CredentialConfigured bool                            `json:"credentialConfigured"`
 	Disabled             bool                            `json:"disabled"`
@@ -1598,6 +1618,9 @@ type ManagedConnection struct {
 	Renewal              *TokenRenewal                   `json:"renewal,omitempty"`
 	Server               string                          `json:"server"`
 }
+
+// ManagedConnectionApiGroup Operator API group. Omitted fields select openbao.org. An enrolled connection cannot change API group.
+type ManagedConnectionApiGroup string
 
 // ManagedConnectionAuthentication defines model for ManagedConnection.Authentication.
 type ManagedConnectionAuthentication string

@@ -602,6 +602,33 @@ func (q *Queries) PruneObservations(ctx context.Context, recordedAt int64) error
 	return err
 }
 
+const retainedConnectionIDs = `-- name: RetainedConnectionIDs :many
+SELECT id FROM console_connection ORDER BY id LIMIT ?1
+`
+
+func (q *Queries) RetainedConnectionIDs(ctx context.Context, limit int64) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, retainedConnectionIDs, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateLocalCredential = `-- name: UpdateLocalCredential :execrows
 UPDATE console_local_credential SET revision = revision + 1, ciphertext = ?1 WHERE account_id = ?2 AND revision = ?3
 `

@@ -1,17 +1,28 @@
 {{- $fullname := include "console.fullname" . }}
 {{- $serviceAccount := include "console.serviceAccountName" . }}
 {{- $labels := include "console.labels" . }}
+{{- $readers := dict }}
 {{- range .Values.readerNamespaces }}
+{{- $groups := get $readers . | default dict }}
+{{- $_ := set $groups "openbao.org" true }}
+{{- $_ := set $readers . $groups }}
+{{- end }}
+{{- range .Values.readerScopes }}
+{{- $groups := get $readers .namespace | default dict }}
+{{- $_ := set $groups .apiGroup true }}
+{{- $_ := set $readers .namespace $groups }}
+{{- end }}
+{{- range $namespace := keys $readers | sortAlpha }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: {{ $fullname }}-reader
-  namespace: {{ . }}
+  namespace: {{ $namespace }}
   labels:
     {{- $labels | nindent 4 }}
 rules:
-  - apiGroups: ["openbao.org"]
+  - apiGroups: {{ keys (get $readers $namespace) | sortAlpha | toJson }}
     resources: ["openbaoclusters", "openbaorestores"]
     verbs: ["list"]
 ---
@@ -19,7 +30,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: {{ $fullname }}-reader
-  namespace: {{ . }}
+  namespace: {{ $namespace }}
   labels:
     {{- $labels | nindent 4 }}
 subjects:

@@ -342,6 +342,10 @@ func (r *configurationRepository) SettingsHistory(context.Context) ([]settings.C
 	return append([]settings.Change{}, r.changes...), nil
 }
 
+func (*configurationRepository) RetainedConnectionIDs(context.Context, int) ([]string, error) {
+	return nil, nil
+}
+
 func configurationService(t *testing.T) *settings.Service {
 	t.Helper()
 	return configurationServiceFor(t, "https://identity.example")

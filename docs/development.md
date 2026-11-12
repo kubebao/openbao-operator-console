@@ -170,7 +170,9 @@ export CONSOLE_TEST_KUBECONFIG="$PWD/.local/reader-kubeconfig"
 make integration
 ```
 
-For another isolated cluster, set `CONSOLE_TEST_CONTEXT` to its kubeconfig context name.
+For another isolated cluster, set `CONSOLE_TEST_CONTEXT` to its kubeconfig context name. Set
+`CONSOLE_TEST_API_GROUP=kubebao.org` for a native operator; omission keeps the legacy API. Set
+`CONSOLE_TEST_OPENBAO_VERSION` when the fixture declares another version.
 
 The test reads only `console-sample` and expects `console-bao` to declare OpenBao 2.7.0 and one replica, and to be
 healthy. It does not run a restore or recovery. The reader credential expires after one hour; run

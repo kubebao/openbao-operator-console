@@ -90,8 +90,14 @@ serviceAccount:
   annotations: {}
 
 # The backend uses this ServiceAccount for connections without a kubeconfig.
-# Grant list access only in enrolled namespaces on this Kubernetes cluster.
+# Legacy openbao.org LIST grants on the hosting cluster. Existing values retain this scope.
 readerNamespaces: []
+
+# Explicit API-group LIST grants on the hosting cluster. Use the same group as enrollment.
+# Grants merge by namespace with readerNamespaces; no other API group is added.
+readerScopes: []
+# - namespace: openbao-team
+#   apiGroup: kubebao.org
 
 # Named controller Deployments on the local cluster. Separate from workload reads.
 # Use one entry per operator namespace. Remote clusters use --print-rbac.

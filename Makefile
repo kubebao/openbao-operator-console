@@ -120,6 +120,7 @@ helm-check:
 		--set database.urlSecret=postgres-secret > /dev/null 2>&1; then \
 		echo "values.schema.json accepted PostgreSQL connection settings for SQLite" >&2; exit 1; \
 	fi
+	CONSOLE_TEST_HELM=1 go test -count=1 ./internal/config -run '^TestHelmReader'
 
 screenshots: build
 	pnpm --dir web exec playwright test --config playwright.screenshots.config.ts
