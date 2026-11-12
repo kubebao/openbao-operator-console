@@ -21,6 +21,9 @@ INSERT INTO console_observation(deployment_id, connection_id, recorded_at, proje
 -- name: ListRemovedConnections :many
 SELECT id FROM console_connection WHERE NOT (id = ANY(@enrolled::text[])) ORDER BY id;
 
+-- name: RetainedConnectionIDs :many
+SELECT id FROM console_connection ORDER BY id LIMIT $1;
+
 -- name: DeleteConnectionActivity :exec
 DELETE FROM console_activity WHERE connection_id = ANY(@connection_ids::text[]);
 

@@ -5,12 +5,18 @@ interface Enrollment {
   // local selects the in-cluster connection instead of an uploaded reader kubeconfig.
   local?: boolean
   automatic?: boolean
+  apiGroup?: 'openbao.org' | 'kubebao.org'
 }
 
 // toVerify walks the onboarding wizard to its verify step for Production EU.
-export async function toVerify(page: Page, { local = true, automatic = false }: Enrollment = {}) {
+export async function toVerify(
+  page: Page,
+  { local = true, automatic = false, apiGroup }: Enrollment = {},
+) {
   await page.goto('/settings/clusters/new')
   await page.getByRole('textbox', { name: 'Cluster name', exact: true }).fill('Production EU')
+  if (apiGroup)
+    await page.getByRole('combobox', { name: /^Operator API group/ }).selectOption(apiGroup)
   if (local)
     await page.getByRole('combobox', { name: 'Connection', exact: true }).selectOption('local')
   await page.getByRole('button', { name: 'Continue', exact: true }).click()

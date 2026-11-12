@@ -1,0 +1,8 @@
+existingSecret: console-runtime
+publicURL: https://console.example.com
+readerScopes:
+  - namespace: native-team
+    apiGroup: kubebao.org
+operatorReaders:
+  - namespace: operator-system
+    deployments: [openbao-operator-controller]

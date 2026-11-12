@@ -2,6 +2,27 @@ import { expect, test } from '@playwright/test'
 import { administrator } from './fixtures/administrator'
 import { toVerify } from './fixtures/onboarding'
 
+for (const apiGroup of ['kubebao.org', 'openbao.org'] as const) {
+  test(`onboarding preserves ${apiGroup} through verification, save, and edit`, async ({
+    page,
+  }) => {
+    const state = await administrator(page)
+    await toVerify(page, { apiGroup })
+    await page.getByRole('button', { name: 'Verify connection', exact: true }).click()
+    await page.getByRole('button', { name: 'Connect cluster', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Cluster connected' })).toBeVisible()
+    expect(state.configuration().connections[0]?.apiGroup).toBe(apiGroup)
+    await page.goto('/settings?section=connections')
+    await page.getByRole('button', { name: 'Edit', exact: true }).click()
+    const group = page.getByRole('textbox', { name: /^Operator API group/ })
+    await expect(group).toHaveValue(apiGroup)
+    await expect(group).toBeDisabled()
+    await expect(
+      page.getByText('To observe another API group, add a connection with a new identifier.'),
+    ).toBeVisible()
+  })
+}
+
 test('automatic renewal is prepared before credential upload and saved with enrollment', async ({
   page,
 }) => {

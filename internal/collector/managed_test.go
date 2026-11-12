@@ -76,6 +76,10 @@ func (*managedConfiguration) SettingsHistory(context.Context) ([]settings.Change
 	return nil, nil
 }
 
+func (*managedConfiguration) RetainedConnectionIDs(context.Context, int) ([]string, error) {
+	return nil, nil
+}
+
 type batchRecorder struct {
 	batches  chan store.Batch
 	retained chan []string

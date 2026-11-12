@@ -782,6 +782,11 @@ export interface components {
         };
         readonly ManagedConnection: {
             readonly id: string;
+            /**
+             * @description Operator API group. Omitted fields select openbao.org. An enrolled connection cannot change API group.
+             * @enum {string}
+             */
+            readonly apiGroup?: "openbao.org" | "kubebao.org";
             readonly name: string;
             readonly region: string;
             readonly disabled: boolean;

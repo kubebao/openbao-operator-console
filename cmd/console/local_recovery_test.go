@@ -49,6 +49,8 @@ func (r *settingsMemory) SaveCredential(context.Context, int64, settings.Credent
 
 func (r *settingsMemory) SettingsHistory(context.Context) ([]settings.Change, error) { return nil, nil }
 
+func (*settingsMemory) RetainedConnectionIDs(context.Context, int) ([]string, error) { return nil, nil }
+
 type credentialMemory struct{ records map[string]localauth.Record }
 
 func (r *credentialMemory) GetLocalCredential(_ context.Context, id string) (localauth.Record, error) {

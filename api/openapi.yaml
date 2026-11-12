@@ -2282,6 +2282,12 @@
               "properties":
                 {
                   "id": { "type": "string" },
+                  "apiGroup":
+                    {
+                      "type": "string",
+                      "enum": ["openbao.org", "kubebao.org"],
+                      "description": "Operator API group. Omitted fields select openbao.org. An enrolled connection cannot change API group.",
+                    },
                   "name": { "type": "string" },
                   "region": { "type": "string" },
                   "disabled": { "type": "boolean" },

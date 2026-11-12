@@ -177,6 +177,12 @@ function ConnectionIdentity({
       <Field label="Identifier" help="Stable identity used by access rules and history.">
         <input disabled value={connection.id} />
       </Field>
+      <Field
+        label="Operator API group"
+        help="To observe another API group, add a connection with a new identifier."
+      >
+        <input disabled value={connection.apiGroup ?? 'openbao.org'} />
+      </Field>
       <Field label="Region">
         <input
           value={connection.region}

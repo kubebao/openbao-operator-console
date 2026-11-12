@@ -21,6 +21,9 @@ INSERT INTO console_observation(deployment_id, connection_id, recorded_at, proje
 -- name: ListRemovedConnections :many
 SELECT id FROM console_connection WHERE id NOT IN (SELECT value FROM json_each(CAST(@enrolled AS TEXT))) ORDER BY id;
 
+-- name: RetainedConnectionIDs :many
+SELECT id FROM console_connection ORDER BY id LIMIT ?1;
+
 -- name: DeleteConnectionActivity :exec
 DELETE FROM console_activity WHERE connection_id IN (SELECT value FROM json_each(CAST(@connection_ids AS TEXT)));
 

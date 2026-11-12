@@ -20,10 +20,19 @@ func TestKindOperatorProjection(t *testing.T) {
 	if contextName == "" {
 		contextName = "kind-console-dev"
 	}
+	group := config.APIGroup(os.Getenv("CONSOLE_TEST_API_GROUP"))
+	if group != "" && group != config.APIGroupOpenBao && group != config.APIGroupKubeBao {
+		t.Fatal("CONSOLE_TEST_API_GROUP must select openbao.org or kubebao.org")
+	}
+	version := os.Getenv("CONSOLE_TEST_OPENBAO_VERSION")
+	if version == "" {
+		version = "2.7.0"
+	}
 	reader, err := New(
 		config.Connection{
 			ID:         "kind-console-dev",
 			Name:       "Console development",
+			APIGroup:   group,
 			Namespaces: []config.Namespace{{Name: "console-sample", Team: "Platform", Environment: "development", Location: "Local"}},
 			Operators: []config.Operator{
 				{
@@ -56,7 +65,7 @@ func TestKindOperatorProjection(t *testing.T) {
 		if d.Name != "console-bao" {
 			continue
 		}
-		if d.UID == "" || d.DesiredVersion != "2.7.0" || d.DesiredReplicas == nil || *d.DesiredReplicas != 1 || d.ResourceVersion == "" ||
+		if d.UID == "" || d.DesiredVersion != version || d.DesiredReplicas == nil || *d.DesiredReplicas != 1 || d.ResourceVersion == "" ||
 			len(d.Conditions) == 0 || d.Evidence.AnalysisIncomplete || d.Health != fleet.HealthHealthy ||
 			d.Evidence.Collection != "current" ||
 			d.OperatorID == nil ||

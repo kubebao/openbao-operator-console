@@ -13,6 +13,11 @@ Copy `examples/enrollment.yaml` to a private file. For each Kubernetes connectio
 context, and OpenBao namespaces. Namespace metadata supplies the team, environment, and location shown in the console. A
 connection with neither a kubeconfig nor a context uses the application's Kubernetes ServiceAccount.
 
+Set `apiGroup: kubebao.org` for a native operator or `apiGroup: openbao.org` for the legacy API. An omitted field retains
+`openbao.org` for existing enrollment files. The check and collector use only that group's `v1alpha1` API; they do not
+discover or fall back to another group. To observe another API group, enroll a new connection ID. Existing IDs remain
+bound to their API group after removal and restart so history and routes cannot join resources across groups.
+
 Add an `operators` entry for each controller installation. Specify the exact Deployment namespace, name, and container.
 `operators[].namespaces` declares responsibility for enrolled OpenBao namespaces. Each namespace has at most one
 enrolled operator. The console does not discover responsibility from labels, Helm release names, or a shared namespace.
@@ -34,7 +39,7 @@ for one enrolled connection:
 
 The command prints manifests. It does not contact Kubernetes or apply them. Create the reader namespace if required,
 then apply the manifests through the administrator context for that connection. Generated Roles grant namespace-scoped
-`list` for `openbaoclusters` and `openbaorestores`. Controller Roles grant `get` for named
+`list` for `openbaoclusters` and `openbaorestores` in the selected API group only. Controller Roles grant `get` for named
 Deployments. They do not grant Deployment listing, Secret access, or cluster-wide resource discovery.
 
 To create a short-lived credential for testing, without copying administrator credentials into the reader:
@@ -80,7 +85,9 @@ missing or denied controller Deployment affects operator evidence independently 
 Enrollment YAML seeds the first start only. After that, manage connections and access in **Settings**; changes to the
 seed are ignored. See the [installation guide](installation.md) for the runtime Secret and OIDC settings.
 
-For Kubernetes, adapt `examples/live-values.yaml`. Set `readerNamespaces` for local resource collection and
+For Kubernetes, adapt `examples/live-values.yaml`. Set `readerScopes` for namespace and API-group LIST grants on the
+hosting cluster, for example `{namespace: openbao-team, apiGroup: kubebao.org}`. Existing `readerNamespaces` entries grant
+only the legacy `openbao.org` API. Grants merge by namespace and include only the declared groups. Set
 `operatorReaders` for the exact controller Deployments, with one `operatorReaders` entry per namespace. Mount remote
 reader kubeconfigs with `kubeconfigSecrets`. `examples/multi-cluster-enrollment.yaml` shows two clusters with separate
 reader credentials and operator installations.

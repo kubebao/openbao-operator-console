@@ -67,6 +67,7 @@ func qualificationConnection(id, kubeconfig string) config.Connection {
 	}
 	return config.Connection{
 		ID:         id,
+		APIGroup:   config.APIGroup(os.Getenv("CONSOLE_TEST_API_GROUP")),
 		Name:       "Qualification",
 		Namespaces: []config.Namespace{{Name: "console-sample", Environment: "development"}},
 		Operators: []config.Operator{
