@@ -5,6 +5,7 @@ import type { ProblemCode } from './problem'
 import { problemSchema } from './problem'
 import {
   historySchema,
+  chartHistorySchema,
   activityPageSchema,
   snapshotSchema,
   settingsSchema,
@@ -43,6 +44,7 @@ export const queryKeys = {
   settings: ['settings'],
   credentialStatuses: ['credentialStatuses'],
   history: (id: string, since: string) => ['history', id, since] as const,
+  charts: (id: string) => ['charts', id] as const,
   activity: ['activity'],
 } as const
 
@@ -194,6 +196,25 @@ export function useHistory(id: string, since: string) {
     retry: (count: number, error: Error) =>
       !(error instanceof APIError && error.status >= 400 && error.status < 500) && count < 2,
     staleTime: 30_000,
+  })
+}
+
+export function useCharts(id: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.charts(id),
+    enabled,
+    queryFn: async () => {
+      const response = await client.GET('/api/v1/deployments/{id}/charts', {
+        params: { path: { id } },
+      })
+      if (!response.response.ok)
+        throw readFailure(response.response, response.error, 'Chart evidence is unavailable.')
+      return chartHistorySchema.parse(response.data)
+    },
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+    retry: (count: number, error: Error) =>
+      !(error instanceof APIError && error.status >= 400 && error.status < 500) && count < 2,
   })
 }
 

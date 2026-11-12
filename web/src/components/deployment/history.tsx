@@ -1,11 +1,12 @@
 import { AlertCircle } from 'lucide-react'
-import { useHistory } from '../../api/client'
+import { useCharts, useHistory } from '../../api/client'
 import { collectionLabels, healthLabels } from '../../lib/format'
 import type { HistoryEntry } from '../../lib/history'
 import { describeHistory, stateBand } from '../../lib/history'
 import { EmptyState } from '../page'
 import { Timestamp } from '../status'
 import { StateBand } from './charts'
+import { ChartStatus } from './chart-status'
 import { SectionTitle } from '../info-tip'
 import { Button } from '../ui/button'
 
@@ -40,6 +41,33 @@ function groupByDay(entries: readonly HistoryEntry[], now: number) {
 }
 
 export function HistoryTab({ id, since, now }: { id: string; since: string; now: number }) {
+  const charts = useCharts(id)
+  const data = charts.data
+  const observations = data ? [...(data.baseline ? [data.baseline] : []), ...data.observations] : []
+  return (
+    <>
+      <section className="detail-section">
+        <SectionTitle
+          tipLabel="About the state band"
+          tip="Uses all retained chart evidence in the displayed seven-day window. State lasts until the next recorded change. Time while the console was stopped cannot be distinguished from unchanged state. Incident marker width does not represent duration. Unrecorded time remains unknown."
+        >
+          State over the last 7 days
+        </SectionTitle>
+        {data && (
+          <StateBand
+            segments={stateBand(observations, Date.parse(data.start), Date.parse(data.end))}
+            start={Date.parse(data.start)}
+            end={Date.parse(data.end)}
+          />
+        )}
+        <ChartStatus query={charts} />
+      </section>
+      <ObservationList id={id} since={since} now={now} />
+    </>
+  )
+}
+
+function ObservationList({ id, since, now }: { id: string; since: string; now: number }) {
   const history = useHistory(id, since)
   if (history.isPending) return <p className="muted">Loading recorded changes…</p>
   if (!history.data)
@@ -56,31 +84,16 @@ export function HistoryTab({ id, since, now }: { id: string; since: string; now:
       </EmptyState>
     )
   const baseline = history.hasNextPage ? null : history.data.baseline
-  const observations = [...(baseline ? [baseline] : []), ...history.data.observations]
   const windowEnd = now
-  const windowStart = Date.parse(since)
   const entries = describeHistory(history.data.observations, baseline, history.hasNextPage)
   const oldest = entries.at(-1)
   return (
     <>
       <section className="detail-section">
-        <SectionTitle
-          tipLabel="About the state band"
-          tip="A state lasts until the next recorded change. The console records a change when a displayed field, the state, the collection result, or the findings change. Time while the console was not running cannot be distinguished from an unchanged state."
-        >
-          State over the last 7 days
-        </SectionTitle>
-        <StateBand
-          segments={stateBand(observations, windowStart, windowEnd, history.hasNextPage)}
-          start={windowStart}
-          end={windowEnd}
-        />
-      </section>
-      <section className="detail-section">
         <div className="section-heading">
           <SectionTitle
             tipLabel="About recorded changes"
-            tip="Observations in this seven-day window load in pages of 100. Retention depends on the console configuration. A pre-window observation provides the baseline when available."
+            tip="The observation list loads 100 records at a time. Charts read the complete seven-day window independently. Retention depends on the console configuration."
           >
             Recorded changes
           </SectionTitle>

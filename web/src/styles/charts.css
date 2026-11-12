@@ -9,24 +9,55 @@
   height: 22px;
 }
 
-.state-band-track > span {
+.state-band-track > .state-segment {
   position: absolute;
   top: 0;
   bottom: 0;
-  border-right: 2px solid var(--background);
 }
 
-.state-band-track > span:first-child {
+.state-band-track > .state-segment:first-child {
   border-radius: 4px 0 0 4px;
 }
 
-.state-band-track > span:last-child {
-  border-right: 0;
+.state-band-track > .state-last {
   border-radius: 0 4px 4px 0;
 }
 
-.state-band-track > span:only-child {
+.state-band-track > .state-last:first-child {
   border-radius: 4px;
+}
+
+.state-incident {
+  position: absolute;
+  width: 3px;
+  transform: translateX(-50%);
+}
+
+/* Separate marker positions keep nearby incidents of different states visible. */
+.state-incident.band-attention {
+  top: -3px;
+  bottom: 66.67%;
+}
+
+.state-incident.band-critical {
+  top: calc(33.33% + 1px);
+  bottom: 33.33%;
+}
+
+.state-incident.band-uncollected {
+  top: calc(66.67% + 1px);
+  bottom: -3px;
+}
+
+.chart-incidents {
+  margin-top: 8px;
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+}
+
+.chart-incidents ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
 }
 
 .band-healthy {
@@ -95,7 +126,7 @@
   border-radius: 2px;
 }
 
-/* Backup week: one cell per hour, seven day rows. */
+/* Backup week: one cell per local clock hour, with partial dates at each boundary. */
 .backup-week-grid {
   display: grid;
   grid-template-columns: 52px repeat(24, minmax(0, 1fr));
@@ -140,7 +171,8 @@
   background: repeating-linear-gradient(90deg, var(--muted) 0 2px, transparent 2px 5px);
 }
 
-.hour-future {
+.hour-future,
+.hour-outside {
   background: transparent;
 }
 

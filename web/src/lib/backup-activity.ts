@@ -4,7 +4,8 @@ const hour = 60 * 60 * 1000
 
 // An hour cell of the backup week. Failure outranks completion. Without a backup event, an
 // hour before the oldest retained observation is not recorded rather than empty.
-export type HourState = 'failed' | 'completed' | 'none' | 'unrecorded' | 'unloaded' | 'future'
+export type HourState =
+  'failed' | 'completed' | 'none' | 'unrecorded' | 'unloaded' | 'future' | 'outside'
 
 export interface HourCell {
   start: number
@@ -33,33 +34,36 @@ function hourState(
   return 'none'
 }
 
-// backupWeek lays out the last `days` local days as rows of hour cells, ending with today.
-// `recordedFrom` is the oldest retained observation, or null when none is retained.
+// A rolling window can cross eight local dates. Boundary hours are clipped to the window.
+// Repeated daylight-saving hours share one local clock-hour cell; skipped hours stay blank.
 export function backupWeek(
   events: readonly BackupEvent[],
   now: number,
   recordedFrom: number | null,
   earlierUnloaded = false,
-  days = 7,
+  windowStart = now - 7 * 24 * hour,
 ): DayRow[] {
   const rows: DayRow[] = []
-  const today = new Date(now)
-  for (let offset = days - 1; offset >= 0; offset -= 1) {
-    const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offset)
+  const first = new Date(windowStart)
+  const day = new Date(first.getFullYear(), first.getMonth(), first.getDate())
+  for (; day.getTime() <= now; day.setDate(day.getDate() + 1)) {
     const cells: HourCell[] = []
     for (let index = 0; index < 24; index += 1) {
       const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), index).getTime()
-      const end = start + hour
+      const end = new Date(day.getFullYear(), day.getMonth(), day.getDate(), index + 1).getTime()
       let completed = 0
       let failures = 0
       for (const event of events) {
         const at = Date.parse(event.at)
-        if (at < start || at >= end) continue
+        if (at < start || at >= end || at < windowStart || at > now) continue
         if (event.kind === 'success') completed += event.count
         else failures += event.count
       }
       const recorded = recordedFrom !== null && end > recordedFrom
-      const state = hourState(start > now, completed, failures, recorded, earlierUnloaded)
+      const state =
+        end <= windowStart || end <= start
+          ? 'outside'
+          : hourState(start > now, completed, failures, recorded, earlierUnloaded)
       cells.push({ start, end, completed, failures, state })
     }
     rows.push({ start: day.getTime(), cells })

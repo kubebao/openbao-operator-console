@@ -2,6 +2,7 @@ import { describe, expectTypeOf, it } from 'vitest'
 import type { z } from 'zod'
 import type { components } from './generated'
 import type { ActivityContractSchema } from './activity'
+import type { ChartContractSchema } from './charts'
 import type { ProblemContractSchema } from './problem'
 import type { ContractSchemas } from './schema'
 import type { SignInContractSchemas } from './sign-in'
@@ -29,6 +30,7 @@ describe('runtime schemas accept the generated contract', () => {
   it('accepts every fleet value', () => {
     expectTypeOf<Contract['Snapshot']>().toExtend<Input<'snapshot'>>()
     expectTypeOf<Contract['History']>().toExtend<Input<'history'>>()
+    expectTypeOf<Contract['ChartHistory']>().toExtend<DeepReadonly<z.input<ChartContractSchema>>>()
     expectTypeOf<Contract['ActivityPage']>().toExtend<Input<'activityPage'>>()
     expectTypeOf<Contract['Activity']>().toExtend<DeepReadonly<z.input<ActivityContractSchema>>>()
     expectTypeOf<Contract['ConnectionCheckResult']>().toExtend<Input<'connectionCheck'>>()

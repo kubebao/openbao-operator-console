@@ -19,6 +19,7 @@ const StaleAfter = 2 * time.Minute
 type Observations interface {
 	Snapshot(context.Context) (fleet.Snapshot, error)
 	History(context.Context, string, fleet.HistoryQuery) (fleet.HistoryPage, error)
+	Charts(context.Context, string, time.Time, time.Time) (fleet.ChartHistory, error)
 	Activity(context.Context, []config.Scope, fleet.Page) (fleet.ActivityPage, error)
 }
 
@@ -44,6 +45,10 @@ func (l Live) Snapshot(ctx context.Context) (fleet.Snapshot, error) {
 
 func (l Live) History(ctx context.Context, id string, query fleet.HistoryQuery) (fleet.HistoryPage, error) {
 	return l.Observations.History(ctx, id, query)
+}
+
+func (l Live) Charts(ctx context.Context, id string, start, end time.Time) (fleet.ChartHistory, error) {
+	return l.Observations.Charts(ctx, id, start, end)
 }
 
 // Activity returns one page of retained events in the given scopes. Callers pass scopes

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { deploymentFixture, settingsFixture, snapshotFixture } from '../test/fixtures'
 import {
   historySchema,
+  chartHistorySchema,
   loginRedirectSchema,
   managedConnectionSchema,
   settingsSchema,
@@ -41,6 +42,36 @@ describe('snapshot schema', () => {
       ],
     }
     expect(historySchema.safeParse(history).success).toBe(false)
+  })
+})
+
+describe('chart window schema', () => {
+  const point = {
+    recordedAt: '2026-10-06T10:00:00Z',
+    deployment: {
+      health: 'healthy',
+      evidence: { collection: 'current' },
+      backup: { lastSuccessAt: null, consecutiveFailures: null, sizeBytes: null },
+    },
+  }
+  const window = {
+    start: '2026-10-01T00:00:00Z',
+    end: '2026-10-07T00:00:00Z',
+    baseline: null,
+    observations: [point],
+  }
+  it('preserves unknown counters and rejects evidence outside the window', () => {
+    expect(
+      chartHistorySchema.parse(window).observations[0]?.deployment.backup?.consecutiveFailures,
+    ).toBeNull()
+    expect(
+      chartHistorySchema.safeParse({
+        ...window,
+        observations: [{ ...point, recordedAt: '2026-10-08T00:00:00Z' }],
+      }).success,
+    ).toBe(false)
+    expect(chartHistorySchema.safeParse({ ...window, baseline: point }).success).toBe(false)
+    expect(chartHistorySchema.safeParse({ ...window, end: window.start }).success).toBe(false)
   })
 })
 

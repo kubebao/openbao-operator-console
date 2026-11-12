@@ -72,6 +72,19 @@ WHERE deployment_id = @deployment_id AND recorded_at < @before
 ORDER BY recorded_at DESC, id DESC
 LIMIT 1;
 
+-- name: GetCharts :many
+SELECT recorded_at, CAST(json_object(
+  'health', json_extract(projection, '$.health'),
+  'evidence', json_object('collection', json_extract(projection, '$.evidence.collection')),
+  'backup', CASE WHEN json_type(projection, '$.backup') IS NULL OR json_type(projection, '$.backup') = 'null' THEN NULL
+    ELSE json_object('lastSuccessAt', json_extract(projection, '$.backup.lastSuccessAt'),
+      'consecutiveFailures', json_extract(projection, '$.backup.consecutiveFailures'),
+      'sizeBytes', json_extract(projection, '$.backup.sizeBytes')) END
+) AS TEXT) AS chart_projection
+FROM console_observation
+WHERE deployment_id = @deployment_id AND recorded_at >= @since AND recorded_at <= @until
+ORDER BY recorded_at ASC, id ASC;
+
 -- name: PruneObservations :exec
 DELETE FROM console_observation WHERE recorded_at < ?1;
 
