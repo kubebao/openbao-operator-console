@@ -1,6 +1,6 @@
 # Shared client compatibility and qualification
 
-The console pins the public client candidate `v0.1.1-0.20261111232321-e64f20ca5d5e`, commit
+The console pins the public client release `v0.2.0`, commit
 `e64f20ca5d5e13d97d31f9adf06c0347e04a50df`. It uses evidence schema `4` for new collection and keeps its existing persisted
 fleet projections, deployment IDs, routes, and history. No local Go workspace or replacement is required.
 
