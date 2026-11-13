@@ -1,8 +1,8 @@
 # Shared client compatibility and qualification
 
-The console pins the public client release `v0.2.0`, commit
-`e64f20ca5d5e13d97d31f9adf06c0347e04a50df`. It uses evidence schema `4` for new collection and keeps its existing persisted
-fleet projections, deployment IDs, routes, and history. No local Go workspace or replacement is required.
+The console pins the public client candidate `v0.2.1-0.20261113123647-f6a44c94d608`, commit
+`f6a44c94d608ac12671a12ff13b6e2d84b202c1e`. It uses evidence schema `5` and diagnostic rule set `9` for new collection.
+The existing persisted fleet projections, deployment IDs, routes, and history remain unchanged. No local Go workspace or replacement is required.
 
 ## Selected API contracts
 
@@ -12,11 +12,16 @@ another API or fall back after a failed read.
 
 | API group | Inspected client contract | Operator integration baseline |
 | --- | --- | --- |
-| `openbao.org` | `openbao.org/v1alpha1@9671c306/maintenance-pools-v1` | Released operator `0.6.1` |
-| `kubebao.org` | `kubebao.org/v1alpha1@22894cdc/maintenance-pools-v1` | Native operator candidate `22894cdc0a4aa5c442a07f2bf9902fe28ce02ea1` |
+| `openbao.org` | `openbao.org/v1alpha1@9671c306/restore-retention-v1` | Released operator `0.6.1` |
+| `kubebao.org` | `kubebao.org/v1alpha1@22894cdc/restore-retention-v1` | Enrollment/controller baseline `22894cdc`; nonempty restore observations at `587dd163` |
 
-Native qualification covers that candidate. Matching API discovery does not qualify another build or establish support
-for a released native operator. The operator's workload metadata retains `openbao.org/*` keys in both groups.
+The native enrollment and controller baseline is candidate `22894cdc0a4aa5c442a07f2bf9902fe28ce02ea1`. The separate
+nonempty restore checks cover native build `587dd16386bc5a234520e22eec1bbedb904fa6dd` under the inspected field contract.
+Matching API discovery does not qualify another build or establish support for a released native operator. The
+operator's workload metadata retains `openbao.org/*` keys in both groups.
+
+The library also provides `openbao.org/v1alpha1/unqualified-v4` and `kubebao.org/v1alpha1/unqualified-v2` projections.
+Console analysis requires the inspected contracts in the table.
 
 ## Read scopes
 
@@ -40,8 +45,11 @@ before running an older console against state that contains native enrollment or
 
 ## Validation boundary
 
-The isolated operator checks use Kubernetes 1.36.1 on Linux/arm64 with OpenBao 2.7.2, self-initialization, the Development
-profile, one voter, and enabled admission policies. The console reads through a short-lived reader ServiceAccount token.
+### Enrollment and controller baseline
+
+Enrollment and controller checks cover legacy operator `0.6.1` and native candidate `22894cdc`. They use Kubernetes 1.36.1
+on Linux/arm64 with OpenBao 2.7.2, self-initialization, the Development profile, one voter, and enabled admission policies.
+The console reads through a short-lived reader ServiceAccount token.
 Permission checks allow only namespace cluster/restore LISTs and the enrolled controller GET; they deny cluster GET,
 other-group LISTs, Pod LISTs, Secret GETs, workload PATCHes, restore creation, other controllers, and cluster-wide LISTs.
 
@@ -53,7 +61,33 @@ SQLite and PostgreSQL tests cover legacy settings backfill, retained history, co
 rejected edits without committed changes, and encrypted settings/credential persistence. Browser tests cover both API
 choices through onboarding and edit. Generated-contract checks verify OpenAPI and sqlc outputs against their inputs.
 
-A real empty restore LIST does not qualify restore execution or nonempty restore correlation. Native recovery,
-replication, backups, upgrades, restore-test execution, HA, and production operation remain outside this runtime check.
-Unit and fixture results remain separate from operator integration. Exact candidate, image, CRD, command, and result
-identities belong in the qualification pull request and release notes.
+### Nonempty restore observations
+
+`TestNonemptyRestoreProjection` verifies the declared request and target UIDs, their documented association, selected
+console recovery projection, and finding severity. It persists the real collected batch to temporary SQLite storage and
+verifies it after reopening the database. It uses only namespace cluster and restore LISTs.
+
+Native checks use operator build `587dd16386bc5a234520e22eec1bbedb904fa6dd` in the migrated demo, Kubernetes
+1.36.1+k3s1 on Linux/amd64, and OpenBao 2.7.2. They cover:
+
+- A historical UID-confirmed `Unknown` request, rendered with high severity. Three older unbound requests keep
+  diagnostic coverage incomplete.
+- A held disposable request reporting `Unknown`, successful execution, target application, and pending cleanup within
+  its configured retention interval. Rule set `9` renders this as informational and preserves the reported `Unknown`
+  phase.
+
+The legacy check uses released operator `0.6.1` on isolated Kind Kubernetes 1.36.1, Linux/arm64, and OpenBao 2.7.2. A
+fixture verifies a sample KV value, takes a backup, changes the value, and reads the snapshot value after restoring into
+its own source. The operator retains `Unknown` and a hold; the console preserves the high-severity recovery concern.
+The sample-data proof does not replace operator completion evidence. The legacy observer permission matrix permits
+only its declared LISTs and denies Secret reads, workload mutations, restore creation, and the other API group.
+
+Native and legacy synthetic tests cover finding identity and first-seen time through incomplete reads, restart, request
+UID replacement, and resolution. They also verify that a retained `Completed` receipt cannot recreate a deleted target
+or rewrite its history. The separate library runtime check of a terminal receipt after disposable target cleanup does
+not qualify a current console deployment for an absent target.
+
+Other restore failure and identity-conflict branches remain unit and fixture coverage. PostgreSQL, signed-session HTTP,
+browser, and controller qualification retain their separate enrollment baseline. Native recovery, replication,
+upgrades, scheduled restore-test execution, HA, and production operation remain outside these restore checks. Exact candidate, image, CRD, command, and
+result identities belong in the qualification pull request and release notes.

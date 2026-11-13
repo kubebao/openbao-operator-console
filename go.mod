@@ -6,7 +6,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/go-jose/go-jose/v4 v4.1.8
 	github.com/jackc/pgx/v5 v5.12.0
-	github.com/kubebao/openbao-operator-client v0.2.0
+	github.com/kubebao/openbao-operator-client v0.2.1-0.20261113123647-f6a44c94d608
 	golang.org/x/crypto v0.58.0
 	golang.org/x/net v0.62.0
 	golang.org/x/oauth2 v0.37.0
