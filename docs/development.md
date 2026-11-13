@@ -182,6 +182,35 @@ healthy. It does not run a restore or recovery. The reader credential expires af
 make integration-cluster-down
 ```
 
+### Nonempty restore projection
+
+`TestNonemptyRestoreProjection` reads an existing UID-confirmed restore through a caller-supplied reader credential.
+Provision the target and request separately. The test creates no Kubernetes resources and uses only namespace cluster
+and restore LISTs. It persists the collected projection to temporary SQLite storage and verifies it after reopening the
+database. It does not require an enrolled controller Deployment.
+
+Declare the namespace, target and request identities, reported phase, and expected console finding before running it:
+
+```sh
+CONSOLE_TEST_KUBECONFIG=/path/to/reader-kubeconfig \
+CONSOLE_TEST_CONTEXT=qualification \
+CONSOLE_TEST_API_GROUP=kubebao.org \
+CONSOLE_TEST_RESTORE_NAMESPACE=restore-qualification \
+CONSOLE_TEST_RESTORE_TARGET=restore-target \
+CONSOLE_TEST_RESTORE_TARGET_UID=target-uid \
+CONSOLE_TEST_RESTORE_REQUEST=restore-request \
+CONSOLE_TEST_RESTORE_UID=request-uid \
+CONSOLE_TEST_RESTORE_PHASE=Unknown \
+CONSOLE_TEST_RESTORE_FINDING=high \
+GOWORK=off go test -race -count=1 ./internal/collector -run '^TestNonemptyRestoreProjection$'
+```
+
+Replace the identity values with the caller-provisioned records. The phase must be `Pending`, `Validating`, `Running`,
+`Completed`, `Failed`, or `Unknown`. The finding expectation must be `none`, `info`, `high`, or `critical`. Declare the
+finding separately because a `Completed` phase does not exclude a recorded cleanup concern. The test skips when the
+restore tuple is unset and rejects partial or unsupported settings. A passing check verifies the declared observation;
+it does not establish end-to-end recovery or qualify a different operator build.
+
 ### Credential renewal
 
 To run the real renewal check, generate RBAC with renewal enabled for a dedicated `console-renewal-test` ServiceAccount
@@ -234,7 +263,7 @@ information and the OCI image labels.
 ## Shared client migration
 
 The console pins `github.com/kubebao/openbao-operator-client` at
-`v0.2.0`.
+`v0.2.1-0.20261113123647-f6a44c94d608`.
 Build with Go 1.27.4 or newer. Final qualification uses `GOWORK=off`
 and no local replacement. The public module needs no private dependency credentials.
 
@@ -266,6 +295,8 @@ The selected read contracts cover released legacy operator `0.6.1` and native op
 remain outside the console's read-only collection scope.
 
 Restore display selection uses `diagnose.LatestRestore` with the approved UID-binding contract and API version.
-Projection remains in the adapter. Rule set 8 retains all observed insufficiency causes. The console keeps its existing
-fleet mapping, history, and read-only collection scope. The console pins the public `v0.2.0` release. See
-[shared client qualification](shared-client-qualification.md) for the migration evidence and final tagged validation.
+Projection remains in the adapter. Rule set 9 distinguishes confirmed disposable-target retention from an unknown
+restore outcome and retains all observed insufficiency causes. Evidence schema `5` adds the reported lifecycle,
+cleanup interval, and terminal-result fields. The original reported phase remains visible. The console keeps its existing
+fleet mapping, history, and read-only collection scope. The console pins the public client candidate. See
+[shared client qualification](shared-client-qualification.md) for the current qualification and limits.
