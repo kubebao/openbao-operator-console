@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -66,11 +67,19 @@ func testCollectedRestoreHistory(t *testing.T, group config.APIGroup) {
 		}
 	}
 
+	beforeRestart, err := repository.History(context.Background(), failed.ID, fleet.HistoryQuery{Page: fleet.Page{Limit: 100}})
+	if err != nil {
+		t.Fatal(err)
+	}
 	repository.Close()
 	repository = openRestoreHistory(t, path)
 	restarted := storedRestoreDeployment(t, repository)
 	if episode := restoreEpisode(t, restarted); episode.ID != initial.ID || !episode.FirstSeenAt.Equal(initial.FirstSeenAt) {
 		t.Fatal("restart lost the unresolved restore episode")
+	}
+	afterRestart, err := repository.History(context.Background(), failed.ID, fleet.HistoryQuery{Page: fleet.Page{Limit: 100}})
+	if err != nil || !reflect.DeepEqual(beforeRestart, afterRestart) || !reflect.DeepEqual(failed.Recovery, restarted.Recovery) {
+		t.Fatal("opening persisted fleet state changed restore history or the retained recovery projection")
 	}
 	state.mode = ""
 	confirmed := collect()

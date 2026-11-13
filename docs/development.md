@@ -263,7 +263,7 @@ information and the OCI image labels.
 ## Shared client migration
 
 The console pins `github.com/kubebao/openbao-operator-client` at
-`v0.2.1-0.20261113123647-f6a44c94d608`.
+`v0.2.1-0.20261113160453-369ddfbce594`.
 Build with Go 1.27.4 or newer. Final qualification uses `GOWORK=off`
 and no local replacement. The public module needs no private dependency credentials.
 
@@ -294,9 +294,10 @@ The selected read contracts cover released legacy operator `0.6.1` and native op
 `22894cdc0a4aa5c442a07f2bf9902fe28ce02ea1`. Native qualification applies to that exact candidate. Lifecycle operations
 remain outside the console's read-only collection scope.
 
-Restore display selection uses `diagnose.LatestRestore` with the approved UID-binding contract and API version.
-Projection remains in the adapter. Rule set 9 distinguishes confirmed disposable-target retention from an unknown
-restore outcome and retains all observed insufficiency causes. Evidence schema `5` adds the reported lifecycle,
-cleanup interval, and terminal-result fields. The original reported phase remains visible. The console keeps its existing
-fleet mapping, history, and read-only collection scope. The console pins the public client candidate. See
+Restore display selection uses `diagnose.LatestRestore` with UID-confirmed evidence from a supported API group and
+version. The selected adapter validates public fields before analysis. Evidence and diagnostics follow the pinned client
+release. Captures and policies have no independent evidence, rule-set, or adapter version checks.
+Diagnosis distinguishes confirmed disposable-target retention from an unknown restore outcome. It retains all observed
+insufficiency causes and preserves the reported phase. The console keeps its existing fleet mapping, history, and
+read-only collection scope. See
 [shared client qualification](shared-client-qualification.md) for the current qualification and limits.

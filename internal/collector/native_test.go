@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -239,62 +238,102 @@ func TestNativePartialClusterListDoesNotReplaceInventory(t *testing.T) {
 	}
 }
 
-func TestNativePolicyAndRestorePresentationRejectOtherContracts(t *testing.T) {
+func TestRestorePresentationRequiresSupportedAPIIdentityAndUIDs(t *testing.T) {
+	t.Parallel()
+	for _, group := range []config.APIGroup{config.APIGroupKubeBao, config.APIGroupOpenBao} {
+		t.Run(string(group), func(t *testing.T) {
+			cluster := normalizedCluster(t, testCluster())
+			cluster.Reference.Identity.Group = string(group)
+			cluster.Reference.APIVersion = string(group) + "/v1alpha1"
+			request := normalizedRestore(t, "restore", "original", "Completed")
+			request.Reference.Identity.Group = string(group)
+			request.Reference.APIVersion = string(group) + "/v1alpha1"
+			for _, change := range []string{"valid", "other-group", "unsupported-group", "other-version", "foreign-uid", "name-only"} {
+				target, restore := cluster, request
+				switch change {
+				case "other-group":
+					other := "openbao.org"
+					if group == config.APIGroupOpenBao {
+						other = "kubebao.org"
+					}
+					restore.Reference.Identity.Group, restore.Reference.APIVersion = other, other+"/v1alpha1"
+				case "unsupported-group":
+					target.Reference.Identity.Group, restore.Reference.Identity.Group = "unsupported.example", "unsupported.example"
+					target.Reference.APIVersion = "unsupported.example/v1alpha1"
+					restore.Reference.APIVersion = "unsupported.example/v1alpha1"
+				case "other-version":
+					target.Reference.APIVersion, restore.Reference.APIVersion = string(group)+"/v2", string(group)+"/v2"
+				case "foreign-uid":
+					restore.Execution.TargetUID = shared.Text{State: shared.ValueReported, Value: new("foreign")}
+				case "name-only":
+					restore.Execution.TargetUID = shared.Text{State: shared.ValueUnknown}
+				}
+				deployment := fleet.Deployment{}
+				attachRecovery(&deployment, target, []shared.Restore{restore})
+				if (deployment.Recovery != nil) != (change == "valid") {
+					t.Fatalf("restore association accepted an unsupported identity or UID for %s", change)
+				}
+			}
+		})
+	}
+}
+
+func TestUnqualifiedProjectionCannotConfirmRecovery(t *testing.T) {
+	t.Parallel()
+	for _, group := range []config.APIGroup{config.APIGroupKubeBao, config.APIGroupOpenBao} {
+		t.Run(string(group), func(t *testing.T) {
+			contract := adapter.KubeBaoV1Alpha1Unqualified
+			if group == config.APIGroupOpenBao {
+				contract = adapter.OpenBaoV1Alpha1Unqualified
+			}
+			options := adapter.ProjectionOptions{
+				Origin: "one", CollectedAt: time.Now().UTC(), Contract: contract, Limits: adapter.DefaultProjectionLimits(),
+			}
+			clusterJSON, err := json.Marshal(groupCluster(group))
+			if err != nil {
+				t.Fatal(err)
+			}
+			requestJSON, err := json.Marshal(groupRestore(group))
+			if err != nil {
+				t.Fatal(err)
+			}
+			cluster, err := adapter.ProjectCluster(clusterJSON, options)
+			if err != nil {
+				t.Fatal(err)
+			}
+			request, err := adapter.ProjectRestore(requestJSON, options)
+			if err != nil {
+				t.Fatal(err)
+			}
+			deployment := fleet.Deployment{}
+			attachRecovery(&deployment, cluster, []shared.Restore{request})
+			if deployment.Recovery != nil || cluster.RestoreOrigin.State != shared.ValueUnknown ||
+				request.Target.UID.State != shared.ValueUnknown || request.Execution.TargetUID.State != shared.ValueUnknown {
+				t.Fatal("unqualified projection supplied interpreted restore UID bindings")
+			}
+		})
+	}
+}
+
+func TestAnalysisRejectsMismatchedCollectionIdentity(t *testing.T) {
 	t.Parallel()
 	cluster := normalizedCluster(t, testCluster())
-	cluster.Reference.Identity.Group = "kubebao.org"
-	cluster.Reference.APIVersion = "kubebao.org/v1alpha1"
-	cluster.AdapterContract = string(adapter.KubeBaoV1Alpha1Snapshot)
-	request := normalizedRestore(t, "restore", "original", "Completed")
-	request.Reference.Identity.Group = "kubebao.org"
-	request.Reference.APIVersion = "kubebao.org/v1alpha1"
-	request.AdapterContract = string(adapter.KubeBaoV1Alpha1Snapshot)
-	policy := analysisPolicy(time.Now().UTC(), fleet.Policy{}, adapter.KubeBaoV1Alpha1Snapshot)
-	if !reflect.DeepEqual(policy.ApprovedContracts, []string{string(adapter.KubeBaoV1Alpha1Snapshot)}) ||
-		!reflect.DeepEqual(policy.RestoreUIDBindingContracts, []string{string(adapter.KubeBaoV1Alpha1Snapshot)}) {
-		t.Fatal("native reader diagnostic policy does not approve exactly its inspected contract")
-	}
-	for _, change := range []string{"valid", "legacy-request", "unqualified", "spoofed", "other-version"} {
-		target, restore := cluster, request
-		switch change {
-		case "legacy-request":
-			restore.Reference.Identity.Group, restore.Reference.APIVersion = "openbao.org", "openbao.org/v1alpha1"
-			restore.AdapterContract = string(adapter.V1Alpha1Snapshot)
-		case "unqualified":
-			target.AdapterContract, restore.AdapterContract = string(
-				adapter.KubeBaoV1Alpha1Unqualified,
-			), string(
-				adapter.KubeBaoV1Alpha1Unqualified,
-			)
-		case "spoofed":
-			target.AdapterContract, restore.AdapterContract = string(adapter.V1Alpha1Snapshot), string(adapter.V1Alpha1Snapshot)
-		case "other-version":
-			target.Reference.APIVersion, restore.Reference.APIVersion = "kubebao.org/v2", "kubebao.org/v2"
-		}
-		deployment := fleet.Deployment{}
-		attachRecovery(&deployment, target, []shared.Restore{restore})
-		if (deployment.Recovery != nil) != (change == "valid") {
-			t.Fatalf("native restore association changed its selected source boundary for %s", change)
-		}
-	}
-	legacyPolicy := analysisPolicy(time.Now().UTC(), fleet.Policy{}, adapter.V1Alpha1Snapshot)
-	if slices.Contains(legacyPolicy.ApprovedContracts, string(adapter.KubeBaoV1Alpha1Snapshot)) {
-		t.Fatal("legacy enrollment approved another API group's capture")
-	}
 	at := *cluster.Reference.CollectedAt.Value
-	input := diagnose.ClusterInput{
-		Subject: cluster.Reference.Identity, AdapterContract: cluster.AdapterContract, Observation: &cluster,
-		Collection: shared.Collection{
-			Scope: shared.Scope{
-				Origin: cluster.Reference.Identity.Origin, Group: "kubebao.org", Version: "v1alpha1",
-				Resource: "openbaoclusters", Namespace: "team", Action: shared.ReadList,
+	for _, group := range []string{"openbao.org", "kubebao.org"} {
+		input := diagnose.ClusterInput{
+			Subject: cluster.Reference.Identity, Observation: &cluster,
+			Collection: shared.Collection{
+				Scope: shared.Scope{
+					Origin: cluster.Reference.Identity.Origin, Group: group, Version: "v1alpha1",
+					Resource: "openbaoclusters", Namespace: "team", Action: shared.ReadList,
+				},
+				Interval: shared.Interval{StartedAt: at, CompletedAt: at}, Outcome: shared.CollectionComplete, Items: 1,
 			},
-			Interval: shared.Interval{StartedAt: at, CompletedAt: at}, Outcome: shared.CollectionComplete, Items: 1,
-		},
-	}
-	if _, err := diagnose.Analyze(diagnose.Capture{SchemaVersion: shared.SchemaVersion, Clusters: []diagnose.ClusterInput{input}},
-		legacyPolicy); !errors.Is(err, diagnose.ErrUnsupportedVersion) {
-		t.Fatal("legacy policy accepted native evidence")
+		}
+		_, err := diagnose.Analyze(diagnose.Capture{Clusters: []diagnose.ClusterInput{input}}, analysisPolicy(at, fleet.Policy{}))
+		if group == "openbao.org" && err != nil || group == "kubebao.org" && !errors.Is(err, diagnose.ErrInvalidCapture) {
+			t.Fatal("analysis did not preserve the declared API-group collection boundary")
+		}
 	}
 }
 
