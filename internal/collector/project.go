@@ -135,15 +135,7 @@ func projectRecovery(request shared.Restore) *fleet.Recovery {
 }
 
 func attachRecovery(deployment *fleet.Deployment, cluster shared.Cluster, requests []shared.Restore) {
-	contract := contractForGroup(config.APIGroup(cluster.Reference.Identity.Group))
-	if contract == "" || cluster.AdapterContract != string(contract) {
-		return
-	}
-	info, err := adapter.Describe(contract)
-	if err != nil || cluster.Reference.APIVersion != info.APIVersion {
-		return
-	}
-	latest, found, err := diagnose.LatestRestore(cluster, requests, string(contract), info.APIVersion)
+	latest, found, err := diagnose.LatestRestore(cluster, requests)
 	if err != nil || !found {
 		return
 	}
@@ -156,16 +148,16 @@ func attachRecovery(deployment *fleet.Deployment, cluster shared.Cluster, reques
 func contractForGroup(group config.APIGroup) adapter.Contract {
 	switch group {
 	case config.APIGroupOpenBao:
-		return adapter.V1Alpha1Snapshot
+		return adapter.OpenBaoV1Alpha1
 	case config.APIGroupKubeBao:
-		return adapter.KubeBaoV1Alpha1Snapshot
+		return adapter.KubeBaoV1Alpha1
 	default:
 		return ""
 	}
 }
 
-func analysisPolicy(at time.Time, policy fleet.Policy, contract adapter.Contract) diagnose.Policy {
-	result := diagnose.DefaultPolicy(at, []string{string(contract)})
+func analysisPolicy(at time.Time, policy fleet.Policy) diagnose.Policy {
+	result := diagnose.DefaultPolicy(at)
 	if policy.MaxBackupAge > 0 {
 		result.MaxBackupAge = policy.MaxBackupAge
 	}
@@ -175,6 +167,5 @@ func analysisPolicy(at time.Time, policy fleet.Policy, contract adapter.Contract
 		result.StartupGrace = 0
 	}
 	result.MaxSubjects = 10001
-	result.RestoreUIDBindingContracts = []string{string(contract)}
 	return result
 }

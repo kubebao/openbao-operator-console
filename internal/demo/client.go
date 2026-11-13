@@ -22,7 +22,7 @@ func evaluateFixture(d *fleet.Deployment, created time.Time, paused bool, policy
 	}
 	options := adapter.ProjectionOptions{
 		Origin:      d.ConnectionID,
-		Contract:    adapter.V1Alpha1Snapshot,
+		Contract:    adapter.OpenBaoV1Alpha1,
 		CollectedAt: at,
 		Limits:      adapter.DefaultProjectionLimits(),
 	}
@@ -92,21 +92,18 @@ func evaluateFixture(d *fleet.Deployment, created time.Time, paused bool, policy
 	restoreRead.Scope.Resource = "openbaorestores"
 	restoreRead.Items = len(requests)
 	input := diagnose.ClusterInput{
-		Subject:         cluster.Reference.Identity,
-		AdapterContract: cluster.AdapterContract,
-		Observation:     &cluster,
-		Collection:      read,
-		Verification:    &verification,
+		Subject:      cluster.Reference.Identity,
+		Observation:  &cluster,
+		Collection:   read,
+		Verification: &verification,
 		Restores: &diagnose.ResourceInput[shared.Restore]{
-			AdapterContract: cluster.AdapterContract,
-			Collection:      restoreRead,
-			Observations:    requests,
+			Collection:   restoreRead,
+			Observations: requests,
 		},
 	}
-	p := diagnose.DefaultPolicy(at, []string{cluster.AdapterContract})
+	p := diagnose.DefaultPolicy(at)
 	p.Rules = evidence.Rules()
 	p.MaxBackupAge, p.StartupGrace = policy.MaxBackupAge, policy.StartupGrace
-	p.RestoreUIDBindingContracts = []string{cluster.AdapterContract}
 	if d.Backup == nil {
 		selected := p.Rules[:0]
 		for _, rule := range p.Rules {
@@ -116,7 +113,7 @@ func evaluateFixture(d *fleet.Deployment, created time.Time, paused bool, policy
 		}
 		p.Rules = selected
 	}
-	report, err := diagnose.Analyze(diagnose.Capture{SchemaVersion: shared.SchemaVersion, Clusters: []diagnose.ClusterInput{input}}, p)
+	report, err := diagnose.Analyze(diagnose.Capture{Clusters: []diagnose.ClusterInput{input}}, p)
 	if err != nil {
 		panic("invalid demonstration analysis")
 	}

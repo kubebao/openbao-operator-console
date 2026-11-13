@@ -294,18 +294,16 @@ func (r *Reader) namespace(ctx context.Context, connection *fleet.Connection, na
 			continue
 		}
 		input := diagnose.ClusterInput{
-			Subject:         cluster.Reference.Identity,
-			AdapterContract: cluster.AdapterContract,
-			Observation:     &cluster,
-			Collection:      initial.Collection,
-			Verification:    &verification,
+			Subject:      cluster.Reference.Identity,
+			Observation:  &cluster,
+			Collection:   initial.Collection,
+			Verification: &verification,
 			Restores: &diagnose.ResourceInput[shared.Restore]{
-				AdapterContract: cluster.AdapterContract,
-				Collection:      restores.Collection,
-				Observations:    restores.Observations,
+				Collection:   restores.Collection,
+				Observations: restores.Observations,
 			},
 		}
-		policy := analysisPolicy(reference, r.policy, contractForGroup(r.connection.EffectiveAPIGroup()))
+		policy := analysisPolicy(reference, r.policy)
 		policy.Rules = evidence.Rules()
 		// Console restore-test presentation exists only for configured backups.
 		if cluster.Backup.Configuration == shared.ObjectAbsent {
@@ -318,7 +316,7 @@ func (r *Reader) namespace(ctx context.Context, connection *fleet.Connection, na
 			policy.Rules = selected
 		}
 		report, err := diagnose.Analyze(
-			diagnose.Capture{SchemaVersion: shared.SchemaVersion, Clusters: []diagnose.ClusterInput{input}},
+			diagnose.Capture{Clusters: []diagnose.ClusterInput{input}},
 			policy,
 		)
 		if err != nil {

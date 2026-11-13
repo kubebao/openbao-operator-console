@@ -1,8 +1,10 @@
 # Shared client compatibility and qualification
 
-The console pins the public client candidate `v0.2.1-0.20261113123647-f6a44c94d608`, commit
-`f6a44c94d608ac12671a12ff13b6e2d84b202c1e`. It uses evidence schema `5` and diagnostic rule set `9` for new collection.
-The existing persisted fleet projections, deployment IDs, routes, and history remain unchanged. No local Go workspace or replacement is required.
+The console pins the public client candidate `v0.2.1-0.20261113160453-369ddfbce594`, commit
+`369ddfbce594787deb2466080523e402eef58a48`. Evidence shapes and diagnostic behavior follow the pinned client release.
+Captures and policies have no independent evidence, rule-set, or adapter version checks. The existing persisted
+fleet projections, deployment IDs, routes, and history remain unchanged. No database migration, local Go workspace, or
+replacement is required.
 
 ## Selected API contracts
 
@@ -12,16 +14,17 @@ another API or fall back after a failed read.
 
 | API group | Inspected client contract | Operator integration baseline |
 | --- | --- | --- |
-| `openbao.org` | `openbao.org/v1alpha1@9671c306/restore-retention-v1` | Released operator `0.6.1` |
-| `kubebao.org` | `kubebao.org/v1alpha1@22894cdc/restore-retention-v1` | Enrollment/controller baseline `22894cdc`; nonempty restore observations at `587dd163` |
+| `openbao.org` | `openbao.org/v1alpha1` | Released operator `0.6.1` |
+| `kubebao.org` | `kubebao.org/v1alpha1` | Enrollment/controller baseline `22894cdc`; nonempty restore observations at `587dd163` |
 
 The native enrollment and controller baseline is candidate `22894cdc0a4aa5c442a07f2bf9902fe28ce02ea1`. The separate
 nonempty restore checks cover native build `587dd16386bc5a234520e22eec1bbedb904fa6dd` under the inspected field contract.
 Matching API discovery does not qualify another build or establish support for a released native operator. The
 operator's workload metadata retains `openbao.org/*` keys in both groups.
 
-The library also provides `openbao.org/v1alpha1/unqualified-v4` and `kubebao.org/v1alpha1/unqualified-v2` projections.
-Console analysis requires the inspected contracts in the table.
+The library also provides `openbao.org/v1alpha1/unqualified` and `kubebao.org/v1alpha1/unqualified` projections. They
+leave omission-derived values and interpreted restore UID bindings unknown. The console selects the inspected adapters
+in the table at the read boundary. Diagnosis validates typed evidence, API identity, and collection scope.
 
 ## Read scopes
 
@@ -73,7 +76,7 @@ Native checks use operator build `587dd16386bc5a234520e22eec1bbedb904fa6dd` in t
 - A historical UID-confirmed `Unknown` request, rendered with high severity. Three older unbound requests keep
   diagnostic coverage incomplete.
 - A held disposable request reporting `Unknown`, successful execution, target application, and pending cleanup within
-  its configured retention interval. Rule set `9` renders this as informational and preserves the reported `Unknown`
+  its configured retention interval. Diagnosis renders this as informational and preserves the reported `Unknown`
   phase.
 
 The legacy check uses released operator `0.6.1` on isolated Kind Kubernetes 1.36.1, Linux/arm64, and OpenBao 2.7.2. A
