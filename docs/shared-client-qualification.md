@@ -1,7 +1,7 @@
 # Shared client compatibility and qualification
 
-The console pins the public client candidate `v0.2.1-0.20261113160453-369ddfbce594`, commit
-`369ddfbce594787deb2466080523e402eef58a48`. Evidence shapes and diagnostic behavior follow the pinned client release.
+The console pins the public client candidate `v0.2.1-0.20261114115514-8981014162d0`, commit
+`8981014162d00a902584dff0e5a2b9d5fd519e5d`. Evidence shapes and diagnostic behavior follow the pinned client release.
 Captures and policies have no independent evidence, rule-set, or adapter version checks. The existing persisted
 fleet projections, deployment IDs, routes, and history remain unchanged. No database migration, local Go workspace, or
 replacement is required.
@@ -19,6 +19,9 @@ another API or fall back after a failed read.
 
 The native enrollment and controller baseline is candidate `22894cdc0a4aa5c442a07f2bf9902fe28ce02ea1`. The separate
 nonempty restore checks cover native build `587dd16386bc5a234520e22eec1bbedb904fa6dd` under the inspected field contract.
+The client's native adapter now identifies operator `0.7.0-rc.1`, source
+`7b9bbf8b1a2aa3a62e2235607073df3e912643b5`, as its inspected source. The console integration baselines remain those
+listed above; the client source declaration does not expand their qualification.
 Matching API discovery does not qualify another build or establish support for a released native operator. The
 operator's workload metadata retains `openbao.org/*` keys in both groups.
 
@@ -63,6 +66,19 @@ identity authority, authorization, connection preview, and the HTTP contract. Th
 SQLite and PostgreSQL tests cover legacy settings backfill, retained history, connection removal/re-enrollment, restart,
 rejected edits without committed changes, and encrypted settings/credential persistence. Browser tests cover both API
 choices through onboarding and edit. Generated-contract checks verify OpenAPI and sqlc outputs against their inputs.
+
+### Backup failure-count evidence
+
+The operator omits a zero `status.backup.consecutiveFailures`. The inspected adapter implies zero only when backup
+status reports both `lastBackupTime` and `lastAttemptTime`, with the success at or after the attempt. A later attempt,
+missing timestamps, or invalid values leave the counter unknown. Reported counts keep their reported values.
+The console accepts that evidence through the shared backup rules and its existing nullable counter projection.
+
+Synthetic collector tests cover both API groups: a successful latest attempt permits Healthy state, an overdue success
+raises the backup-age finding, and a later unresolved attempt keeps analysis incomplete and health Unknown.
+Read-only checks against native operator build `587dd163` verify the same success interpretation on the demo's three
+running deployments with current backups. The restore target retains its historical restore association gap and its
+backup-age finding. These checks do not execute a backup or qualify other operator builds.
 
 ### Nonempty restore observations
 

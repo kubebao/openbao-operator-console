@@ -73,8 +73,9 @@ so it is never shown as healthy while its collection is not current. Critical fi
 
 Successful inventory collection can still leave analysis incomplete, for example after a denied restore read or an
 invalid producer value. The deployment page marks this state and retains prior unresolved findings with their last
-evaluation time. Missing backup failure counters remain unknown; the UI does not treat them as zero or calculate
-failure deltas across unknown observations.
+evaluation time. For an inspected operator contract, the adapter interprets an omitted backup failure count as zero
+only when backup status records a success at or after the latest attempt. Other missing counters remain unknown.
+The UI does not calculate failure deltas across unknown observations.
 
 ![Incomplete analysis with an unknown failure counter, using demonstration data](images/analysis-incomplete.png)
 
