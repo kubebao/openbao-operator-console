@@ -8,7 +8,7 @@ Releases publish a signed image to `ghcr.io/kubebao/openbao-operator-console` an
 
 > [!NOTE]
 > No stable release has been published yet. [Build the image](#build-the-image-before-the-first-release) and install
-> from a checkout, or use a qualified [edge build](releasing.md#edge-builds).
+> from a checkout. Stable and edge publication remain disabled during the source-first opening.
 
 To try the console first, [evaluate it on a local cluster](evaluation.md).
 

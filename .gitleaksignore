@@ -1,0 +1,12 @@
+# Reviewed historical test fixtures only. Do not ignore entire test files or directories.
+# Deterministic salt/key inputs for malformed Argon2 hash parsing.
+5411cc2b81e5b444494e0b5330834c4742334a65:internal/localauth/localauth_test.go:generic-api-key:43
+# Repeated hexadecimal setup token used by mocked browser setup.
+b13bdf08dee6fe6fefd857a45480b2d6c360f255:web/e2e/setup.spec.ts:generic-api-key:13
+# Static setup token for the in-process HTTP test server.
+e4098877eeaafefaa7bbea580f16600f06914347:internal/httpapi/setup_test.go:generic-api-key:19
+# Repeated hexadecimal setup token in the historical mocked onboarding fixture.
+e4098877eeaafefaa7bbea580f16600f06914347:web/e2e/onboarding.spec.ts:generic-api-key:347
+# The same setup fixtures in a retained local pre-consolidation commit.
+21556676ae231d3a1a6a4b33f4523f62cc78b9df:internal/httpapi/setup_test.go:generic-api-key:19
+21556676ae231d3a1a6a4b33f4523f62cc78b9df:web/e2e/onboarding.spec.ts:generic-api-key:248

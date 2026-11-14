@@ -8,6 +8,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -164,6 +165,32 @@ class EdgeBoundaryTests(unittest.TestCase):
 
 
 class SourceGateTests(unittest.TestCase):
+    def test_opted_in_publication_still_requires_qualified_current_main(self):
+        run = {"id": 1, "head_sha": SHA, "event": "push", "head_branch": "main", "run_attempt": 1,
+               "head_repository": {"full_name": REPOSITORY}, "status": "completed", "conclusion": "success"}
+        for main in (SHA, "b" * 40):
+            with self.subTest(main=main), tempfile.TemporaryDirectory() as scratch:
+                output = Path(scratch) / "output"
+                responses = [io.BytesIO(json.dumps(value).encode()) for value in
+                             ({"workflow_runs": [run]}, {"workflow_runs": [run]}, {"commit": {"sha": main}})]
+                with mock.patch.dict(os.environ, {"CONSOLE_EDGE_ENABLED": "true", "GITHUB_REPOSITORY": REPOSITORY,
+                                                  "SOURCE_SHA": SHA, "GH_TOKEN": "fixture", "GITHUB_OUTPUT": str(output)}, clear=True), \
+                     mock.patch("urllib.request.urlopen", side_effect=responses) as request:
+                    source.main()
+                self.assertEqual(request.call_count, 3)
+                self.assertIn("ready=" + str(main == SHA).lower() + "\n", output.read_text())
+
+    def test_disabled_publication_does_not_contact_github(self):
+        for enabled in ("", "false", "True", "1"):
+            with self.subTest(enabled=enabled), tempfile.TemporaryDirectory() as scratch:
+                output = Path(scratch) / "output"
+                with mock.patch.dict(os.environ, {"CONSOLE_EDGE_ENABLED": enabled,
+                                                  "GITHUB_OUTPUT": str(output)}, clear=True), \
+                     mock.patch("urllib.request.urlopen") as request:
+                    source.main()
+                request.assert_not_called()
+                self.assertEqual(output.read_text(), "ready=false\n")
+
     def test_newer_pending_or_failed_run_blocks_an_older_success(self):
         old = {"id": 1, "head_sha": SHA, "event": "push", "head_branch": "main",
                "head_repository": {"full_name": REPOSITORY}, "status": "completed", "conclusion": "success"}

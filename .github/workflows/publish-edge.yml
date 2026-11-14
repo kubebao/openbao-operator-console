@@ -18,6 +18,7 @@ jobs:
     name: Select qualified main build
     if: >-
       github.repository == 'kubebao/openbao-operator-console' &&
+      vars.CONSOLE_EDGE_ENABLED == 'true' &&
       !github.event.repository.private &&
       github.event.workflow_run.conclusion == 'success' &&
       (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch') &&
@@ -39,6 +40,7 @@ jobs:
           persist-credentials: false
       - id: source
         env:
+          CONSOLE_EDGE_ENABLED: ${{ vars.CONSOLE_EDGE_ENABLED }}
           GH_TOKEN: ${{ github.token }}
           SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: python3 scripts/edge-source.py
@@ -46,7 +48,7 @@ jobs:
   publish:
     name: Publish verified image, chart, and binaries
     needs: source
-    if: needs.source.outputs.ready == 'true'
+    if: needs.source.outputs.ready == 'true' && vars.CONSOLE_EDGE_ENABLED == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
