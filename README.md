@@ -54,19 +54,19 @@ development. Until they ship, the console shows that evidence as unknown.
 
 ## Quick start
 
-Try it with demonstration data. No cluster, database, or identity provider is needed:
+Build and run it with demonstration data. Use the [development toolchain](CONTRIBUTING.md#set-up).
+No cluster, database, or identity provider is needed:
 
 ```sh
-docker run --rm -p 127.0.0.1:8090:8090 ghcr.io/kubebao/openbao-operator-console:<version> \
-  --mode=demo --listen=0.0.0.0:8090 --demo-allow-external
+git clone https://github.com/kubebao/openbao-operator-console.git
+cd openbao-operator-console
+make install build
+./bin/console --mode=demo
 ```
 
-Open <http://127.0.0.1:8090>. Demo mode has no login, so keep its port on `127.0.0.1`.
-
-Before the first stable release, you can run `make install build && ./bin/console --mode=demo` from a checkout.
-
-[Edge builds](docs/releasing.md#edge-builds) provide development images, charts, and Linux and macOS binaries from
-qualified `main` commits.
+Open <http://127.0.0.1:8090>. Demo mode has no login and binds to loopback by default.
+This is a source-first opening. Release images, charts, and downloads are not published yet.
+The [publication procedure](docs/source-publication.md) keeps release and edge publishing disabled until separately approved.
 
 To try it against a real OpenBao Operator, [`make evaluation`](docs/evaluation.md) creates a disposable kind cluster
 with the operator, an OpenBao cluster, and the console. For your own clusters, follow the

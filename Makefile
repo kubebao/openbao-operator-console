@@ -1,7 +1,8 @@
 .PHONY: evaluation evaluation-open evaluation-down install dev generate check check-generated build dist e2e integration integration-cluster integration-cluster-down helm-check e2e-production screenshots lint lint-fix \
-	image vulncheck audit licenses check-licenses check-release-tools e2e-storage
+	image vulncheck audit licenses check-licenses check-release-tools e2e-storage secret-scan
 
 GOLANGCI_LINT = go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+GITLEAKS = go run github.com/zricethezav/gitleaks/v8@v8.30.1
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null)
@@ -25,6 +26,9 @@ check-generated:
 
 lint:
 	$(GOLANGCI_LINT) run ./...
+
+secret-scan:
+	$(GITLEAKS) git --no-banner --redact=100 --log-opts="--all" --gitleaks-ignore-path=.gitleaksignore .
 
 lint-fix:
 	$(GOLANGCI_LINT) fmt ./...

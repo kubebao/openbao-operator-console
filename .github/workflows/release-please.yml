@@ -15,7 +15,10 @@ jobs:
   release-please:
     name: Release pull request
     runs-on: ubuntu-24.04
-    if: ${{ !github.event.repository.fork }}
+    if: >-
+      github.repository == 'kubebao/openbao-operator-console' &&
+      !github.event.repository.private &&
+      vars.CONSOLE_RELEASES_ENABLED == 'true'
     permissions:
       contents: read
     outputs:

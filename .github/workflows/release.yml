@@ -27,6 +27,10 @@ concurrency:
 jobs:
   prepare:
     name: Prepare
+    if: >-
+      github.repository == 'kubebao/openbao-operator-console' &&
+      !github.event.repository.private &&
+      vars.CONSOLE_RELEASES_ENABLED == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: read

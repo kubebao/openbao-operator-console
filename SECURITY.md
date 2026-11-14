@@ -22,7 +22,8 @@ through new builds of `main`; older edge builds are not maintained.
 
 ## Supply Chain
 
-Release artifacts are published by the stable release and edge publication workflows in this repository:
+The source-first opening has no published release artifacts. Tagged and edge publication require separate opt-in
+variables and public-repository checks. The prepared release workflows produce:
 
 - the multi-architecture container image `ghcr.io/kubebao/openbao-operator-console`;
 - the stable OCI Helm chart `oci://ghcr.io/kubebao/charts/openbao-operator-console` and development charts in
@@ -34,7 +35,9 @@ provenance attestations. Image SBOMs are also published as signed attestations. 
 Sigstore bundle. See [releasing](docs/releasing.md#verify-a-release) for the verification commands.
 
 Dependencies are pinned in `go.sum` and `web/pnpm-lock.yaml`, base images and GitHub Actions are pinned by digest, and
-Dependabot proposes updates. CI runs `govulncheck`, `pnpm audit`, CodeQL, dependency review, and OpenSSF Scorecard.
+Dependabot proposes updates. CI runs `govulncheck`, `pnpm audit`, and a redacted Git-history secret scan. CodeQL,
+dependency review, and OpenSSF Scorecard run for public repositories; private-repository skips do not qualify those
+security checks. See [source publication](docs/source-publication.md) for the controls enabled at visibility change.
 
 ## Scope
 

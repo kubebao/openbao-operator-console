@@ -3,6 +3,7 @@
     "strict": true,
     "checks": [
       { "context": "DCO", "app_id": 974774 },
+      { "context": "Secret scan", "app_id": 15368 },
       { "context": "Go", "app_id": 15368 },
       { "context": "Web", "app_id": 15368 },
       { "context": "E2E (development)", "app_id": 15368 },
