@@ -1,10 +1,13 @@
 # Build stages run on the build platform and cross-compile for the target platform.
 
 FROM --platform=$BUILDPLATFORM node:26-alpine@sha256:c6ad9e9c1d80f6eb607c26b4b0a132ff7a2344fad1c78ea3baa2a7d4c8de6d94 AS web
-# Node.js 26 no longer bundles Corepack. Install a pinned Corepack, which then provides the
-# pnpm version declared in the packageManager field of web/package.json.
-ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
-RUN npm install --global --no-audit --no-fund corepack@0.36.0 && corepack enable pnpm
+# Node.js 26 no longer bundles Corepack. npm ci verifies the bootstrap archive against
+# the lockfile; Corepack verifies pnpm against the hash in web/package.json.
+COPY tools/corepack/package.json tools/corepack/package-lock.json /opt/corepack/
+RUN npm ci --prefix /opt/corepack --ignore-scripts --no-audit --no-fund
+ENV PATH="/opt/corepack/node_modules/.bin:${PATH}" \
+    COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+    COREPACK_DEFAULT_TO_LATEST=0
 WORKDIR /src/web
 COPY web/package.json web/pnpm-lock.yaml ./
 RUN corepack install && pnpm install --frozen-lockfile

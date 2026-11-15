@@ -52,6 +52,7 @@ Open <http://127.0.0.1:8090>.
 | `make check` | `make lint`, Go race tests; TypeScript strict checking; oxlint with type-aware rules; Prettier; unit tests; frontend build |
 | `make lint` | golangci-lint with the pinned version and `.golangci.yml`, including gofumpt, goimports, and golines |
 | `make lint-fix` | Applies the Go formatters and automatic golangci-lint fixes |
+| `make fuzz` | Fuzzes authentication redirects and forwarded client addresses for 30 seconds per target; set `FUZZ_TIME` to change the duration |
 | `make secret-scan` | Pinned Gitleaks scan of all reachable local Git history; output is redacted |
 | `make check-generated` | OpenAPI Go/TypeScript and sqlc output drift |
 | `make e2e` | Chromium workflows through the development server |
@@ -82,7 +83,7 @@ running checks. The jobs run in parallel:
 
 | Job | Runs |
 | --- | --- |
-| Go | `make lint` and one uncached `go test -race -count=1 ./...` run, including SQLite and PostgreSQL 18 persistence integration |
+| Go | `make lint`, one uncached Go race test run with SQLite and PostgreSQL 18 persistence integration, and 10 seconds of fuzzing per target |
 | Web | Type checking, oxlint, Prettier, unit tests, and the production build |
 | E2E (development) | Browser workflows through the development server |
 | E2E (production) | One application build, compiled-application browser workflows, content security policy, and SQLite restart/restore |
@@ -102,6 +103,14 @@ server-readiness timeout. Local development browser tests keep using `go run` by
 The production job builds once with `scripts/build.sh` and reuses the binary for both browser suites. `make build`
 uses the same script for local builds. The Go job includes persistence integration in its full test run, so it does
 not rerun those packages separately.
+
+The Docker build and CI bootstrap Corepack with `npm ci` and the integrity hashes in
+`tools/corepack/package-lock.json`. Corepack verifies the pnpm archive against the version and SHA-512 hash in
+`web/package.json`. Dependabot updates the Corepack manifest and lockfile with the other npm dependencies.
+
+Fuzz seed inputs run with the regular Go tests. The Go CI job also generates inputs for 10 seconds per target.
+`.github/workflows/fuzz.yml` runs each target for two minutes weekly and supports manual runs. Both fuzzing targets
+use two workers. The scheduled workflow uploads failing inputs for reproduction.
 
 The Container image job also builds edge archives and a digest-pinned chart, then installs it in a disposable kind
 cluster with SQLite persistence and optional PostgreSQL. `scripts/edge-tools.env` pins its registry, kind, and fixture versions. Release tooling checks
