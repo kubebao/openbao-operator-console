@@ -1,1 +1,2 @@
+# Block pull requests that introduce high or critical dependency vulnerabilities.
 fail-on-severity: high
