@@ -50,7 +50,7 @@
     "oxlint-tsgolint": "7.0.2006",
     "prettier": "3.9.10",
     "typescript": "5.9.3",
-    "vite": "8.3.6",
+    "vite": "8.3.8",
     "vitest": "5.1.0"
   }
 }
