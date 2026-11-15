@@ -8,8 +8,8 @@ its baseline identity, and its SQL checksum. Both backends start at version 1 wi
 DDL. A changed checksum, missing history, legacy development schema, or newer version stops startup.
 
 > [!IMPORTANT]
-> This baseline replaces the three unreleased development migrations. Recreate those development databases deliberately.
-> There is no supported upgrade from them. Do not delete a database that contains state you need to retain.
+> Databases created by unreleased development builds before this baseline have no supported upgrade. Recreate them
+> deliberately. Do not delete a database that contains state you need to retain.
 
 Keep the configuration encryption key for the lifetime of the database. Store its backup separately. Restored settings,
 reader credentials, local passwords, authenticators, and recovery codes require the matching key.

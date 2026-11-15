@@ -296,5 +296,5 @@ Back up the database and keep its encryption key in a separate backup. Startup i
 validates existing schema history. Schema changes require an offline upgrade with a validated backup. A rollback across
 a schema change requires the pre-upgrade database and previous image. See [upgrade and roll back](upgrading.md).
 
-The console requires one serving process. Shared sessions, coordinated collectors, key rotation tooling, and a separate
-migration role are not implemented yet.
+The console requires one serving process. It has no shared sessions, coordinated collectors, key rotation tooling, or
+separate migration role.

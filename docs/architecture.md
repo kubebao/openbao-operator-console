@@ -98,6 +98,16 @@ first-seen time by finding ID, and resolve findings only after a successful rele
 include the request identity so separate requests keep separate episodes. An incomplete evaluation retains unresolved
 findings and their last confirmed evaluation time.
 
+Each namespace collection round runs a cluster LIST, a restore LIST, and a second cluster LIST to verify restore targets.
+Each LIST allows 64 pages, 200 candidates per page, 10,000 candidates, 64 MiB transferred and retained, 8 MiB per
+response, and a 10-second deadline. A round rejects more than 1,000,000 cluster verification and restore candidate
+comparisons. A failed required read preserves the previous inventory. An incomplete optional read preserves unresolved
+diagnostic episodes. A verified deleted or replaced UID is removed, and a replacement is collected in the next round.
+
+Deployment IDs and singleton finding IDs are stable across rounds. Restore finding IDs include a hash of the shared
+client's canonical subject identity. Activity and history compare finding IDs, not rule IDs. Observation and activity
+timestamps use the collection completion time. Attempt time and resource collection time are recorded separately.
+
 Activity records one structured event per transition: a health change, a collection change, or a finding that was
 raised, resolved, or changed severity. Events carry a bounded `kind` and typed fields, never prose; the UI renders the
 text. A finding whose detail alone changed, such as a failure counter, appears in history but not in activity.
@@ -146,4 +156,4 @@ capability results; authentication and transport failures prevent successful col
 - No lifecycle actions, outbound agents, backup catalog browsing, or backup repository read verification.
 - No external fencing evidence or drill report ingestion.
 - Remote readers whose token expires before renewal require manual reconnection.
-- No key rotation tooling or separate database migration role yet.
+- No key rotation tooling or separate database migration role.

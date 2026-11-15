@@ -1,6 +1,7 @@
 # Engineering rules
 
-Write clear technical English for developers and operators. Use short, direct sentences and exact API terminology.
+Write clear technical English for developers and operators. Follow the Google developer documentation style guide and
+the detailed rules in [.agents/rules/documentation.md](.agents/rules/documentation.md).
 
 ## Boundaries
 
