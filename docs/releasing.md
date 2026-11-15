@@ -75,14 +75,51 @@ Search for them with `git grep -n -i "first.*release\|no.*release"`.
 - **Package visibility.** After each package's first publication, set it to public and link it to this repository.
   The packages are `openbao-operator-console`, `charts/openbao-operator-console`, and
   `charts-edge/openbao-operator-console`. Check that anonymous image and chart pulls work.
-- **Artifact Hub.** Register the OCI repository `oci://ghcr.io/kubebao/charts/openbao-operator-console`, add the
-  assigned `repositoryID` to `artifacthub-repo.yml`, and push the metadata once with [ORAS](https://oras.land/):
+- **Artifact Hub.** Register the stable OCI chart repository under the KubeBao organization. Follow
+  [Register the chart with Artifact Hub](#register-the-chart-with-artifact-hub).
 
-  ```sh
-  oras push ghcr.io/kubebao/charts/openbao-operator-console:artifacthub.io \
-    --config /dev/null:application/vnd.cncf.artifacthub.config.v1+yaml \
-    artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml
-  ```
+### Register the chart with Artifact Hub
+
+Artifact Hub uses one repository per OCI chart. Register the stable chart at
+`oci://ghcr.io/kubebao/charts/openbao-operator-console` under the `kubebao` organization. Use
+`openbao-operator-console` as the repository name and **OpenBao Operator Console** as its display name.
+
+Registration can precede chart publication. It does not enable publishing or make a chart available to users. Keep
+`CONSOLE_RELEASES_ENABLED=false`, `CONSOLE_EDGE_ENABLED=false`, and the publication workflows disabled until publication
+is approved.
+
+1. Sign in to the [Artifact Hub control panel](https://artifacthub.io/control-panel), select the KubeBao organization,
+   and add the Helm OCI repository with the values above. Check for an existing registration before creating one.
+2. Copy the assigned repository ID into the top-level `repositoryID` field in `artifacthub-repo.yml`. Keep the existing
+   owners. The ID belongs to this console chart repository; do not reuse the OpenBao Operator chart's ID.
+3. After the first stable chart publication is approved, publish the chart and make its GHCR package public. Verify an
+   anonymous pull:
+
+   ```sh
+   chart_pull_dir=$(mktemp -d)
+   printf '%s\n' '{"auths":{}}' > "$chart_pull_dir/config.json"
+   HELM_REGISTRY_CONFIG="$chart_pull_dir/config.json" DOCKER_CONFIG="$chart_pull_dir" \
+     helm pull oci://ghcr.io/kubebao/charts/openbao-operator-console \
+       --version 0.1.0 --destination "$chart_pull_dir"
+   ```
+
+   A successful pull downloads the chart without using your saved registry credentials.
+
+4. Push the repository metadata with [ORAS](https://oras.land/) after authenticating to GHCR with package write access:
+
+   ```sh
+   oras push ghcr.io/kubebao/charts/openbao-operator-console:artifacthub.io \
+     --config /dev/null:application/vnd.cncf.artifacthub.config.v1+yaml \
+     artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml
+   ```
+
+5. Check the repository's tracking status in Artifact Hub. Verify that the chart version and documentation appear, then
+   check for the **Verified publisher** badge. Registration alone does not establish indexing or publisher verification.
+
+The public Artifact Hub service must be able to fetch the chart and repository metadata without registry credentials.
+The metadata file in the Git repository does not replace the OCI metadata artifact. Keep the separate `charts-edge`
+repository outside this stable chart registration. See the Artifact Hub
+[Helm OCI repository requirements](https://artifacthub.io/docs/topics/repositories/helm-charts/#oci-support).
 
 ### Public repository controls
 
