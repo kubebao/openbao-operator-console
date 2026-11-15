@@ -3,6 +3,12 @@
 This page describes how maintainers publish releases and edge builds, and how users verify the artifacts. The console
 has no stable release yet; the first stable release will be `0.1.0`.
 
+The [source-first publication procedure](source-publication.md) keeps both publishing channels disabled.
+`CONSOLE_RELEASES_ENABLED` controls Release Please and the tagged Release workflow. `CONSOLE_EDGE_ENABLED` controls
+Publish Edge. Each variable must equal `true`, and the repository must be public. Unset or other values disable the
+channel. Opening the source does not approve artifact publication. The three publication workflows also remain
+manually disabled during preparation; enable each workflow only when its channel is approved.
+
 ## Versioning
 
 Releases use [semantic versioning](https://semver.org/) without a `v` prefix, for example `0.1.0`. The tag, the image
@@ -21,7 +27,7 @@ Refactoring, tests, build, CI, and chores are omitted.
 
 ## Release flow
 
-1. Every push to `main` runs the **Release Please** workflow. It opens or updates a release pull request that bumps
+1. When tagged publication is enabled, every push to `main` runs the **Release Please** workflow. It opens or updates a release pull request that bumps
    `.release-please-manifest.json`, the chart `version` and `appVersion`, the image reference in the chart's Artifact
    Hub annotation, and `CHANGELOG.md`.
 2. A maintainer reviews the release pull request, including the changelog, and merges it after the checks pass.
@@ -123,8 +129,8 @@ pull request or publishing artifacts. These commands do not change repository vi
 
 4. Run **Check**, **CodeQL**, and **Scorecard** on the same current `main` commit. All three workflows support manual
    runs. Confirm successful runs; private-repository skips do not qualify the public repository. Test
-   **Dependency Review** on a new pull request. **Publish Edge** starts when Check and CodeQL pass, so retain its
-   public-repository and source-verification gates.
+   **Dependency Review** on a new pull request. Keep both publication variables false while qualifying the public
+   repository. **Publish Edge** also requires its separate opt-in and an enabled workflow.
 
 The publication workflows use `anchore/sbom-action` and `actions/attest`, pinned to approved commits. The SBOM action
 generates local files without uploading release assets, workflow artifacts, or dependency snapshots. Existing
@@ -145,7 +151,7 @@ optional PostgreSQL 18 in a disposable kind cluster. It verifies retained SQLite
 This test does not qualify a real OpenBao Operator, external identity provider, or remote credential renewal.
 
 After all Check jobs pass, CI attests the candidate bundle, chart, binary archives, and source metadata. **Publish
-Edge** waits for successful **Check** and **CodeQL** runs on the same current `main` commit. It accepts only pushes
+Edge** requires `CONSOLE_EDGE_ENABLED=true` and waits for successful **Check** and **CodeQL** runs on the same current `main` commit. It accepts only pushes
 and manual runs in the public canonical repository. The publisher verifies the CI attestation before unpacking,
 validates the source identity and every artifact checksum, and imports the tested OCI image without rebuilding it.
 It signs and verifies the image and chart, publishes SBOM attestations, verifies the binary and chart CI provenance,

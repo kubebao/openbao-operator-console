@@ -5,7 +5,11 @@ finding with a severity. Findings appear in **Attention**, mark the matching tab
 the evidence rows that triggered them.
 
 The overview tiles group findings by availability, backups, restore tests, and lifecycle. The History tab lists every
-recorded change, including when each finding was raised or resolved.
+recorded change, including when each finding was raised or resolved. Its state graph loads all retained evidence in
+the rolling seven-day window. Brief incidents have visible markers; expand the incident list to read their recorded
+intervals. **Load older observations** adds records to the list without changing graph coverage.
+The graph carries recorded state forward until its next change. It cannot distinguish time while the console was
+stopped from unchanged state.
 
 ![History tab with state over seven days and a timeline of recorded changes](images/history.png)
 
@@ -53,7 +57,10 @@ Administrators set two thresholds in **Settings → Policies**:
 | Startup grace | 10 minutes | Replica findings wait this long after a deployment is created. |
 
 The Backups tab shows the age of the last successful backup against the maximum backup age, backup activity over the
-last seven days, and the latest restore test.
+last seven days, and the latest restore test. The age bar measures time against the policy limit, not the backup
+schedule. Backup activity loads the complete window independently of the observation list. Each cell covers one local
+clock hour and can contain several completions. The rolling window can span eight dates, with partial first and last
+dates. Missing retained evidence remains **Not recorded**.
 
 ![Backups tab with backup age against policy, a week of backup activity, and restore-test evidence](images/backup-evidence.png)
 
@@ -66,8 +73,9 @@ so it is never shown as healthy while its collection is not current. Critical fi
 
 Successful inventory collection can still leave analysis incomplete, for example after a denied restore read or an
 invalid producer value. The deployment page marks this state and retains prior unresolved findings with their last
-evaluation time. Missing backup failure counters remain unknown; the UI does not treat them as zero or calculate
-failure deltas across unknown observations.
+evaluation time. For an inspected operator contract, the adapter interprets an omitted backup failure count as zero
+only when backup status records a success at or after the latest attempt. Other missing counters remain unknown.
+The UI does not calculate failure deltas across unknown observations.
 
 ![Incomplete analysis with an unknown failure counter, using demonstration data](images/analysis-incomplete.png)
 

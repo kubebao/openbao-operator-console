@@ -1,0 +1,10 @@
+existingSecret: console-runtime
+publicURL: https://console.example.com
+readerNamespaces: [legacy-team, shared-team]
+readerScopes:
+  - namespace: native-team
+    apiGroup: kubebao.org
+  - namespace: shared-team
+    apiGroup: kubebao.org
+  - namespace: shared-team
+    apiGroup: openbao.org

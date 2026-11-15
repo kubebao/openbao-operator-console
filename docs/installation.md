@@ -8,7 +8,7 @@ Releases publish a signed image to `ghcr.io/kubebao/openbao-operator-console` an
 
 > [!NOTE]
 > No stable release has been published yet. [Build the image](#build-the-image-before-the-first-release) and install
-> from a checkout, or use a qualified [edge build](releasing.md#edge-builds).
+> from a checkout. Stable and edge publication remain disabled during the source-first opening.
 
 To try the console first, [evaluate it on a local cluster](evaluation.md).
 
@@ -204,13 +204,16 @@ The chart can grant the console's ServiceAccount read access on the hosting clus
 start, for GitOps installations:
 
 ```yaml
-readerNamespaces: [openbao-team-a]
+readerScopes:
+  - namespace: openbao-team-a
+    apiGroup: kubebao.org
 operatorReaders:
   - namespace: openbao-operator-system
     deployments: [openbao-operator-controller]
 ```
 
-`readerNamespaces` and `operatorReaders` only grant Kubernetes permissions. Enroll the cluster in the console, or seed
+`readerScopes` and `operatorReaders` only grant Kubernetes permissions. Existing `readerNamespaces` entries grant
+legacy `openbao.org` access only. Select grants that match the enrolled API group. Enroll the cluster in the console, or seed
 it with `enrollment`; see [enrollment files](connect-clusters.md). When these values already grant access, skip the
 RBAC commands in the onboarding wizard.
 

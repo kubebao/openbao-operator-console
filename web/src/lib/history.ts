@@ -1,4 +1,4 @@
-import type { Deployment, History } from '../api/schema'
+import type { ChartObservation, Deployment, History } from '../api/schema'
 import type { Change } from './changes'
 import { describeChange } from './changes'
 import { healthLabels } from './format'
@@ -14,7 +14,7 @@ export interface HistoryEntry {
   quiet: boolean
 }
 
-function ascending(observations: readonly Observation[]): Observation[] {
+function ascending<T extends { recordedAt: string }>(observations: readonly T[]): T[] {
   return [...observations]
     .reverse()
     .sort((a, b) => Date.parse(a.recordedAt) - Date.parse(b.recordedAt))
@@ -123,7 +123,7 @@ export interface BandSegment {
 // so each state lasts until the next observation. Time before the oldest retained
 // observation is unrecorded, and failed collection is shown as uncollected.
 export function stateBand(
-  observations: readonly Observation[],
+  observations: readonly ChartObservation[],
   windowStart: number,
   windowEnd: number,
   earlierUnloaded = false,
@@ -163,7 +163,7 @@ export interface BackupEvent {
 }
 
 // Backup completions and observed failures, oldest first, from retained observations.
-export function backupEvents(observations: readonly Observation[]): BackupEvent[] {
+export function backupEvents(observations: readonly ChartObservation[]): BackupEvent[] {
   const events: BackupEvent[] = []
   const completed = new Set<string>()
   let failures: number | null = null

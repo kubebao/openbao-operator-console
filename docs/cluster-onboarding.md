@@ -1,13 +1,18 @@
 # Connect a Kubernetes cluster
 
 A console administrator can add clusters in **Settings → Clusters → Add cluster**. The console stores the enrollment and
-encrypted reader credentials in PostgreSQL. Administrators apply reader grants and issue the initial credential. Remote
+encrypted reader credentials in the configured database. Administrators apply reader grants and issue the initial credential. Remote
 ServiceAccount tokens can then use [automatic renewal](credential-renewal.md).
 
 ## Add a cluster
 
-1. Enter a cluster name. Select a remote cluster or the cluster that hosts the console. The console generates a stable
-   identifier; use **Advanced** to set your own identifier before enrollment.
+This example uses fictional enrollment values. Select the API group before verifying reader access.
+
+![Example enrollment with the native operator API selected](images/api-group-enrollment.png)
+
+1. Enter a cluster name and select the **Operator API group** installed in that cluster: `kubebao.org` (the default for
+   new enrollments) or legacy `openbao.org`. Select a remote cluster or the cluster that hosts the console. The console
+   generates a stable identifier; use **Advanced** to set your own identifier before enrollment.
 2. Enter each namespace to observe. If you want controller health, select **Observe the operator for these namespaces**.
    The fields start with the OpenBao Operator chart defaults for the release `openbao-operator`:
    `openbao-operator-system`, `openbao-operator-controller`, and `manager`. Change them to match your installation. For unattended remote collection, select **Renew
@@ -15,7 +20,8 @@ ServiceAccount tokens can then use [automatic renewal](credential-renewal.md).
    discover controller ownership.
 3. Download the reader RBAC. Enter the target `kubectl` context and run the displayed commands in your terminal. Check
    the namespace before creating it or applying RBAC. For the hosting cluster, skip this step when the Helm values
-   `readerNamespaces` and `operatorReaders` already grant the same access; verification checks it.
+   `readerScopes` and `operatorReaders` already grant the same access; verification checks it. Legacy `readerNamespaces`
+   grants access to `openbao.org` only.
 4. For a remote cluster, import a scoped reader kubeconfig or supply an embedded token or client certificate. For the
    hosting cluster, the console uses its mounted ServiceAccount token.
 5. Select **Verify connection**. Review namespace permissions, optional API checks, and the deployment preview. Select
@@ -27,11 +33,16 @@ deployments, relationships, and API access.
 
 ![Topology view of one cluster with its operators, deployments, relationships, and API access](images/clusters.png)
 
-Reader manifests grant namespace-scoped `list` access to `OpenBaoCluster`, `OpenBaoRestore`, and `OpenBaoRecovery`.
+Reader manifests grant namespace-scoped `list` access to `OpenBaoCluster` and `OpenBaoRestore` in the selected API group.
 Named operator observation adds `get` access to the declared Deployment. Automatic renewal adds `create` on
 `serviceaccounts/token`, so decide on renewal in the Scope step before the reader manifests are generated. The grant is
 restricted to the declared ServiceAccount in its namespace. The manifests grant no Secret, Pod, or cluster-wide
 permissions.
+
+The reader does not discover or fall back to another API group. Existing enrollments that omit the group retain
+`openbao.org`. An enrolled identifier stays bound to its group after removal and restart. For an API-group migration,
+add a connection with a new identifier and matching reader grants. The console keeps the original history and routes
+separate; it does not infer that migrated objects are the same deployment.
 
 Generated Role and RoleBinding names include a stable suffix for each connection. Enrollments that share a physical
 cluster and namespaces do not replace each other's rules or the chart's reader roles. The ServiceAccount name stays

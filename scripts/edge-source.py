@@ -19,6 +19,11 @@ def latest_success(runs, repository, sha):
 
 
 def main():
+    if os.environ.get("CONSOLE_EDGE_ENABLED") != "true":
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+            output.write("ready=false\n")
+        print("Edge publication is disabled.")
+        return
     repository, sha = os.environ["GITHUB_REPOSITORY"], os.environ["SOURCE_SHA"]
 
     def get(path):

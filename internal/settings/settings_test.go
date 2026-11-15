@@ -12,10 +12,20 @@ import (
 )
 
 type memoryRepository struct {
-	credentials map[string]CredentialRecord
-	mu          sync.Mutex
-	record      Record
-	changes     []Change
+	credentials   map[string]CredentialRecord
+	retainedIDs   []string
+	retainedErr   error
+	retainedReads int
+	mu            sync.Mutex
+	record        Record
+	changes       []Change
+}
+
+func (r *memoryRepository) RetainedConnectionIDs(_ context.Context, limit int) ([]string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.retainedReads++
+	return append([]string{}, r.retainedIDs[:min(limit, len(r.retainedIDs))]...), r.retainedErr
 }
 
 func TestPendingInitializationIsEncryptedSingleUseAndNeverReopens(t *testing.T) {

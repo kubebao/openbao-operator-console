@@ -45,6 +45,7 @@ type Server struct {
 type Fleet interface {
 	Snapshot(context.Context) (fleet.Snapshot, error)
 	History(context.Context, string, fleet.HistoryQuery) (fleet.HistoryPage, error)
+	Charts(context.Context, string, time.Time, time.Time) (fleet.ChartHistory, error)
 	Activity(context.Context, []config.Scope, fleet.Page) (fleet.ActivityPage, error)
 }
 
@@ -94,6 +95,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/snapshot", s.viewer(s.readSnapshot))
 	mux.HandleFunc("GET /api/v1/activity", s.viewer(s.readActivity))
 	mux.HandleFunc("GET /api/v1/deployments/{id}/history", s.viewer(s.readHistory))
+	mux.HandleFunc("GET /api/v1/deployments/{id}/charts", s.viewer(s.readCharts))
 	mux.HandleFunc("GET /api/", func(w http.ResponseWriter, _ *http.Request) {
 		problem(w, http.StatusNotFound, "not_found", "Endpoint not found.")
 	})

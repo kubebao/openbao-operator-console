@@ -183,8 +183,26 @@
     },
     "readerNamespaces": {
       "type": "array",
-      "description": "Namespaces on the hosting cluster where the ServiceAccount may list OpenBao resources.",
+      "description": "Legacy openbao.org namespace LIST grants on the hosting cluster.",
       "items": { "type": "string", "minLength": 1 }
+    },
+    "readerScopes": {
+      "type": "array",
+      "description": "Explicit namespace and API-group LIST grants on the hosting cluster.",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["namespace", "apiGroup"],
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "apiGroup": { "type": "string", "enum": ["openbao.org", "kubebao.org"] }
+        }
+      }
     },
     "operatorReaders": {
       "type": "array",

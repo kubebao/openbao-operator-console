@@ -85,6 +85,57 @@ func (e ApiCapabilityState) Valid() bool {
 	}
 }
 
+// Defines values for ChartDeploymentHealth.
+const (
+	ChartDeploymentHealthAttention ChartDeploymentHealth = "attention"
+	ChartDeploymentHealthCritical  ChartDeploymentHealth = "critical"
+	ChartDeploymentHealthHealthy   ChartDeploymentHealth = "healthy"
+	ChartDeploymentHealthUnknown   ChartDeploymentHealth = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the ChartDeploymentHealth enum.
+func (e ChartDeploymentHealth) Valid() bool {
+	switch e {
+	case ChartDeploymentHealthAttention:
+		return true
+	case ChartDeploymentHealthCritical:
+		return true
+	case ChartDeploymentHealthHealthy:
+		return true
+	case ChartDeploymentHealthUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ChartEvidenceCollection.
+const (
+	ChartEvidenceCollectionCurrent     ChartEvidenceCollection = "current"
+	ChartEvidenceCollectionDenied      ChartEvidenceCollection = "denied"
+	ChartEvidenceCollectionStale       ChartEvidenceCollection = "stale"
+	ChartEvidenceCollectionUnreachable ChartEvidenceCollection = "unreachable"
+	ChartEvidenceCollectionUnsupported ChartEvidenceCollection = "unsupported"
+)
+
+// Valid indicates whether the value is a known member of the ChartEvidenceCollection enum.
+func (e ChartEvidenceCollection) Valid() bool {
+	switch e {
+	case ChartEvidenceCollectionCurrent:
+		return true
+	case ChartEvidenceCollectionDenied:
+		return true
+	case ChartEvidenceCollectionStale:
+		return true
+	case ChartEvidenceCollectionUnreachable:
+		return true
+	case ChartEvidenceCollectionUnsupported:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CollectionChangeFrom.
 const (
 	CollectionChangeFromCurrent     CollectionChangeFrom = "current"
@@ -655,6 +706,24 @@ func (e LocalAccountState) Valid() bool {
 	}
 }
 
+// Defines values for ManagedConnectionApiGroup.
+const (
+	KubebaoOrg ManagedConnectionApiGroup = "kubebao.org"
+	OpenbaoOrg ManagedConnectionApiGroup = "openbao.org"
+)
+
+// Valid indicates whether the value is a known member of the ManagedConnectionApiGroup enum.
+func (e ManagedConnectionApiGroup) Valid() bool {
+	switch e {
+	case KubebaoOrg:
+		return true
+	case OpenbaoOrg:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ManagedConnectionAuthentication.
 const (
 	ManagedConnectionAuthenticationLocal  ManagedConnectionAuthentication = "local"
@@ -1118,6 +1187,48 @@ type BuildInfo struct {
 	Version string `json:"version"`
 }
 
+// ChartBackup defines model for ChartBackup.
+type ChartBackup struct {
+	ConsecutiveFailures *int       `json:"consecutiveFailures"`
+	LastSuccessAt       *time.Time `json:"lastSuccessAt"`
+	SizeBytes           *int64     `json:"sizeBytes"`
+}
+
+// ChartDeployment defines model for ChartDeployment.
+type ChartDeployment struct {
+	Backup   *ChartBackup          `json:"backup"`
+	Evidence ChartEvidence         `json:"evidence"`
+	Health   ChartDeploymentHealth `json:"health"`
+}
+
+// ChartDeploymentHealth defines model for ChartDeployment.Health.
+type ChartDeploymentHealth string
+
+// ChartEvidence defines model for ChartEvidence.
+type ChartEvidence struct {
+	Collection ChartEvidenceCollection `json:"collection"`
+}
+
+// ChartEvidenceCollection defines model for ChartEvidence.Collection.
+type ChartEvidenceCollection string
+
+// ChartHistory defines model for ChartHistory.
+type ChartHistory struct {
+	// Baseline Newest retained chart state before the window, when available.
+	Baseline *ChartObservation `json:"baseline"`
+	End      time.Time         `json:"end"`
+
+	// Observations Chart-relevant changes, newest first. Contains the complete window, without a cursor.
+	Observations []ChartObservation `json:"observations"`
+	Start        time.Time          `json:"start"`
+}
+
+// ChartObservation defines model for ChartObservation.
+type ChartObservation struct {
+	Deployment ChartDeployment `json:"deployment"`
+	RecordedAt time.Time       `json:"recordedAt"`
+}
+
 // ClusterCredential defines model for ClusterCredential.
 type ClusterCredential struct {
 	Ca          string `json:"ca"`
@@ -1494,6 +1605,8 @@ type LoginRedirect struct {
 
 // ManagedConnection defines model for ManagedConnection.
 type ManagedConnection struct {
+	// ApiGroup Operator API group. Omitted fields select openbao.org. An enrolled connection cannot change API group.
+	ApiGroup             *ManagedConnectionApiGroup      `json:"apiGroup,omitempty"`
 	Authentication       ManagedConnectionAuthentication `json:"authentication"`
 	CredentialConfigured bool                            `json:"credentialConfigured"`
 	Disabled             bool                            `json:"disabled"`
@@ -1505,6 +1618,9 @@ type ManagedConnection struct {
 	Renewal              *TokenRenewal                   `json:"renewal,omitempty"`
 	Server               string                          `json:"server"`
 }
+
+// ManagedConnectionApiGroup Operator API group. Omitted fields select openbao.org. An enrolled connection cannot change API group.
+type ManagedConnectionApiGroup string
 
 // ManagedConnectionAuthentication defines model for ManagedConnection.Authentication.
 type ManagedConnectionAuthentication string

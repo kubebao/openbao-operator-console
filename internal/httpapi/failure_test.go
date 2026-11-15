@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kubebao/openbao-operator-console/internal/config"
 	"github.com/kubebao/openbao-operator-console/internal/fleet"
@@ -42,6 +43,10 @@ func (f failingFleet) Activity(context.Context, []config.Scope, fleet.Page) (fle
 
 func (f failingFleet) History(context.Context, string, fleet.HistoryQuery) (fleet.HistoryPage, error) {
 	return fleet.HistoryPage{}, f.history
+}
+
+func (f failingFleet) Charts(context.Context, string, time.Time, time.Time) (fleet.ChartHistory, error) {
+	return fleet.ChartHistory{}, f.history
 }
 
 func TestFailedRequestsLogAClassifiedCause(t *testing.T) {

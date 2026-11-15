@@ -3,6 +3,25 @@
 The console is one binary. The Helm chart sets these flags and variables for you; use this page when you run the binary
 directly or need to know what the chart configures.
 
+## Operator API selection
+
+Each enrolled connection selects one operator API group: `kubebao.org` or legacy `openbao.org`, both at `v1alpha1`.
+Set `apiGroup` in enrollment YAML. Omitted fields in existing files, stored settings, and API requests select
+`openbao.org`. New browser enrollments default to `kubebao.org`; select the group installed in the cluster.
+
+The connection check and collector use only the selected API. They do not discover or fall back to another group.
+Generated reader Roles grant namespace LIST permission for that group only. Named controller Deployment GETs and
+credential-renewal grants remain separate.
+
+On the hosting cluster, use Helm `readerScopes` entries with `namespace` and `apiGroup` to grant the selected access.
+Existing `readerNamespaces` entries grant only `openbao.org`. Declaring both grants for one namespace permits both API
+groups; remove an obsolete declaration when that access is no longer needed. RBAC grants do not select the enrollment's
+API group: configure `apiGroup` on the connection separately.
+
+An enrollment identifier stays bound to its API group after removal and restart. To observe the other group, add a
+connection with a new identifier and grant its reader access. Existing history and routes retain the original identity;
+the console does not join migrated objects across API groups.
+
 ## Run without Kubernetes
 
 Releases publish archives for Linux and macOS on `amd64` and `arm64`. Each contains the static `console` binary with the

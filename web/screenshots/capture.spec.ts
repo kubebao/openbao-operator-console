@@ -1,8 +1,21 @@
 import type { Page } from '@playwright/test'
 import { snapshotSchema } from '../src/api/schema'
 import { expect, test } from '@playwright/test'
+import { administrator } from '../e2e/fixtures/administrator'
 
 const output = '../docs/images'
+
+test('API group enrollment documentation screenshot', async ({ page }) => {
+  // Fictional administrator enrollment; the API fixture does not contact Kubernetes.
+  await administrator(page)
+  await page.goto('/settings/clusters/new')
+  await page.getByRole('textbox', { name: 'Cluster name', exact: true }).fill('Example cluster')
+  await expect(page.getByRole('combobox', { name: /^Operator API group/ })).toHaveValue(
+    'kubebao.org',
+  )
+  await page.evaluate(() => document.fonts.ready)
+  await page.screenshot({ path: `${output}/api-group-enrollment.png` })
+})
 
 async function capture(page: Page, name: string, theme: 'light' | 'dark' = 'light') {
   await page.evaluate((value) => {

@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Check, Copy, Database, ShieldCheck } from 'lucide-react'
-import type { Deployment } from '../../api/schema'
+import { useCharts } from '../../api/client'
+import type { ChartHistory, Deployment } from '../../api/schema'
 import { fieldSeverity } from '../../lib/findings'
 import { sizeTrend } from '../../lib/backup-activity'
 import { backupWeek } from '../../lib/backup-activity'
 import { bytes, restoreOutcomes } from '../../lib/format'
-import type { Observation } from '../../lib/history'
+import { ChartStatus } from './chart-status'
 import { backupEvents } from '../../lib/history'
 import { DetailRows, EmptyState } from '../page'
 import { restoreTone } from '../../lib/tone'
@@ -60,9 +61,20 @@ function Digest({ value }: { value: string }) {
 }
 
 // The oldest retained observation; hours before it are not recorded.
-function recordedFrom(observations: readonly Observation[]): number | null {
-  const times = observations.map((observation) => Date.parse(observation.recordedAt))
-  return times.length > 0 ? Math.min(...times) : null
+function recordedFrom(data: ChartHistory): number | null {
+  const at = data.baseline?.recordedAt ?? data.observations.at(-1)?.recordedAt
+  return at ? Date.parse(at) : null
+}
+
+function chartEvents(data: ChartHistory | undefined) {
+  if (!data) return []
+  const observations = [...(data.baseline ? [data.baseline] : []), ...data.observations]
+  const start = Date.parse(data.start)
+  const end = Date.parse(data.end)
+  return backupEvents(observations).filter((event) => {
+    const at = Date.parse(event.at)
+    return at >= start && at <= end
+  })
 }
 
 const shortDay = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric' })
@@ -104,25 +116,23 @@ function BackupSize({
 export function BackupsTab({
   deployment,
   maxBackupAgeHours,
-  observations,
-  earlierUnloaded,
   now,
 }: {
   deployment: Deployment
   maxBackupAgeHours: number
-  observations: readonly Observation[] | null
-  earlierUnloaded: boolean
   // When the snapshot was generated; ages and the activity window are measured from it.
   now: number
 }) {
   const backup = deployment.backup
+  const charts = useCharts(deployment.id, backup !== null)
   if (!backup)
     return (
       <EmptyState title="No backup evidence" icon={Database}>
         Backups are not configured for this deployment, or its role does not report them.
       </EmptyState>
     )
-  const events = observations ? backupEvents(observations) : []
+  const data = charts.data
+  const events = chartEvents(data)
   const sizes = events
     .filter((event) => event.kind === 'success' && event.sizeBytes !== null)
     .map((event) => ({ at: Date.parse(event.at), value: event.sizeBytes ?? 0 }))
@@ -156,15 +166,22 @@ export function BackupsTab({
       <section className="detail-section">
         <SectionTitle
           tipLabel="About backup activity"
-          tip="One cell per hour, derived from recorded changes. Failures outrank completions in a cell. Several failures between two observations count in the hour they were observed."
+          tip="One cell per local clock hour, using all retained chart evidence in the displayed seven-day window. A cell can contain several completions. Failures outrank completions and are counted when observed."
         >
           Backup activity, last 7 days
         </SectionTitle>
-        {observations === null ? (
-          <p className="muted">Loading recorded changes…</p>
-        ) : (
-          <BackupWeek rows={backupWeek(events, now, recordedFrom(observations), earlierUnloaded)} />
+        {data && (
+          <BackupWeek
+            rows={backupWeek(
+              events,
+              Date.parse(data.end),
+              recordedFrom(data),
+              false,
+              Date.parse(data.start),
+            )}
+          />
         )}
+        <ChartStatus query={charts} />
       </section>
 
       <div className="detail-two-column">

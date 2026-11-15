@@ -36,6 +36,12 @@ function setup(configuration: Configuration) {
 }
 
 describe('ConnectionDialog', () => {
+  it('keeps an existing omitted API group bound to the legacy API', () => {
+    setup(scoped)
+    const group = screen.getByRole('textbox', { name: /^Operator API group/ })
+    expect(group).toHaveValue('openbao.org')
+    expect(group).toBeDisabled()
+  })
   it('confirms access removed with a namespace before saving', async () => {
     const { commit, onClose } = setup(scoped)
     fireEvent.click(screen.getByRole('button', { name: 'Remove namespace 2' }))

@@ -52,6 +52,7 @@ Open <http://127.0.0.1:8090>.
 | `make check` | `make lint`, Go race tests; TypeScript strict checking; oxlint with type-aware rules; Prettier; unit tests; frontend build |
 | `make lint` | golangci-lint with the pinned version and `.golangci.yml`, including gofumpt, goimports, and golines |
 | `make lint-fix` | Applies the Go formatters and automatic golangci-lint fixes |
+| `make secret-scan` | Pinned Gitleaks scan of all reachable local Git history; output is redacted |
 | `make check-generated` | OpenAPI Go/TypeScript and sqlc output drift |
 | `make e2e` | Chromium workflows through the development server |
 | `make e2e-production` | The same workflows through the compiled Go application and its content security policy |
@@ -170,7 +171,9 @@ export CONSOLE_TEST_KUBECONFIG="$PWD/.local/reader-kubeconfig"
 make integration
 ```
 
-For another isolated cluster, set `CONSOLE_TEST_CONTEXT` to its kubeconfig context name.
+For another isolated cluster, set `CONSOLE_TEST_CONTEXT` to its kubeconfig context name. Set
+`CONSOLE_TEST_API_GROUP=kubebao.org` for a native operator; omission keeps the legacy API. Set
+`CONSOLE_TEST_OPENBAO_VERSION` when the fixture declares another version.
 
 The test reads only `console-sample` and expects `console-bao` to declare OpenBao 2.7.0 and one replica, and to be
 healthy. It does not run a restore or recovery. The reader credential expires after one hour; run
@@ -179,6 +182,35 @@ healthy. It does not run a restore or recovery. The reader credential expires af
 ```sh
 make integration-cluster-down
 ```
+
+### Nonempty restore projection
+
+`TestNonemptyRestoreProjection` reads an existing UID-confirmed restore through a caller-supplied reader credential.
+Provision the target and request separately. The test creates no Kubernetes resources and uses only namespace cluster
+and restore LISTs. It persists the collected projection to temporary SQLite storage and verifies it after reopening the
+database. It does not require an enrolled controller Deployment.
+
+Declare the namespace, target and request identities, reported phase, and expected console finding before running it:
+
+```sh
+CONSOLE_TEST_KUBECONFIG=/path/to/reader-kubeconfig \
+CONSOLE_TEST_CONTEXT=qualification \
+CONSOLE_TEST_API_GROUP=kubebao.org \
+CONSOLE_TEST_RESTORE_NAMESPACE=restore-qualification \
+CONSOLE_TEST_RESTORE_TARGET=restore-target \
+CONSOLE_TEST_RESTORE_TARGET_UID=target-uid \
+CONSOLE_TEST_RESTORE_REQUEST=restore-request \
+CONSOLE_TEST_RESTORE_UID=request-uid \
+CONSOLE_TEST_RESTORE_PHASE=Unknown \
+CONSOLE_TEST_RESTORE_FINDING=high \
+GOWORK=off go test -race -count=1 ./internal/collector -run '^TestNonemptyRestoreProjection$'
+```
+
+Replace the identity values with the caller-provisioned records. The phase must be `Pending`, `Validating`, `Running`,
+`Completed`, `Failed`, or `Unknown`. The finding expectation must be `none`, `info`, `high`, or `critical`. Declare the
+finding separately because a `Completed` phase does not exclude a recorded cleanup concern. The test skips when the
+restore tuple is unset and rejects partial or unsupported settings. A passing check verifies the declared observation;
+it does not establish end-to-end recovery or qualify a different operator build.
 
 ### Credential renewal
 
@@ -232,7 +264,7 @@ information and the OCI image labels.
 ## Shared client migration
 
 The console pins `github.com/kubebao/openbao-operator-client` at
-`v0.1.0`.
+`v0.2.1-0.20261113160453-369ddfbce594`.
 Build with Go 1.27.4 or newer. Final qualification uses `GOWORK=off`
 and no local replacement. The public module needs no private dependency credentials.
 
@@ -259,9 +291,14 @@ names or creation times, missing phases treated as pending, future generations t
 native-recovery/remote-replication projections are removed from new live observations. Old history remains readable. Missing cleanup stays unknown. Earlier recovery findings used one cluster-level ID;
 new UID-confirmed request episodes receive new IDs because names cannot prove historical ownership.
 In-progress confirmed restores can produce informational findings.
-The migration does not qualify lifecycle operations or a new operator API group.
+The selected read contracts cover released legacy operator `0.6.1` and native operator candidate
+`22894cdc0a4aa5c442a07f2bf9902fe28ce02ea1`. Native qualification applies to that exact candidate. Lifecycle operations
+remain outside the console's read-only collection scope.
 
-Restore display selection uses `diagnose.LatestRestore` with the approved UID-binding contract and API version.
-Projection remains in the adapter. Rule set 8 retains all observed insufficiency causes. The console keeps its existing
-fleet mapping, history, and read-only collection scope. The console pins the public `v0.1.0` release. See
-[shared client qualification](shared-client-qualification.md) for the migration evidence and final tagged validation.
+Restore display selection uses `diagnose.LatestRestore` with UID-confirmed evidence from a supported API group and
+version. The selected adapter validates public fields before analysis. Evidence and diagnostics follow the pinned client
+release. Captures and policies have no independent evidence, rule-set, or adapter version checks.
+Diagnosis distinguishes confirmed disposable-target retention from an unknown restore outcome. It retains all observed
+insufficiency causes and preserves the reported phase. The console keeps its existing fleet mapping, history, and
+read-only collection scope. See
+[shared client qualification](shared-client-qualification.md) for the current qualification and limits.

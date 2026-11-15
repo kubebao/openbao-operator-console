@@ -124,6 +124,54 @@ func (q *Queries) DeleteRemovedLocalCredentials(ctx context.Context, dollar_1 st
 	return err
 }
 
+const getCharts = `-- name: GetCharts :many
+SELECT recorded_at, CAST(json_object(
+  'health', json_extract(projection, '$.health'),
+  'evidence', json_object('collection', json_extract(projection, '$.evidence.collection')),
+  'backup', CASE WHEN json_type(projection, '$.backup') IS NULL OR json_type(projection, '$.backup') = 'null' THEN NULL
+    ELSE json_object('lastSuccessAt', json_extract(projection, '$.backup.lastSuccessAt'),
+      'consecutiveFailures', json_extract(projection, '$.backup.consecutiveFailures'),
+      'sizeBytes', json_extract(projection, '$.backup.sizeBytes')) END
+) AS TEXT) AS chart_projection
+FROM console_observation
+WHERE deployment_id = ?1 AND recorded_at >= ?2 AND recorded_at <= ?3
+ORDER BY recorded_at ASC, id ASC
+`
+
+type GetChartsParams struct {
+	DeploymentID string
+	Since        int64
+	Until        int64
+}
+
+type GetChartsRow struct {
+	RecordedAt      int64
+	ChartProjection string
+}
+
+func (q *Queries) GetCharts(ctx context.Context, arg GetChartsParams) ([]GetChartsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getCharts, arg.DeploymentID, arg.Since, arg.Until)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetChartsRow{}
+	for rows.Next() {
+		var i GetChartsRow
+		if err := rows.Scan(&i.RecordedAt, &i.ChartProjection); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getConnection = `-- name: GetConnection :one
 SELECT projection FROM console_connection WHERE id = ?1
 `
@@ -552,6 +600,33 @@ DELETE FROM console_observation WHERE recorded_at < ?1
 func (q *Queries) PruneObservations(ctx context.Context, recordedAt int64) error {
 	_, err := q.db.ExecContext(ctx, pruneObservations, recordedAt)
 	return err
+}
+
+const retainedConnectionIDs = `-- name: RetainedConnectionIDs :many
+SELECT id FROM console_connection ORDER BY id LIMIT ?1
+`
+
+func (q *Queries) RetainedConnectionIDs(ctx context.Context, limit int64) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, retainedConnectionIDs, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateLocalCredential = `-- name: UpdateLocalCredential :execrows

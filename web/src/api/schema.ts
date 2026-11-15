@@ -11,6 +11,8 @@ export type Deployment = components['schemas']['Deployment']
 export type Issue = components['schemas']['Issue']
 export type Relationship = components['schemas']['Relationship']
 export type History = components['schemas']['History']
+export type { ChartHistory, ChartObservation } from './charts'
+export { chartHistorySchema } from './charts'
 export type Operator = components['schemas']['Operator']
 
 const timestamp = z.iso.datetime({ offset: true })
@@ -231,6 +233,7 @@ const managedOperatorSchema = z.object({
 })
 const managedConnectionObject = z
   .object({
+    apiGroup: z.enum(['openbao.org', 'kubebao.org']).exactOptional(),
     renewal: z.object({ namespace: z.string(), serviceAccount: z.string() }).nullable().optional(),
     id: z.string(),
     name: z.string(),

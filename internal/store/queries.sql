@@ -21,6 +21,9 @@ INSERT INTO console_observation(deployment_id, connection_id, recorded_at, proje
 -- name: ListRemovedConnections :many
 SELECT id FROM console_connection WHERE NOT (id = ANY(@enrolled::text[])) ORDER BY id;
 
+-- name: RetainedConnectionIDs :many
+SELECT id FROM console_connection ORDER BY id LIMIT $1;
+
 -- name: DeleteConnectionActivity :exec
 DELETE FROM console_activity WHERE connection_id = ANY(@connection_ids::text[]);
 
@@ -72,6 +75,20 @@ SELECT id, recorded_at, projection FROM console_observation
 WHERE deployment_id = @deployment_id AND recorded_at < @before
 ORDER BY recorded_at DESC, id DESC
 LIMIT 1;
+
+-- Project the chart window in SQL instead of transferring every full observation.
+-- name: GetCharts :many
+SELECT recorded_at, jsonb_build_object(
+  'health', projection->'health',
+  'evidence', jsonb_build_object('collection', projection#>'{evidence,collection}'),
+  'backup', CASE WHEN projection->'backup' IS NULL OR projection->'backup' = 'null'::jsonb THEN NULL
+    ELSE jsonb_build_object('lastSuccessAt', projection#>'{backup,lastSuccessAt}',
+      'consecutiveFailures', projection#>'{backup,consecutiveFailures}',
+      'sizeBytes', projection#>'{backup,sizeBytes}') END
+)::jsonb AS chart_projection
+FROM console_observation
+WHERE deployment_id = @deployment_id AND recorded_at >= @since AND recorded_at <= @until
+ORDER BY recorded_at ASC, id ASC;
 
 -- name: PruneObservations :exec
 DELETE FROM console_observation WHERE recorded_at < $1;

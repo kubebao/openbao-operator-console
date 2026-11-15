@@ -74,7 +74,19 @@ func (s *Service) ResolveConnection(
 ) (config.Connection, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	if _, err := bindAPIGroups(s.apiGroups, config.Config{Connections: []config.Connection{connection}}); err != nil {
+		return connection, err
+	}
 	return resolveAccess(connection, server, replacement, s.storedCredential(connection.ID))
+}
+
+// ValidateConnectionAPIGroup checks enrollment identity without reading credentials
+// or contacting Kubernetes. New connections can select either approved API group.
+func (s *Service) ValidateConnectionAPIGroup(connection config.Connection) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, err := bindAPIGroups(s.apiGroups, config.Config{Connections: []config.Connection{connection}})
+	return err
 }
 
 func (s *Service) storedCredential(connectionID string) *config.Credential {

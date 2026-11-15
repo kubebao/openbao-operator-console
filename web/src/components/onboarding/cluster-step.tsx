@@ -1,5 +1,5 @@
 import type { ManagedConnection } from '../../api/schema'
-import { connectionIDPattern, withAuthentication } from '../../lib/connection'
+import { connectionIDPattern, isAPIGroup, withAuthentication } from '../../lib/connection'
 import { Field } from '../form'
 
 export function ClusterStep({
@@ -26,6 +26,21 @@ export function ClusterStep({
           }}
           placeholder="Production EU"
         />
+      </Field>
+      <Field
+        label="Operator API group"
+        help="Select the API installed in this cluster. The reader uses only this group."
+      >
+        <select
+          value={connection.apiGroup ?? 'openbao.org'}
+          onChange={(event) => {
+            const apiGroup = event.target.value
+            if (isAPIGroup(apiGroup)) onChange({ ...connection, apiGroup })
+          }}
+        >
+          <option value="kubebao.org">kubebao.org/v1alpha1</option>
+          <option value="openbao.org">openbao.org/v1alpha1 (legacy)</option>
+        </select>
       </Field>
       <Field label="Connection">
         <select

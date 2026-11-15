@@ -24,7 +24,7 @@ func normalizedCluster(t *testing.T, raw map[string]any) shared.Cluster {
 		adapter.ProjectionOptions{
 			Origin:      "one",
 			CollectedAt: time.Now().UTC(),
-			Contract:    adapter.V1Alpha1Snapshot,
+			Contract:    adapter.OpenBaoV1Alpha1,
 			Limits:      adapter.DefaultProjectionLimits(),
 		},
 	)

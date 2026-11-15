@@ -65,6 +65,9 @@ func (c Config) Validate() error {
 
 // validate checks one connection and returns its enrolled namespaces.
 func (c Connection) validate() (map[string]bool, error) {
+	if group := c.EffectiveAPIGroup(); group != APIGroupOpenBao && group != APIGroupKubeBao {
+		return nil, errors.New("connection API group must be openbao.org or kubebao.org")
+	}
 	if err := c.ValidateRenewal(); err != nil {
 		return nil, err
 	}
