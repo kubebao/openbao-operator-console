@@ -30,9 +30,9 @@ variables and public-repository checks. The prepared release workflows produce:
   `oci://ghcr.io/kubebao/charts-edge/openbao-operator-console`;
 - SPDX SBOMs, `THIRD_PARTY_LICENSES`, and `checksums.txt` attached to the GitHub release.
 
-The image and chart are signed with keyless Sigstore signing through GitHub Actions OIDC, and carry signed SLSA build
-provenance attestations. Image SBOMs are also published as signed attestations. `checksums.txt` is signed with a
-Sigstore bundle. See [releasing](docs/releasing.md#verify-a-release) for the verification commands.
+The publication workflows sign the image and chart through GitHub Actions OIDC and attach signed SLSA build provenance
+and image SBOM attestations. They sign `checksums.txt` with a Sigstore bundle. The unsigned distribution rehearsal does
+not perform these publication steps. See [releasing](docs/releasing.md#verify-a-release) for the verification commands.
 
 Dependencies are pinned in `go.sum` and `web/pnpm-lock.yaml`, base images and GitHub Actions are pinned by digest, and
 Dependabot proposes updates. CI runs `govulncheck`, `pnpm audit`, and a redacted Git-history secret scan. CodeQL,

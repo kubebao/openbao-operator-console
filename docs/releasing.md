@@ -75,20 +75,56 @@ Search for them with `git grep -n -i "first.*release\|no.*release"`.
 - **Package visibility.** After each package's first publication, set it to public and link it to this repository.
   The packages are `openbao-operator-console`, `charts/openbao-operator-console`, and
   `charts-edge/openbao-operator-console`. Check that anonymous image and chart pulls work.
-- **Artifact Hub.** Register the OCI repository `oci://ghcr.io/kubebao/charts/openbao-operator-console`, add the
-  assigned `repositoryID` to `artifacthub-repo.yml`, and push the metadata once with [ORAS](https://oras.land/):
+- **Artifact Hub.** Register the stable OCI chart repository under the KubeBao organization. Follow
+  [Register the chart with Artifact Hub](#register-the-chart-with-artifact-hub).
 
-  ```sh
-  oras push ghcr.io/kubebao/charts/openbao-operator-console:artifacthub.io \
-    --config /dev/null:application/vnd.cncf.artifacthub.config.v1+yaml \
-    artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml
-  ```
+### Register the chart with Artifact Hub
+
+Artifact Hub uses one repository per OCI chart. Register the stable chart at
+`oci://ghcr.io/kubebao/charts/openbao-operator-console` under the `kubebao` organization. Use
+`openbao-operator-console` as the repository name and **OpenBao Operator Console** as its display name.
+
+Registration can precede chart publication. It does not enable publishing or make a chart available to users. Keep
+`CONSOLE_RELEASES_ENABLED=false`, `CONSOLE_EDGE_ENABLED=false`, and the publication workflows disabled until publication
+is approved.
+
+1. Sign in to the [Artifact Hub control panel](https://artifacthub.io/control-panel), select the KubeBao organization,
+   and add the Helm OCI repository with the values above. Check for an existing registration before creating one.
+2. Copy the assigned repository ID into the top-level `repositoryID` field in `artifacthub-repo.yml`. Keep the existing
+   owners. The ID belongs to this console chart repository; do not reuse the OpenBao Operator chart's ID.
+3. After the first stable chart publication is approved, publish the chart and make its GHCR package public. Verify an
+   anonymous pull:
+
+   ```sh
+   chart_pull_dir=$(mktemp -d)
+   printf '%s\n' '{"auths":{}}' > "$chart_pull_dir/config.json"
+   HELM_REGISTRY_CONFIG="$chart_pull_dir/config.json" DOCKER_CONFIG="$chart_pull_dir" \
+     helm pull oci://ghcr.io/kubebao/charts/openbao-operator-console \
+       --version 0.1.0 --destination "$chart_pull_dir"
+   ```
+
+   A successful pull downloads the chart without using your saved registry credentials.
+
+4. Push the repository metadata with [ORAS](https://oras.land/) after authenticating to GHCR with package write access:
+
+   ```sh
+   oras push ghcr.io/kubebao/charts/openbao-operator-console:artifacthub.io \
+     --config /dev/null:application/vnd.cncf.artifacthub.config.v1+yaml \
+     artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml
+   ```
+
+5. Check the repository's tracking status in Artifact Hub. Verify that the chart version and documentation appear, then
+   check for the **Verified publisher** badge. Registration alone does not establish indexing or publisher verification.
+
+The public Artifact Hub service must be able to fetch the chart and repository metadata without registry credentials.
+The metadata file in the Git repository does not replace the OCI metadata artifact. Keep the separate `charts-edge`
+repository outside this stable chart registration. See the Artifact Hub
+[Helm OCI repository requirements](https://artifacthub.io/docs/topics/repositories/helm-charts/#oci-support).
 
 ### Public repository controls
 
-The current private-repository plan does not provide branch protection or secret scanning. Private vulnerability
-reporting also requires a public repository. After changing visibility, complete these steps before merging a release
-pull request or publishing artifacts. These commands do not change repository visibility.
+Before enabling publication, verify the public repository controls below. Apply the checked-in configuration when
+creating or repairing the repository settings. These commands do not change visibility or enable publication.
 
 1. Require pull requests and the current CI and security checks on `main`:
 
@@ -127,7 +163,7 @@ pull request or publishing artifacts. These commands do not change repository vi
    ```
 
 4. Run **Check**, **CodeQL**, and **Scorecard** on the same current `main` commit. All three workflows support manual
-   runs. Confirm successful runs; private-repository skips do not qualify the public repository. Test
+   runs. Require successful scans; skipped security jobs do not qualify a release. Test
    **Dependency Review** on a new pull request. Keep both publication variables false while qualifying the public
    repository. **Publish Edge** also requires its separate opt-in and an enabled workflow.
 
@@ -135,6 +171,19 @@ The publication workflows use `anchore/sbom-action` and `actions/attest`, pinned
 generates local files without uploading release assets, workflow artifacts, or dependency snapshots. Existing
 publication steps sign, attest, and upload those files. Do not broaden the organization Actions allowlist to repair a
 workflow that can use these approved actions.
+
+## Unsigned archive rehearsal
+
+The **Distribution rehearsal** workflow builds the four binary archives once and tests them natively on Linux and
+macOS, on amd64 and arm64. It verifies checksums, the embedded version and source commit, license notices, fixture HTTP
+startup, the embedded UI, and its content security policy. The executable runs from a temporary directory without the
+source tree or web build output.
+
+The workflow runs when archive packaging or its verifier changes and supports manual runs on a selected branch. It
+uploads CI artifacts only. It does not create tags, publish releases, push images or charts, or enable either publication
+channel. Keep publication variables false and publication workflows disabled while using it.
+
+The regular **Check** workflow separately qualifies the packaged image and Helm chart as described below.
 
 ## Edge builds
 
