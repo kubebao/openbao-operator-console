@@ -51,6 +51,48 @@ func TestKindKeycloakSession(t *testing.T) {
 	testLiveSession(t, true)
 }
 
+func TestSQLiteOIDCSession(t *testing.T) {
+	testSQLiteOIDCSession(t, false)
+}
+
+// TestKeycloakSession uses the isolated HTTPS provider and SQLite. It qualifies
+// the provider login flow without requiring a Kubernetes cluster or PostgreSQL.
+func TestKeycloakSession(t *testing.T) {
+	testSQLiteOIDCSession(t, true)
+}
+
+func testSQLiteOIDCSession(t *testing.T, keycloak bool) {
+	t.Helper()
+	ctx := t.Context()
+	identity, providerContext, ca := liveIdentity(t, ctx, keycloak)
+	repository, err := store.OpenSQLite(ctx, filepath.Join(t.TempDir(), "observations.sqlite"), 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(repository.Close)
+	_, application := startLiveConsole(t, ctx, keycloak, identity, providerContext, config.Connection{}, repository)
+	client := application.Client()
+	client.Timeout = 10 * time.Second
+	if len(ca) != 0 && !client.Transport.(*http.Transport).TLSClientConfig.RootCAs.AppendCertsFromPEM(ca) {
+		t.Fatal("cannot trust Keycloak test certificate")
+	}
+	session := liveSession{t: t, client: client, url: application.URL}
+	if session.status(http.MethodGet, "/api/v1/snapshot", nil) != http.StatusUnauthorized {
+		t.Fatal("snapshot was accessible without authentication")
+	}
+	session.signIn(keycloak, identity)
+	snapshot := session.snapshot()
+	if snapshot.Mode != "live" || snapshot.Viewer.Subject != identity.Subject || !snapshot.Viewer.Admin ||
+		len(snapshot.Connections) != 0 || len(snapshot.Deployments) != 0 {
+		t.Fatal("OIDC session lost the enrolled identity or returned unenrolled resources")
+	}
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	session.status(http.MethodPost, "/auth/logout", nil)
+	if session.status(http.MethodGet, "/api/v1/snapshot", nil) != http.StatusUnauthorized {
+		t.Fatal("console logout retained access")
+	}
+}
+
 type keycloakSettings struct {
 	Issuer       string `json:"issuer"`
 	ClientID     string `json:"clientId"`
@@ -194,7 +236,7 @@ func startLiveConsole(
 	identity keycloakSettings,
 	providerContext context.Context,
 	connection config.Connection,
-	repository *store.Postgres,
+	repository view.Observations,
 ) (*consolesettings.Service, *httptest.Server) {
 	t.Helper()
 	mux := http.NewServeMux()
@@ -214,7 +256,11 @@ func startLiveConsole(
 		Subject: identity.Subject,
 		Name:    "Engineer",
 		Admin:   true,
-		Scopes:  []config.Scope{{ConnectionID: connection.ID, Namespaces: []string{"console-sample"}}},
+	}
+	connections := []config.Connection{}
+	if connection.ID != "" {
+		connections = append(connections, connection)
+		user.Scopes = []config.Scope{{ConnectionID: connection.ID, Namespaces: []string{"console-sample"}}}
 	}
 	provider := config.Identity{Issuer: identity.Issuer, ClientID: identity.ClientID, ClientSecret: identity.ClientSecret}
 	identityProvider, err := auth.NewProvider(
@@ -228,7 +274,7 @@ func startLiveConsole(
 		t.Fatal(err)
 	}
 	seed := config.Config{
-		Connections:       []config.Connection{connection},
+		Connections:       connections,
 		Users:             []config.User{user},
 		MaxBackupAgeHours: 24,
 	}

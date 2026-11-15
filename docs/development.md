@@ -234,7 +234,7 @@ in `console-system`, apply it on the `kind-console-dev` context, and issue its r
 
 ## Keycloak
 
-`compose.keycloak.yaml` runs a disposable Keycloak 26.8.1-2 instance with HTTPS on loopback. A helper generates one
+`compose.keycloak.yaml` runs a disposable Keycloak 26.8.2-2 instance with HTTPS on loopback. A helper generates one
 development realm, one confidential PKCE client, one test user, and a seven-day certificate. Passwords and secrets are
 written to the ignored `.local/keycloak` directory with mode `0700`. The helper refuses to overwrite an existing setup
 and does not change workstation certificate trust.
@@ -246,10 +246,21 @@ curl --cacert .local/keycloak/server.crt \
   https://localhost:8543/realms/console-dev/.well-known/openid-configuration
 ```
 
-With the local PostgreSQL and the kind reader credential configured, run the real login check:
+Run the provider login check with SQLite:
 
 ```sh
 export CONSOLE_TEST_KEYCLOAK_CONFIG="$PWD/.local/keycloak/credentials.json"
+go test -race -count=1 ./internal/httpapi -run '^TestKeycloakSession$'
+```
+
+The `Keycloak integration` workflow runs this check when the provider fixture, authentication code, HTTP API, or Go
+dependencies change. It checks the authorization-code flow with PKCE, the enrolled identity, and console logout over
+verified TLS. It does not require Kubernetes or PostgreSQL and does not qualify an existing realm migration or
+provider-wide SSO logout.
+
+With the local PostgreSQL and the kind reader credential configured, also run the combined reader and login checks:
+
+```sh
 make integration
 ```
 

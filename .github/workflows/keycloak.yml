@@ -1,0 +1,63 @@
+name: Keycloak integration
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/keycloak.yml
+      - compose.keycloak.yaml
+      - scripts/keycloak-dev.py
+      - internal/auth/**
+      - internal/httpapi/**
+      - go.mod
+      - go.sum
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/keycloak.yml
+      - compose.keycloak.yaml
+      - scripts/keycloak-dev.py
+      - internal/auth/**
+      - internal/httpapi/**
+      - go.mod
+      - go.sum
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  keycloak:
+    name: Keycloak HTTPS session
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      COMPOSE_PROJECT_NAME: console-keycloak-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Start the isolated identity provider
+        run: |
+          python3 scripts/keycloak-dev.py
+          docker compose --env-file .local/keycloak/compose.env -f compose.keycloak.yaml up -d
+          curl --fail --silent --show-error --cacert .local/keycloak/server.crt \
+            --retry 60 --retry-delay 2 --retry-all-errors --max-time 3 \
+            https://localhost:8543/realms/console-dev/.well-known/openid-configuration \
+            --output /dev/null
+      - name: Verify login and console logout
+        env:
+          CONSOLE_TEST_KEYCLOAK_CONFIG: ${{ github.workspace }}/.local/keycloak/credentials.json
+        run: go test -race -count=1 -v ./internal/httpapi -run '^TestKeycloakSession$'
+      - name: Stop the isolated identity provider
+        if: always()
+        run: |
+          if test -f .local/keycloak/compose.env; then
+            docker compose --env-file .local/keycloak/compose.env -f compose.keycloak.yaml down
+          fi
