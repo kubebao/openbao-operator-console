@@ -19,13 +19,19 @@ updates:
           - "*"
         exclude-patterns:
           - "actions/attest*"
+          - "actions/create-github-app-token"
+          - "anchore/sbom-action"
           - "docker/login-action"
+          - "googleapis/release-please-action"
           - "sigstore/cosign-installer"
         update-types: [minor, patch]
       publishing-actions:
         patterns:
           - "actions/attest*"
+          - "actions/create-github-app-token"
+          - "anchore/sbom-action"
           - "docker/login-action"
+          - "googleapis/release-please-action"
           - "sigstore/cosign-installer"
         update-types: [minor, patch]
 
