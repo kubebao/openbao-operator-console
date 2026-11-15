@@ -333,7 +333,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 --------------------------------------------------------------------------------
 
-github.com/go-jose/go-jose/v4 v4.1.8
+github.com/go-jose/go-jose/v4 v4.1.9
 License: Apache-2.0
 
                                  Apache License
@@ -540,7 +540,7 @@ License: Apache-2.0
 
 --------------------------------------------------------------------------------
 
-github.com/go-jose/go-jose/v4/json v4.1.8
+github.com/go-jose/go-jose/v4/json v4.1.9
 License: BSD-3-Clause
 
 Copyright (c) 2012 The Go Authors. All rights reserved.
@@ -2010,7 +2010,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 --------------------------------------------------------------------------------
 
-golang.org/x/oauth2 v0.37.0
+golang.org/x/oauth2 v0.38.0
 License: BSD-3-Clause
 
 Copyright 2009 The Go Authors.
@@ -5285,7 +5285,7 @@ SOFTWARE.
 
 --------------------------------------------------------------------------------
 
-@tanstack/query-core 5.105.3
+@tanstack/query-core 5.107.1
 License: MIT
 
 MIT License
@@ -5312,7 +5312,7 @@ SOFTWARE.
 
 --------------------------------------------------------------------------------
 
-@tanstack/react-query 5.105.3
+@tanstack/react-query 5.107.1
 License: MIT
 
 MIT License
@@ -5727,7 +5727,7 @@ For more information, please refer to <http://unlicense.org/>
 
 --------------------------------------------------------------------------------
 
-lucide-react 1.67.0
+lucide-react 1.70.0
 License: ISC
 
 ISC License
