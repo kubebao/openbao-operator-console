@@ -1,8 +1,8 @@
-# Security Policy
+# Security policy
 
-## Reporting a Vulnerability
+## Report a vulnerability
 
-Please do **not** open public GitHub issues for security-sensitive reports.
+Do **not** open public GitHub issues for security-sensitive reports.
 
 Instead, use GitHub Security Advisories:
 
@@ -11,7 +11,7 @@ Instead, use GitHub Security Advisories:
 If you are unable to use GitHub Security Advisories, open a minimal issue that requests a private contact channel and do
 not include exploit details.
 
-## Supported Versions
+## Supported versions
 
 Security fixes are provided for:
 
@@ -20,9 +20,9 @@ Security fixes are provided for:
 No stable release has been published yet. Until then, fixes are made on the `main` branch. Edge builds receive fixes
 through new builds of `main`; older edge builds are not maintained.
 
-## Supply Chain
+## Supply chain
 
-The source-first opening has no published release artifacts. Tagged and edge publication require separate opt-in
+No release artifacts are published yet. Tagged and edge publication require separate opt-in
 variables and public-repository checks. The prepared release workflows produce:
 
 - the multi-architecture container image `ghcr.io/kubebao/openbao-operator-console`;
@@ -37,7 +37,7 @@ Sigstore bundle. See [releasing](docs/releasing.md#verify-a-release) for the ver
 Dependencies are pinned in `go.sum` and `web/pnpm-lock.yaml`, base images and GitHub Actions are pinned by digest, and
 Dependabot proposes updates. CI runs `govulncheck`, `pnpm audit`, and a redacted Git-history secret scan. CodeQL,
 dependency review, and OpenSSF Scorecard run for public repositories; private-repository skips do not qualify those
-security checks. See [source publication](docs/source-publication.md) for the controls enabled at visibility change.
+security checks.
 
 ## Scope
 

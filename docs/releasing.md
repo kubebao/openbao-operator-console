@@ -1,13 +1,12 @@
 # Releases
 
 This page describes how maintainers publish releases and edge builds, and how users verify the artifacts. The console
-has no stable release yet; the first stable release will be `0.1.0`.
+has no stable release. The first stable release uses version `0.1.0`.
 
-The [source-first publication procedure](source-publication.md) keeps both publishing channels disabled.
-`CONSOLE_RELEASES_ENABLED` controls Release Please and the tagged Release workflow. `CONSOLE_EDGE_ENABLED` controls
-Publish Edge. Each variable must equal `true`, and the repository must be public. Unset or other values disable the
-channel. Opening the source does not approve artifact publication. The three publication workflows also remain
-manually disabled during preparation; enable each workflow only when its channel is approved.
+Both publishing channels are disabled by default. `CONSOLE_RELEASES_ENABLED` controls Release Please and the tagged
+Release workflow. `CONSOLE_EDGE_ENABLED` controls Publish Edge. Each variable must equal `true`, and the repository must
+be public. Unset or other values disable the channel. Opening the source does not approve artifact publication. The
+three publication workflows are also manually disabled. Enable each workflow only when its channel is approved.
 
 ## Versioning
 

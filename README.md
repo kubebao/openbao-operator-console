@@ -45,8 +45,8 @@ an official OpenBao project.
 - **Your sign-in.** OpenID Connect single sign-on, or local accounts with an authenticator app, with per-user and
   per-group namespace access.
 
-Restore tests, native recovery, and replication evidence depend on OpenBao Operator features that are still in
-development. Until they ship, the console shows that evidence as unknown.
+When the operator does not report restore-test, native recovery, or replication evidence, the console shows that
+evidence as unknown. See [compatibility](docs/compatibility.md) for the supported operator contracts.
 
 | Deployment overview | Topology |
 | --- | --- |
@@ -65,8 +65,8 @@ make install build
 ```
 
 Open <http://127.0.0.1:8090>. Demo mode has no login and binds to loopback by default.
-This is a source-first opening. Release images, charts, and downloads are not published yet.
-The [publication procedure](docs/source-publication.md) keeps release and edge publishing disabled until separately approved.
+Release images, charts, and downloads are not published yet. Release and edge publishing stay disabled until separately
+approved.
 
 To try it against a real OpenBao Operator, [`make evaluation`](docs/evaluation.md) creates a disposable kind cluster
 with the operator, an OpenBao cluster, and the console. For your own clusters, follow the
@@ -92,8 +92,9 @@ with the operator, an OpenBao cluster, and the console. For your own clusters, f
 [Keycloak](docs/keycloak.md)
 
 **Reference:** [attention rules](docs/attention-rules.md) · [security model](docs/security.md) ·
-[architecture](docs/architecture.md) · [command line and environment](docs/configuration.md) ·
-[enrollment files](docs/connect-clusters.md) · [releases](docs/releasing.md) · [development](docs/development.md)
+[architecture](docs/architecture.md) · [compatibility](docs/compatibility.md) ·
+[command line and environment](docs/configuration.md) · [enrollment files](docs/connect-clusters.md) ·
+[releases](docs/releasing.md) · [development](docs/development.md)
 
 ## Contributing
 

@@ -56,7 +56,7 @@ mounted state directory in Kubernetes. Use a local or block filesystem with SQLi
 | --- | --- |
 | `owned by another console or schema command` | Stop the existing process or maintenance Pod. Do not remove the lock file to bypass ownership. |
 | `requires an offline upgrade` | Stop the console and follow [schema upgrades](upgrading.md). |
-| `legacy or unrecognized development database` | The database predates the new baseline or contains unrelated objects. Recreate disposable development state deliberately or select compatible state. Startup never resets it. |
+| `legacy or unrecognized development database` | The database predates the current baseline or contains unrelated objects. Recreate disposable development state deliberately or select compatible state. Startup never resets it. |
 | `schema history mismatch` | A migration checksum, baseline identity, or version history differs. Use the matching binary or restore a known backup. |
 
 ### Database connection and TLS
