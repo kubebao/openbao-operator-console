@@ -17,6 +17,17 @@ updates:
       github-actions:
         patterns:
           - "*"
+        exclude-patterns:
+          - "actions/attest*"
+          - "docker/login-action"
+          - "sigstore/cosign-installer"
+        update-types: [minor, patch]
+      publishing-actions:
+        patterns:
+          - "actions/attest*"
+          - "docker/login-action"
+          - "sigstore/cosign-installer"
+        update-types: [minor, patch]
 
   - package-ecosystem: gomod
     directory: /
@@ -50,6 +61,8 @@ updates:
       - dependencies
     groups:
       npm-minor-and-patch:
+        patterns: ["*"]
+        exclude-patterns: ["@playwright/test"]
         update-types:
           - minor
           - patch

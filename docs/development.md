@@ -122,6 +122,11 @@ and Scorecard publishes public results. Every
 action is pinned to a commit SHA, and workflows default to read-only repository permissions. Dependabot proposes weekly
 updates for Go modules, web dependencies, actions, and base images.
 
+Dependabot groups patch and minor action updates separately from publishing actions. Publishing action updates need
+validation of their publication path before merging. Playwright updates have separate pull requests because the
+package version and both pinned browser images must change together. Major action and npm updates also have separate
+pull requests.
+
 Releases are automated with Release Please and publish signed images and charts. See [releases](releasing.md).
 
 ## Generated code
