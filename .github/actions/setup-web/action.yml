@@ -1,5 +1,5 @@
 name: Set up web toolchain
-description: Install Node.js and the pnpm version from web/package.json, restore the pnpm store, and install web dependencies.
+description: Install Node.js, integrity-pinned Corepack and pnpm, restore the pnpm store, and install web dependencies.
 
 runs:
   using: composite
@@ -13,15 +13,22 @@ runs:
     - name: Install pinned pnpm
       id: pnpm
       shell: bash
+      env:
+        COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+        COREPACK_DEFAULT_TO_LATEST: "0"
       run: |
         set -euo pipefail
         package_manager="$(node -p 'require("./web/package.json").packageManager')"
         case "$package_manager" in
-          pnpm@*) ;;
-          *) echo "web/package.json must pin pnpm in packageManager" >&2; exit 1 ;;
+          pnpm@*+sha512.*) ;;
+          *) echo "web/package.json must pin pnpm with a SHA-512 hash" >&2; exit 1 ;;
         esac
-        npm install --global "$package_manager"
-        echo "store-path=$(pnpm --dir web store path --silent)" >> "$GITHUB_OUTPUT"
+        npm ci --prefix tools/corepack --ignore-scripts --no-audit --no-fund
+        tool_bin="$GITHUB_WORKSPACE/tools/corepack/node_modules/.bin"
+        "$tool_bin/corepack" install --global "$package_manager"
+        echo "$tool_bin" >> "$GITHUB_PATH"
+        echo "COREPACK_DEFAULT_TO_LATEST=0" >> "$GITHUB_ENV"
+        echo "store-path=$("$tool_bin/pnpm" --dir web store path --silent)" >> "$GITHUB_OUTPUT"
 
     - name: Cache pnpm store
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

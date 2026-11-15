@@ -1,8 +1,9 @@
 .PHONY: evaluation evaluation-open evaluation-down install dev generate check check-generated build dist e2e integration integration-cluster integration-cluster-down helm-check e2e-production screenshots lint lint-fix \
-	image vulncheck audit licenses check-licenses check-release-tools e2e-storage secret-scan
+	image vulncheck audit licenses check-licenses check-release-tools e2e-storage secret-scan fuzz
 
 GOLANGCI_LINT = go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 GITLEAKS = go run github.com/zricethezav/gitleaks/v8@v8.30.1
+FUZZ_TIME ?= 30s
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null)
@@ -41,6 +42,11 @@ check: lint
 	pnpm --dir web format:check
 	pnpm --dir web test
 	pnpm --dir web build
+
+# Bound each target independently and limit workers on shared CI runners.
+fuzz:
+	go test ./internal/auth -run='^$$' -fuzz='^FuzzSafeReturn$$' -fuzztime=$(FUZZ_TIME) -parallel=2
+	go test ./internal/clientip -run='^$$' -fuzz='^FuzzForwardedFor$$' -fuzztime=$(FUZZ_TIME) -parallel=2
 
 build:
 	./scripts/build.sh "$(VERSION)" "$(COMMIT)"

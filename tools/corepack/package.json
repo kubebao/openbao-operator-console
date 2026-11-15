@@ -1,0 +1,9 @@
+{
+  "name": "console-build-tools",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "dependencies": {
+    "corepack": "0.36.0"
+  }
+}

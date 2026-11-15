@@ -36,7 +36,9 @@ updates:
           - patch
 
   - package-ecosystem: npm
-    directory: /web
+    directories:
+      - /web
+      - /tools/corepack
     schedule:
       interval: weekly
       day: wednesday
