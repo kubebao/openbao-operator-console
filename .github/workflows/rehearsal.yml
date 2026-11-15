@@ -1,0 +1,64 @@
+name: Distribution rehearsal
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/rehearsal.yml
+      - scripts/dist.sh
+      - scripts/check-archive.py
+      - scripts/tests/test_archive.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  REHEARSAL_VERSION: 0.0.0-rehearsal.${{ github.sha }}
+
+jobs:
+  archives:
+    name: Build rehearsal archives
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: ./.github/actions/setup-web
+      - name: Build archives without publishing
+        run: |
+          make dist VERSION="$REHEARSAL_VERSION" COMMIT="$GITHUB_SHA"
+          (cd dist && sha256sum -- *.tar.gz > checksums.txt)
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: console-rehearsal
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  native:
+    name: Native archive (${{ matrix.runner }})
+    needs: archives
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15-intel, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: console-rehearsal
+          path: payload
+      - name: Verify and exercise the native archive
+        run: python3 scripts/check-archive.py payload --version "$REHEARSAL_VERSION" --commit "$GITHUB_SHA"

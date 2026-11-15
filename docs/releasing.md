@@ -86,9 +86,8 @@ Search for them with `git grep -n -i "first.*release\|no.*release"`.
 
 ### Public repository controls
 
-The current private-repository plan does not provide branch protection or secret scanning. Private vulnerability
-reporting also requires a public repository. After changing visibility, complete these steps before merging a release
-pull request or publishing artifacts. These commands do not change repository visibility.
+Before enabling publication, verify the public repository controls below. Apply the checked-in configuration when
+creating or repairing the repository settings. These commands do not change visibility or enable publication.
 
 1. Require pull requests and the current CI and security checks on `main`:
 
@@ -127,7 +126,7 @@ pull request or publishing artifacts. These commands do not change repository vi
    ```
 
 4. Run **Check**, **CodeQL**, and **Scorecard** on the same current `main` commit. All three workflows support manual
-   runs. Confirm successful runs; private-repository skips do not qualify the public repository. Test
+   runs. Require successful scans; skipped security jobs do not qualify a release. Test
    **Dependency Review** on a new pull request. Keep both publication variables false while qualifying the public
    repository. **Publish Edge** also requires its separate opt-in and an enabled workflow.
 
@@ -135,6 +134,19 @@ The publication workflows use `anchore/sbom-action` and `actions/attest`, pinned
 generates local files without uploading release assets, workflow artifacts, or dependency snapshots. Existing
 publication steps sign, attest, and upload those files. Do not broaden the organization Actions allowlist to repair a
 workflow that can use these approved actions.
+
+## Unsigned archive rehearsal
+
+The **Distribution rehearsal** workflow builds the four binary archives once and tests them natively on Linux and
+macOS, on amd64 and arm64. It verifies checksums, the embedded version and source commit, license notices, fixture HTTP
+startup, the embedded UI, and its content security policy. The executable runs from a temporary directory without the
+source tree or web build output.
+
+The workflow runs when archive packaging or its verifier changes and supports manual runs on a selected branch. It
+uploads CI artifacts only. It does not create tags, publish releases, push images or charts, or enable either publication
+channel. Keep publication variables false and publication workflows disabled while using it.
+
+The regular **Check** workflow separately qualifies the packaged image and Helm chart as described below.
 
 ## Edge builds
 

@@ -55,6 +55,20 @@ must declare each group you need. Named controller GET grants are separate.
 
 ## Validation levels
 
+### Distribution
+
+The **Distribution rehearsal** workflow verifies native archive execution on Linux and macOS, on amd64 and arm64.
+Checks cover artifact checksums, source identity, license notices, the embedded UI and CSP, and fixture HTTP startup.
+The regular **Check** workflow builds both Linux image platforms and installs the exact packaged image and chart in
+disposable Kind on Linux/amd64. It checks default SQLite persistence after Pod replacement and optional PostgreSQL 18.
+These checks do not qualify an operator build, production deployment, HA, or platform-specific download policies.
+
+### Identity provider
+
+`TestKeycloakSession` exercises the pinned Keycloak `26.8.2-2` development container on Linux/amd64 with SQLite. It
+checks authorization-code login with PKCE, verified TLS, the enrolled identity, and console logout. The fixture imports
+a fresh realm. It does not qualify an existing realm migration or provider-wide SSO logout.
+
 ### Enrollment and controller baseline
 
 Enrollment and controller checks cover legacy operator `0.6.1` and native candidate `22894cdc`. They use Kubernetes

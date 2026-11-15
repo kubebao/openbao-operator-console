@@ -13,9 +13,7 @@ concurrency:
 jobs:
   dependency-review:
     name: Dependency Review
-    # Dependency review needs the dependency graph with GitHub Advanced Security, which this
-    # private repository lacks. The job runs again without changes when the repository
-    # becomes public. Check still runs govulncheck, pnpm audit, and license checks.
+    # Run dependency review for the public repository; Check also audits dependencies and licenses.
     if: github.event.repository.private == false
     runs-on: ubuntu-24.04
     steps:
