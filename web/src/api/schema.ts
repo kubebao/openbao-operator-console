@@ -99,6 +99,7 @@ const deploymentObject = z.object({
       id: z.string(),
       deploymentId: z.string(),
       rule: z.string(),
+      conditionType: z.string().exactOptional(),
       severity: z.enum(['critical', 'high', 'info']),
       category: z.enum(['availability', 'operations', 'backup', 'visibility']),
       title: z.string(),

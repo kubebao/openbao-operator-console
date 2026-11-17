@@ -51,6 +51,31 @@ func TestRestoreFindingsHaveIndependentIdentities(t *testing.T) {
 	}
 }
 
+func TestConditionFindingsKeepIndependentStableIdentities(t *testing.T) {
+	d := fleet.Deployment{ID: "deployment"}
+	report := diagnose.Report{Policy: diagnose.Policy{ReferenceTime: time.Now().UTC()}}
+	for _, condition := range []string{"Degraded", "TLSReady"} {
+		report.Findings = append(report.Findings, diagnose.Finding{
+			Rule: diagnose.RuleCondition, Severity: diagnose.Warning, Summary: "Current adverse condition.", Subsubject: condition,
+			Subject: shared.Identity{
+				Origin: "one", Group: "kubebao.org", Kind: "OpenBaoCluster", Namespace: "team", Name: "bao", UID: "cluster",
+			},
+		})
+	}
+	Apply(&d, report)
+	if len(d.Issues) != 2 || d.Issues[0].ID == d.Issues[1].ID || d.Issues[0].ConditionType != "Degraded" ||
+		d.Issues[1].ConditionType != "TLSReady" {
+		t.Fatalf("condition identities collapsed: %+v", d.Issues)
+	}
+	id := d.Issues[0].ID
+	report.Findings[0].Severity, report.Findings[0].Summary = diagnose.Info, "Changed wording."
+	report.Policy.ReferenceTime = report.Policy.ReferenceTime.Add(time.Minute)
+	Apply(&d, report)
+	if d.Issues[0].ID != id {
+		t.Fatal("severity, wording, or reference time changed condition identity")
+	}
+}
+
 func TestInsufficientCoverageCannotBecomeHealthy(t *testing.T) {
 	ready := int32(3)
 	d := fleet.Deployment{ID: "deployment", ReadyReplicas: &ready, DesiredReplicas: &ready}

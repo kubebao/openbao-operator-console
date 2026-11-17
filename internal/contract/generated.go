@@ -513,10 +513,12 @@ func (e FindingChangePreviousSeverity) Valid() bool {
 
 // Defines values for FindingChangeRule.
 const (
+	FindingChangeRuleAvailability           FindingChangeRule = "availability"
 	FindingChangeRuleBackupFailed           FindingChangeRule = "backup-failed"
 	FindingChangeRuleBackupNeverSucceeded   FindingChangeRule = "backup-never-succeeded"
 	FindingChangeRuleBackupOverdue          FindingChangeRule = "backup-overdue"
 	FindingChangeRuleCollection             FindingChangeRule = "collection"
+	FindingChangeRuleOperatorCondition      FindingChangeRule = "operator-condition"
 	FindingChangeRuleRecoveryInvestigate    FindingChangeRule = "recovery-investigate"
 	FindingChangeRuleReplicaHistoryConflict FindingChangeRule = "replica-history-conflict"
 	FindingChangeRuleReplicaReadiness       FindingChangeRule = "replica-readiness"
@@ -528,6 +530,8 @@ const (
 // Valid indicates whether the value is a known member of the FindingChangeRule enum.
 func (e FindingChangeRule) Valid() bool {
 	switch e {
+	case FindingChangeRuleAvailability:
+		return true
 	case FindingChangeRuleBackupFailed:
 		return true
 	case FindingChangeRuleBackupNeverSucceeded:
@@ -535,6 +539,8 @@ func (e FindingChangeRule) Valid() bool {
 	case FindingChangeRuleBackupOverdue:
 		return true
 	case FindingChangeRuleCollection:
+		return true
+	case FindingChangeRuleOperatorCondition:
 		return true
 	case FindingChangeRuleRecoveryInvestigate:
 		return true
@@ -1434,6 +1440,8 @@ type EvidenceProducerFreshness string
 
 // FindingChange A finding identified by its rule. severity is the current severity, or the last severity of a resolved finding. previousSeverity is set only for findingSeverityChanged.
 type FindingChange struct {
+	// ConditionType The operator condition that produced this finding. Omitted for findings without a condition or older retained events.
+	ConditionType    *string                        `json:"conditionType,omitempty"`
 	PreviousSeverity *FindingChangePreviousSeverity `json:"previousSeverity"`
 	Rule             FindingChangeRule              `json:"rule"`
 	Severity         FindingChangeSeverity          `json:"severity"`
@@ -1508,7 +1516,10 @@ type IdentityTrialAccessRules string
 
 // Issue defines model for Issue.
 type Issue struct {
-	Category      IssueCategory `json:"category"`
+	Category IssueCategory `json:"category"`
+
+	// ConditionType The operator condition that produced this finding. Omitted for findings without a condition or older retained findings.
+	ConditionType *string       `json:"conditionType,omitempty"`
 	DeploymentId  string        `json:"deploymentId"`
 	Detail        string        `json:"detail"`
 	FirstSeenAt   time.Time     `json:"firstSeenAt"`

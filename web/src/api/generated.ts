@@ -498,6 +498,8 @@ export interface components {
             readonly id: string;
             readonly deploymentId: string;
             readonly rule: string;
+            /** @description The operator condition that produced this finding. Omitted for findings without a condition or older retained findings. */
+            readonly conditionType?: string;
             /** @enum {string} */
             readonly severity: "critical" | "high" | "info";
             /** @enum {string} */
@@ -601,8 +603,10 @@ export interface components {
         };
         /** @description A finding identified by its rule. severity is the current severity, or the last severity of a resolved finding. previousSeverity is set only for findingSeverityChanged. */
         readonly FindingChange: {
+            /** @description The operator condition that produced this finding. Omitted for findings without a condition or older retained events. */
+            readonly conditionType?: string;
             /** @enum {string} */
-            readonly rule: "replica-readiness" | "sealed" | "upgrade-failed" | "backup-failed" | "backup-never-succeeded" | "backup-overdue" | "restore-test" | "replica-history-conflict" | "recovery-investigate" | "collection";
+            readonly rule: "replica-readiness" | "availability" | "operator-condition" | "sealed" | "upgrade-failed" | "backup-failed" | "backup-never-succeeded" | "backup-overdue" | "restore-test" | "replica-history-conflict" | "recovery-investigate" | "collection";
             /** @enum {string} */
             readonly severity: "critical" | "high" | "info";
             /** @enum {string|null} */

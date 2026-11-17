@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { Issue } from '../api/schema'
-import { dimensionSeverity, fieldSeverity, findingLocation, tabSeverity } from './findings'
+import {
+  conditionSeverity,
+  dimensionSeverity,
+  fieldSeverity,
+  findingLocation,
+  tabSeverity,
+} from './findings'
 
 function issue(rule: string, severity: Issue['severity']): Issue {
   return {
@@ -25,6 +31,22 @@ describe('finding locations', () => {
   })
   it('keeps unknown rules on the overview without claiming a field', () => {
     expect(findingLocation(issue('future-rule', 'high'))).toEqual({ tab: 'overview', fields: [] })
+  })
+  it('links operator findings to conditions and highlights only their source row', () => {
+    const condition = { ...issue('operator-condition', 'high'), conditionType: 'TLSReady' }
+    const deployment = {
+      issues: [
+        condition,
+        { ...issue('availability', 'high'), conditionType: 'Available' },
+        issue('sealed', 'critical'),
+      ],
+    }
+    expect(findingLocation(condition).tab).toBe('conditions')
+    expect(conditionSeverity(deployment, 'TLSReady')).toBe('high')
+    expect(conditionSeverity(deployment, 'Available')).toBe('high')
+    expect(conditionSeverity(deployment, 'OpenBaoSealed')).toBe('critical')
+    expect(conditionSeverity(deployment, 'StorageConfigured')).toBeNull()
+    expect(dimensionSeverity(deployment, 'availability')).toBe('critical')
   })
   it('reports the strongest severity per tab and field', () => {
     const deployment = {

@@ -159,6 +159,7 @@ func issueContract(i fleet.Issue) contract.Issue {
 		Id:            i.ID,
 		DeploymentId:  i.DeploymentID,
 		Rule:          string(i.Rule),
+		ConditionType: optionalText(i.ConditionType),
 		Severity:      contract.IssueSeverity(i.Severity),
 		Category:      contract.IssueCategory(i.Category),
 		Title:         i.Title,
@@ -166,6 +167,13 @@ func issueContract(i fleet.Issue) contract.Issue {
 		FirstSeenAt:   i.FirstSeenAt,
 		LastCheckedAt: i.LastCheckedAt,
 	}
+}
+
+func optionalText(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 func backupContract(b fleet.Backup) contract.Backup {
@@ -241,8 +249,9 @@ func activityContract(a fleet.Activity) contract.Activity {
 		}),
 		Finding: optional(a.Finding, func(c fleet.FindingChange) contract.FindingChange {
 			return contract.FindingChange{
-				Rule:     contract.FindingChangeRule(c.Rule),
-				Severity: contract.FindingChangeSeverity(c.Severity),
+				Rule:          contract.FindingChangeRule(c.Rule),
+				ConditionType: optionalText(c.ConditionType),
+				Severity:      contract.FindingChangeSeverity(c.Severity),
 				PreviousSeverity: optional(c.PreviousSeverity, func(s fleet.Severity) contract.FindingChangePreviousSeverity {
 					return contract.FindingChangePreviousSeverity(s)
 				}),

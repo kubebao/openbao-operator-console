@@ -2,8 +2,18 @@ import type { Page } from '@playwright/test'
 import { snapshotSchema } from '../src/api/schema'
 import { expect, test } from '@playwright/test'
 import { administrator } from '../e2e/fixtures/administrator'
+import { conditionFindings } from '../e2e/fixtures/condition-findings'
 
 const output = '../docs/images'
+
+test('operator condition findings documentation screenshot', async ({ page }) => {
+  await conditionFindings(page)
+  await page.goto('/deployments/customer-x?tab=conditions')
+  await expect(page.locator('.condition').filter({ hasText: 'TLSReady' })).toHaveClass(
+    /finding-high/,
+  )
+  await capture(page, 'operator-conditions')
+})
 
 test('API group enrollment documentation screenshot', async ({ page }) => {
   // Fictional administrator enrollment; the API fixture does not contact Kubernetes.

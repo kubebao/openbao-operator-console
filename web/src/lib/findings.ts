@@ -15,6 +15,8 @@ export const tabLabels: Record<DeploymentTab, string> = {
 // Evidence rows that a finding can point to. Each value names one rendered detail row.
 export type EvidenceField =
   | 'replicas'
+  | 'availability'
+  | 'conditions'
   | 'sealed'
   | 'collection'
   | 'replicaHistory'
@@ -33,6 +35,8 @@ interface FindingLocation {
 // where every finding is listed.
 const locations: Record<string, FindingLocation> = {
   'replica-readiness': { tab: 'overview', fields: ['replicas'] },
+  availability: { tab: 'conditions', fields: ['availability'] },
+  'operator-condition': { tab: 'conditions', fields: ['conditions'] },
   sealed: { tab: 'conditions', fields: ['sealed'] },
   collection: { tab: 'overview', fields: ['collection'] },
   'replica-history-conflict': { tab: 'lifecycle', fields: ['replicaHistory'] },
@@ -75,11 +79,26 @@ export function fieldSeverity(
   )
 }
 
+// A condition finding highlights only the row that supplied its evidence. Older sealed
+// findings have no conditionType and keep their original row association.
+export function conditionSeverity(
+  deployment: Pick<Deployment, 'issues'>,
+  conditionType: string,
+): Issue['severity'] | null {
+  return strongest(
+    deployment.issues.filter(
+      (issue) =>
+        issue.conditionType === conditionType ||
+        (issue.rule === 'sealed' && conditionType === 'OpenBaoSealed'),
+    ),
+  )
+}
+
 // Overview tiles summarize groups of evidence rows.
 export type EvidenceDimension = 'availability' | 'backups' | 'restoreTest' | 'lifecycle'
 
 const dimensions: Record<EvidenceDimension, readonly EvidenceField[]> = {
-  availability: ['replicas', 'sealed'],
+  availability: ['replicas', 'sealed', 'availability', 'conditions'],
   backups: ['backupFailures', 'backupSuccess'],
   restoreTest: ['restoreTest'],
   lifecycle: ['upgrade', 'recovery', 'replicaHistory'],

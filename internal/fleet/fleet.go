@@ -117,6 +117,7 @@ type Issue struct {
 	ID            string    `json:"id"`
 	DeploymentID  string    `json:"deploymentId"`
 	Rule          Rule      `json:"rule"`
+	ConditionType string    `json:"conditionType,omitempty"`
 	Severity      Severity  `json:"severity"`
 	Category      Category  `json:"category"`
 	Title         string    `json:"title"`
@@ -226,6 +227,7 @@ type CollectionChange struct {
 // last severity of a resolved finding. PreviousSeverity is set only for a severity change.
 type FindingChange struct {
 	Rule             Rule      `json:"rule"`
+	ConditionType    string    `json:"conditionType,omitempty"`
 	Severity         Severity  `json:"severity"`
 	PreviousSeverity *Severity `json:"previousSeverity,omitempty"`
 }

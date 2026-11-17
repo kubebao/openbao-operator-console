@@ -87,6 +87,12 @@ re-enrollment, restart, rejected edits without committed changes, and encrypted 
 Browser tests cover both API choices through onboarding and edit. Generated-contract checks verify OpenAPI and sqlc
 outputs against their inputs.
 
+Synthetic condition checks cover both API groups with ready voters and adverse availability, degraded, TLS, and
+configured read-pool conditions. Unknown and stale conditions retain incomplete analysis; an encryption-at-rest advisory
+remains informational. Storage tests cover separate condition episodes, first-seen times, restart, incomplete reads,
+and resolution. Browser fixtures verify links and matching condition rows. These checks do not extend the operator
+integration baselines above.
+
 ### Backup failure-count evidence
 
 The operator omits a zero `status.backup.consecutiveFailures`. The inspected adapter implies zero only when backup

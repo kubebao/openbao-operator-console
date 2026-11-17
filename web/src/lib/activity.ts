@@ -7,6 +7,8 @@ import { severityRank } from './findings'
 // Rule names match the finding titles of internal/evidence/rules.go.
 export const ruleLabels: Record<FindingRule, string> = {
   'replica-readiness': 'Replicas need attention',
+  availability: 'Operator reports unavailable',
+  'operator-condition': 'Operator condition',
   sealed: 'OpenBao is sealed',
   'upgrade-failed': 'Upgrade requires investigation',
   'backup-failed': 'Backup failed',
@@ -26,6 +28,13 @@ const severityLabels: Record<Issue['severity'], string> = {
 
 type Finding = NonNullable<Activity['finding']>
 
+function findingLabel(finding: Finding): string {
+  const label = ruleLabels[finding.rule]
+  return finding.rule === 'operator-condition' && finding.conditionType
+    ? `${label}: ${finding.conditionType}`
+    : label
+}
+
 function findingTone(severity: Issue['severity']): Change['tone'] {
   return severity === 'critical' ? 'critical' : 'warning'
 }
@@ -34,7 +43,7 @@ function severityChange(finding: Finding): Change {
   const previous = finding.previousSeverity ?? finding.severity
   const raised = severityRank[finding.severity] < severityRank[previous]
   return {
-    title: `Finding ${raised ? 'escalated' : 'eased'}: ${ruleLabels[finding.rule]}`,
+    title: `Finding ${raised ? 'escalated' : 'eased'}: ${findingLabel(finding)}`,
     detail: `Severity ${severityLabels[previous]} → ${severityLabels[finding.severity]}`,
     tone: raised ? findingTone(finding.severity) : 'neutral',
   }
@@ -62,14 +71,14 @@ export function describeActivity(event: Activity): Change {
     case 'findingRaised':
       return finding
         ? {
-            title: `Finding raised: ${ruleLabels[finding.rule]}`,
+            title: `Finding raised: ${findingLabel(finding)}`,
             detail: `Severity ${severityLabels[finding.severity]}`,
             tone: findingTone(finding.severity),
           }
         : missing
     case 'findingResolved':
       return finding
-        ? { title: `Finding resolved: ${ruleLabels[finding.rule]}`, tone: 'success' }
+        ? { title: `Finding resolved: ${findingLabel(finding)}`, tone: 'success' }
         : missing
     case 'findingSeverityChanged':
       return finding ? severityChange(finding) : missing

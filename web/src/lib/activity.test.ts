@@ -71,4 +71,24 @@ describe('activity events', () => {
         .success,
     ).toBe(false)
   })
+  it('names the condition in new events and accepts older events without it', () => {
+    const event = activityFixture({
+      kind: 'findingResolved',
+      health: null,
+      finding: {
+        rule: 'operator-condition',
+        conditionType: 'TLSReady',
+        severity: 'high',
+        previousSeverity: null,
+      },
+    })
+    expect(activitySchema.safeParse(event).success).toBe(true)
+    expect(describeActivity(event).title).toBe('Finding resolved: Operator condition: TLSReady')
+    expect(
+      activitySchema.safeParse({
+        ...event,
+        finding: { rule: 'operator-condition', severity: 'high', previousSeverity: null },
+      }).success,
+    ).toBe(true)
+  })
 })
