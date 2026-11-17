@@ -2,7 +2,7 @@ import { AlertCircle, CheckCircle2, CircleHelp, Info, ListChecks, RefreshCw } fr
 import type { Deployment } from '../../api/schema'
 import type { ConditionAssessment } from '../../lib/conditions'
 import { assessConditions, assessmentLabels } from '../../lib/conditions'
-import { fieldSeverity } from '../../lib/findings'
+import { conditionSeverity } from '../../lib/findings'
 import type { Observation } from '../../lib/history'
 import { conditionTransitions } from '../../lib/history'
 import { EmptyState } from '../page'
@@ -34,7 +34,6 @@ export function ConditionsTab({
         The operator has not published status conditions for this resource.
       </EmptyState>
     )
-  const sealedFinding = fieldSeverity(deployment, 'sealed')
   return (
     <section className="detail-section">
       <SectionTitle
@@ -47,7 +46,7 @@ export function ConditionsTab({
         {views.map(({ condition, assessment, outdated }) => {
           const Icon = icons[assessment]
           const transition = transitions.get(condition.type)
-          const finding = condition.type === 'OpenBaoSealed' ? sealedFinding : null
+          const finding = conditionSeverity(deployment, condition.type)
           return (
             <li
               key={condition.type}

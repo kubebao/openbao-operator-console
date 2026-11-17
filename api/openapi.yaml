@@ -1397,6 +1397,11 @@
                   "id": { "type": "string" },
                   "deploymentId": { "type": "string" },
                   "rule": { "type": "string" },
+                  "conditionType":
+                    {
+                      "type": "string",
+                      "description": "The operator condition that produced this finding. Omitted for findings without a condition or older retained findings.",
+                    },
                   "severity":
                     { "type": "string", "enum": ["critical", "high", "info"] },
                   "category":
@@ -1732,12 +1737,19 @@
               "required": ["rule", "severity", "previousSeverity"],
               "properties":
                 {
+                  "conditionType":
+                    {
+                      "type": "string",
+                      "description": "The operator condition that produced this finding. Omitted for findings without a condition or older retained events.",
+                    },
                   "rule":
                     {
                       "type": "string",
                       "enum":
                         [
                           "replica-readiness",
+                          "availability",
+                          "operator-condition",
                           "sealed",
                           "upgrade-failed",
                           "backup-failed",

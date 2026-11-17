@@ -32,7 +32,10 @@ func testCluster() map[string]any {
 			"observedGeneration": 4,
 			"readyReplicas":      3,
 			"currentVersion":     "2.7.0",
-			"conditions":         []any{map[string]any{"type": "OpenBaoSealed", "status": "False", "observedGeneration": 4}},
+			"conditions": []any{
+				map[string]any{"type": "Available", "status": "True", "observedGeneration": 4},
+				map[string]any{"type": "OpenBaoSealed", "status": "False", "observedGeneration": 4},
+			},
 		},
 	}
 }

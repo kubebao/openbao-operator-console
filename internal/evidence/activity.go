@@ -52,19 +52,21 @@ func Transitions(previous, current fleet.Deployment, at time.Time) []fleet.Activ
 		switch {
 		case !existed:
 			change := event(fleet.ActivityFindingRaised, strings.TrimPrefix(issue.ID, current.ID+":"))
-			change.Finding = &fleet.FindingChange{Rule: issue.Rule, Severity: issue.Severity}
+			change.Finding = &fleet.FindingChange{Rule: issue.Rule, ConditionType: issue.ConditionType, Severity: issue.Severity}
 			events = append(events, change)
 		case old.Severity != issue.Severity:
 			change := event(fleet.ActivityFindingSeverityChanged, strings.TrimPrefix(issue.ID, current.ID+":"))
 			previousSeverity := old.Severity
-			change.Finding = &fleet.FindingChange{Rule: issue.Rule, Severity: issue.Severity, PreviousSeverity: &previousSeverity}
+			change.Finding = &fleet.FindingChange{
+				Rule: issue.Rule, ConditionType: issue.ConditionType, Severity: issue.Severity, PreviousSeverity: &previousSeverity,
+			}
 			events = append(events, change)
 		}
 	}
 	for _, issue := range previous.Issues {
 		if _, remains := after[issue.ID]; !remains {
 			change := event(fleet.ActivityFindingResolved, strings.TrimPrefix(issue.ID, current.ID+":"))
-			change.Finding = &fleet.FindingChange{Rule: issue.Rule, Severity: issue.Severity}
+			change.Finding = &fleet.FindingChange{Rule: issue.Rule, ConditionType: issue.ConditionType, Severity: issue.Severity}
 			events = append(events, change)
 		}
 	}

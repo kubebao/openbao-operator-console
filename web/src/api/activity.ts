@@ -39,8 +39,11 @@ export const activityObject = z
     collection: z.object({ from: collection, to: collection }).nullable(),
     finding: z
       .object({
+        conditionType: z.string().exactOptional(),
         rule: z.enum([
           'replica-readiness',
+          'availability',
+          'operator-condition',
           'sealed',
           'upgrade-failed',
           'backup-failed',

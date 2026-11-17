@@ -34,6 +34,8 @@ The Fleet view sorts by state in that order: critical, attention, unknown, then 
 | Finding | Severity | Category | Triggered when | Evidence shown on |
 | --- | --- | --- | --- | --- |
 | Replicas need attention | Critical when 0 ready, otherwise high | Service availability | Ready replicas are below desired replicas after the startup grace period. The operator omits a zero ready count; it counts as zero once the operator has observed the current generation | Overview: ready / desired replicas |
+| Operator reports unavailable | High | Service availability | The operator reports `Available=False` with current resource and condition acknowledgement | Conditions tab: `Available` |
+| Operator condition: *type* | High, or info for `EtcdEncryptionWarning` | Service availability | A recognized current condition reports an adverse state, such as `Degraded=True`, `TLSReady=False`, or `ReadServingAvailable=False` | Conditions tab: matching condition |
 | OpenBao is sealed | Critical | Service availability | The operator reports `OpenBaoSealed=True` for the current resource generation | Conditions tab |
 | Upgrade requires investigation | High | Operations | The operator records an upgrade failure | Lifecycle tab |
 | Recovery requires investigation | High | Operations | A UID-confirmed snapshot restore reports failure, an unknown outcome, failed cleanup, or failed follow-through. An omitted phase remains unknown; it does not imply acceptance | Lifecycle tab |
@@ -46,6 +48,16 @@ The Fleet view sorts by state in that order: critical, attention, unknown, then 
 Paused clusters do not raise replica or sealed findings. Condition acknowledgement must equal the positive resource generation. Missing, stale, and inconsistent
 acknowledgement cannot establish a current finding. Resource acknowledgement and individual condition acknowledgement
 remain separate.
+
+Availability and recognized-condition rules run even when all voter replicas are ready. Read-replica conditions are
+excluded when the specification has no read pool or reports zero desired replicas. If pool configuration is unknown,
+the operator's `NoReadReplicasConfigured` reason excludes them. `EtcdEncryptionWarning=True` is informational because
+the operator cannot inspect API-server encryption at rest; the advisory alone does not change deployment health.
+Unknown or unacknowledged conditions keep selected analysis incomplete. Each condition finding has its own stable
+identity, so simultaneous conditions retain separate first-seen times and history. Findings open the Conditions tab
+and highlight the matching row.
+
+![Current availability and TLS condition findings, using demonstration data](images/operator-conditions.png)
 
 ## Policies
 

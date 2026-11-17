@@ -20,6 +20,8 @@ type ruleMapping struct {
 
 var mappings = []ruleMapping{
 	{diagnose.RuleReadiness, fleet.RuleReplicaReadiness, fleet.CategoryAvailability, "Replicas need attention"},
+	{diagnose.RuleAvailability, fleet.RuleAvailability, fleet.CategoryAvailability, "Operator reports unavailable"},
+	{diagnose.RuleCondition, fleet.RuleOperatorCondition, fleet.CategoryAvailability, "Operator condition"},
 	{diagnose.RuleSealed, fleet.RuleSealed, fleet.CategoryAvailability, "OpenBao is sealed"},
 	{diagnose.RuleUpgrade, fleet.RuleUpgradeFailed, fleet.CategoryOperations, "Upgrade requires investigation"},
 	{diagnose.RuleBackupFailed, fleet.RuleBackupFailed, fleet.CategoryBackup, "Backup failed"},
@@ -55,33 +57,48 @@ func Apply(deployment *fleet.Deployment, report diagnose.Report) []fleet.Rule {
 			if f.Rule != m.shared {
 				continue
 			}
-			severity := fleet.SeverityHigh
-			switch f.Severity {
-			case diagnose.Critical:
-				severity = fleet.SeverityCritical
-			case diagnose.Info:
-				severity = fleet.SeverityInfo
+			if issue, ok := mapFinding(deployment.ID, m, f, report.Policy.ReferenceTime); ok {
+				deployment.Issues = append(deployment.Issues, issue)
 			}
-			id := deployment.ID + ":" + string(m.local)
-			detail := f.Summary
-			if f.Subject.Kind == "OpenBaoRestore" {
-				key, err := f.Key()
-				if err != nil {
-					continue
-				}
-				sum := sha256.Sum256([]byte(key))
-				id += ":" + hex.EncodeToString(sum[:16])
-				detail = "Restore " + f.Subject.Name + ": " + detail
-			}
-			deployment.Issues = append(deployment.Issues, fleet.Issue{
-				ID: id, DeploymentID: deployment.ID, Rule: m.local,
-				Severity: severity, Category: m.category, Title: m.title, Detail: detail,
-				FirstSeenAt: report.Policy.ReferenceTime, LastCheckedAt: report.Policy.ReferenceTime,
-			})
 		}
 	}
 	deployment.Health = health(*deployment)
 	return unresolved
+}
+
+func mapFinding(deploymentID string, mapping ruleMapping, finding diagnose.Finding, at time.Time) (fleet.Issue, bool) {
+	severity := fleet.SeverityHigh
+	switch finding.Severity {
+	case diagnose.Critical:
+		severity = fleet.SeverityCritical
+	case diagnose.Info:
+		severity = fleet.SeverityInfo
+	}
+	id := deploymentID + ":" + string(mapping.local)
+	detail, title, conditionType := finding.Summary, mapping.title, ""
+	if finding.Rule == diagnose.RuleAvailability {
+		conditionType = "Available"
+	}
+	if finding.Rule == diagnose.RuleCondition {
+		conditionType = finding.Subsubject
+		title += ": " + conditionType
+	}
+	if finding.Subject.Kind == "OpenBaoRestore" || finding.Subsubject != "" {
+		key, err := finding.Key()
+		if err != nil {
+			return fleet.Issue{}, false
+		}
+		sum := sha256.Sum256([]byte(key))
+		id += ":" + hex.EncodeToString(sum[:16])
+		if finding.Subject.Kind == "OpenBaoRestore" {
+			detail = "Restore " + finding.Subject.Name + ": " + detail
+		}
+	}
+	return fleet.Issue{
+		ID: id, DeploymentID: deploymentID, Rule: mapping.local,
+		Severity: severity, Category: mapping.category, Title: title, Detail: detail, ConditionType: conditionType,
+		FirstSeenAt: at, LastCheckedAt: at,
+	}, true
 }
 
 // RefreshHealth recomputes the product summary after retaining unresolved findings.

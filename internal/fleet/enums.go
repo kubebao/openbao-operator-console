@@ -127,6 +127,8 @@ type Rule string
 
 const (
 	RuleReplicaReadiness       Rule = "replica-readiness"
+	RuleAvailability           Rule = "availability"
+	RuleOperatorCondition      Rule = "operator-condition"
 	RuleSealed                 Rule = "sealed"
 	RuleUpgradeFailed          Rule = "upgrade-failed"
 	RuleBackupFailed           Rule = "backup-failed"
