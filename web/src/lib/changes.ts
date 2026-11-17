@@ -74,6 +74,15 @@ export function collectionChange(from: Collection, to: Collection): Change {
   }
 }
 
+// Evaluation times change each poll; only recorded causes describe a coverage change.
+function gapCauses(deployment: Deployment) {
+  return (deployment.evidence.analysisGaps ?? []).map((gap) => ({
+    rule: gap.rule,
+    reasons: gap.reasons,
+    collectionOutcome: gap.collectionOutcome,
+  }))
+}
+
 function stateChanges(previous: Deployment, current: Deployment): Change[] {
   const changes: Change[] = []
   if (previous.health !== current.health)
@@ -81,6 +90,17 @@ function stateChanges(previous: Deployment, current: Deployment): Change[] {
   const before = previous.evidence.collection
   const after = current.evidence.collection
   if (before !== after) changes.push(collectionChange(before, after))
+  if (previous.observedGeneration !== current.observedGeneration)
+    changes.push({
+      title: 'Resource acknowledgement updated',
+      detail: `Observed generation ${replicas(previous.observedGeneration)} → ${replicas(current.observedGeneration)}`,
+      tone: 'neutral',
+    })
+  if (
+    previous.evidence.analysisIncomplete !== current.evidence.analysisIncomplete ||
+    JSON.stringify(gapCauses(previous)) !== JSON.stringify(gapCauses(current))
+  )
+    changes.push({ title: 'Recorded diagnostic coverage changed', tone: 'neutral' })
   return changes
 }
 

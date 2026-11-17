@@ -52,12 +52,17 @@ func TestObservationChangedIgnoresStatusChurn(t *testing.T) {
 
 func TestObservationChangedDetectsDisplayedChanges(t *testing.T) {
 	for name, change := range map[string]func(*fleet.Deployment){
-		"ready replicas": func(d *fleet.Deployment) { ready := int32(2); d.ReadyReplicas = &ready },
-		"condition":      func(d *fleet.Deployment) { d.Conditions[0].Status = "False" },
-		"health":         func(d *fleet.Deployment) { d.Health = "attention" },
-		"collection":     func(d *fleet.Deployment) { d.Evidence.Collection = "unreachable" },
-		"finding detail": func(d *fleet.Deployment) { d.Issues[0].Detail = "2" },
-		"generation":     func(d *fleet.Deployment) { d.Generation = 4 },
+		"ready replicas":      func(d *fleet.Deployment) { ready := int32(2); d.ReadyReplicas = &ready },
+		"condition":           func(d *fleet.Deployment) { d.Conditions[0].Status = "False" },
+		"health":              func(d *fleet.Deployment) { d.Health = "attention" },
+		"collection":          func(d *fleet.Deployment) { d.Evidence.Collection = "unreachable" },
+		"finding detail":      func(d *fleet.Deployment) { d.Issues[0].Detail = "2" },
+		"generation":          func(d *fleet.Deployment) { d.Generation = 4 },
+		"observed generation": func(d *fleet.Deployment) { value := int64(3); d.ObservedGeneration = &value },
+		"analysis gap": func(d *fleet.Deployment) {
+			d.Evidence.AnalysisIncomplete = true
+			d.Evidence.AnalysisGaps = []fleet.DiagnosticGap{{Rule: fleet.RuleSealed, Reasons: []fleet.DiagnosticReason{"missing_field"}}}
+		},
 		"history conflict": func(d *fleet.Deployment) {
 			d.Replica = &fleet.Replica{
 				ObservedAt:      d.Replica.ObservedAt,
@@ -73,5 +78,22 @@ func TestObservationChangedDetectsDisplayedChanges(t *testing.T) {
 		if !observationChanged(current, previous) {
 			t.Fatalf("%s change was not recorded", name)
 		}
+	}
+}
+
+func TestObservationIgnoresGapCheckTimeButRecordsChangedCause(t *testing.T) {
+	previous, current := observationFixture(), observationFixture()
+	previous.Evidence.AnalysisGaps = []fleet.DiagnosticGap{{
+		Rule:    fleet.RuleSealed,
+		Reasons: []fleet.DiagnosticReason{"missing_field"}, CollectionOutcome: "complete", CheckedAt: time.Now().UTC(),
+	}}
+	current.Evidence.AnalysisGaps = append([]fleet.DiagnosticGap{}, previous.Evidence.AnalysisGaps...)
+	current.Evidence.AnalysisGaps[0].CheckedAt = previous.Evidence.AnalysisGaps[0].CheckedAt.Add(time.Minute)
+	if observationChanged(current, previous) {
+		t.Fatal("analysis time alone created history")
+	}
+	current.Evidence.AnalysisGaps[0].Reasons = []fleet.DiagnosticReason{"generation_unconfirmed"}
+	if !observationChanged(current, previous) {
+		t.Fatal("changed gap cause was not recorded")
 	}
 }

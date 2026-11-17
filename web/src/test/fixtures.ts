@@ -8,6 +8,7 @@ export function deploymentFixture(overrides: Partial<Deployment> = {}): Deployme
     uid: 'fixture-uid',
     resourceVersion: '1',
     generation: 3,
+    observedGeneration: 3,
     name: 'fixture-bao',
     namespace: 'fixture',
     connectionId: 'fixture-cluster',

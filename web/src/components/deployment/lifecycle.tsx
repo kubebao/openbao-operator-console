@@ -54,9 +54,13 @@ function RecoverySteps({ recovery }: { recovery: Recovery }) {
   )
 }
 
-function generationLabel(observed: number | null, requested: number): string {
+function generationLabel(observed: number | null, requested: number, lastKnown: boolean): string {
+  if (lastKnown)
+    return observed === null
+      ? 'Acknowledgement last known; generation not recorded'
+      : `Last reported generation ${String(observed)}`
   if (observed === null || observed <= 0 || requested <= 0)
-    return 'Condition acknowledgement unknown'
+    return 'Resource acknowledgement unknown'
   if (observed === requested) return `Generation ${String(observed)} (current)`
   return `Generation ${String(observed)} of ${String(requested)}${observed > requested ? ' (inconsistent)' : ''}`
 }
@@ -69,7 +73,7 @@ function VersionSection({ deployment }: { deployment: Deployment }) {
       <SectionTitle
         icon={<Package size={17} />}
         tipLabel="About upgrades"
-        tip="Upgrade state comes from the operator's recorded failure, its Upgrading condition, and the requested and running versions. Inspect the operator's post-upgrade checks before retrying a failed upgrade."
+        tip="Upgrade status requires current resource acknowledgement and a current Upgrading condition when reported. Matching versions do not prove that post-upgrade checks passed. Inspect the recorded failure before retrying."
       >
         Version
       </SectionTitle>
@@ -87,7 +91,7 @@ function VersionSection({ deployment }: { deployment: Deployment }) {
           ...(failure
             ? [
                 {
-                  label: 'Failure reason',
+                  label: 'Recorded failure reason',
                   value: <code>{failure.reason || 'Not reported'}</code>,
                   finding: fieldSeverity(deployment, 'upgrade'),
                 },
@@ -106,7 +110,7 @@ function ReconciliationSection({ deployment }: { deployment: Deployment }) {
       <SectionTitle
         icon={<Workflow size={17} />}
         tipLabel="About reconciliation"
-        tip="Conditions carry the generation the operator last acted on. A lower generation means a specification change has not been reconciled yet."
+        tip="The status observed generation acknowledges the resource specification. Each condition has its own acknowledgement; a current resource acknowledgement does not make every condition current."
       >
         Reconciliation
       </SectionTitle>
@@ -114,8 +118,12 @@ function ReconciliationSection({ deployment }: { deployment: Deployment }) {
         rows={[
           { label: 'Resource generation', value: deployment.generation },
           {
-            label: 'Reported by operator',
-            value: generationLabel(observedGeneration(deployment), deployment.generation),
+            label: 'Status observed generation',
+            value: generationLabel(
+              observedGeneration(deployment),
+              deployment.generation,
+              deployment.evidence.collection !== 'current',
+            ),
           },
           { label: 'Operator version label', value: deployment.operatorVersion ?? 'Not observed' },
         ]}

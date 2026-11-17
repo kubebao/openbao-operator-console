@@ -74,31 +74,32 @@ type Capability struct {
 
 // Deployment is the approved projection of one OpenBaoCluster and its evaluation.
 type Deployment struct {
-	ID              string            `json:"id"`
-	UID             string            `json:"uid"`
-	Name            string            `json:"name"`
-	Namespace       string            `json:"namespace"`
-	ConnectionID    string            `json:"connectionId"`
-	Team            string            `json:"team"`
-	Environment     Environment       `json:"environment"`
-	Location        string            `json:"location"`
-	Generation      int64             `json:"generation"`
-	ResourceVersion string            `json:"resourceVersion"`
-	Version         string            `json:"version"`
-	DesiredVersion  string            `json:"desiredVersion"`
-	ReadyReplicas   *int32            `json:"readyReplicas"`
-	DesiredReplicas *int32            `json:"desiredReplicas"`
-	Role            Role              `json:"role"`
-	Health          Health            `json:"health"`
-	OperatorID      *string           `json:"operatorId"`
-	OperatorVersion *string           `json:"operatorVersion"`
-	Conditions      []Condition       `json:"conditions"`
-	Issues          []Issue           `json:"issues"`
-	Evidence        Evidence          `json:"evidence"`
-	UpgradeFailure  *OperationFailure `json:"upgradeFailure"`
-	Backup          *Backup           `json:"backup"`
-	Replica         *Replica          `json:"replica"`
-	Recovery        *Recovery         `json:"recovery"`
+	ID                 string            `json:"id"`
+	UID                string            `json:"uid"`
+	Name               string            `json:"name"`
+	Namespace          string            `json:"namespace"`
+	ConnectionID       string            `json:"connectionId"`
+	Team               string            `json:"team"`
+	Environment        Environment       `json:"environment"`
+	Location           string            `json:"location"`
+	Generation         int64             `json:"generation"`
+	ObservedGeneration *int64            `json:"observedGeneration"`
+	ResourceVersion    string            `json:"resourceVersion"`
+	Version            string            `json:"version"`
+	DesiredVersion     string            `json:"desiredVersion"`
+	ReadyReplicas      *int32            `json:"readyReplicas"`
+	DesiredReplicas    *int32            `json:"desiredReplicas"`
+	Role               Role              `json:"role"`
+	Health             Health            `json:"health"`
+	OperatorID         *string           `json:"operatorId"`
+	OperatorVersion    *string           `json:"operatorVersion"`
+	Conditions         []Condition       `json:"conditions"`
+	Issues             []Issue           `json:"issues"`
+	Evidence           Evidence          `json:"evidence"`
+	UpgradeFailure     *OperationFailure `json:"upgradeFailure"`
+	Backup             *Backup           `json:"backup"`
+	Replica            *Replica          `json:"replica"`
+	Recovery           *Recovery         `json:"recovery"`
 }
 
 // Condition is an operator status condition. The collector never retains raw operator
@@ -129,12 +130,26 @@ type Issue struct {
 // Evidence separates collection time from the producer's own observation time.
 type Evidence struct {
 	AnalysisIncomplete bool               `json:"analysisIncomplete,omitempty"`
+	AnalysisGaps       []DiagnosticGap    `json:"analysisGaps,omitempty"`
 	Collection         EvidenceCollection `json:"collection"`
 	CollectedAt        time.Time          `json:"collectedAt"`
 	LastAttemptAt      time.Time          `json:"lastAttemptAt"`
 	ProducerFreshness  Freshness          `json:"producerFreshness"`
 	ProducerObservedAt *time.Time         `json:"producerObservedAt"`
 }
+
+// DiagnosticGap retains bounded diagnostic codes, never provider text or related resource identities.
+type DiagnosticGap struct {
+	Rule              Rule               `json:"rule"`
+	Reasons           []DiagnosticReason `json:"reasons"`
+	CollectionOutcome DiagnosticRead     `json:"collectionOutcome"`
+	CheckedAt         time.Time          `json:"checkedAt"`
+}
+
+type (
+	DiagnosticReason string
+	DiagnosticRead   string
+)
 
 type OperationFailure struct {
 	Reason string     `json:"reason"`

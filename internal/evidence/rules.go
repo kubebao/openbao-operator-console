@@ -2,8 +2,10 @@
 package evidence
 
 import (
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
+	"slices"
 	"time"
 
 	"github.com/kubebao/openbao-operator-client/diagnose"
@@ -45,12 +47,14 @@ func Rules() []diagnose.RuleID {
 func Apply(deployment *fleet.Deployment, report diagnose.Report) []fleet.Rule {
 	deployment.Issues = []fleet.Issue{}
 	deployment.Evidence.AnalysisIncomplete = false
+	deployment.Evidence.AnalysisGaps = nil
 	unresolved := []fleet.Rule{}
 	for _, m := range mappings {
 		for _, c := range report.Coverage {
 			if c.Rule == m.shared && c.State == diagnose.Insufficient {
 				deployment.Evidence.AnalysisIncomplete = true
 				unresolved = append(unresolved, m.local)
+				appendGap(&deployment.Evidence, m.local, c, report.Policy.ReferenceTime)
 			}
 		}
 		for _, f := range report.Findings {
@@ -62,6 +66,9 @@ func Apply(deployment *fleet.Deployment, report diagnose.Report) []fleet.Rule {
 			}
 		}
 	}
+	slices.SortFunc(deployment.Evidence.AnalysisGaps, func(a, b fleet.DiagnosticGap) int {
+		return cmp.Or(cmp.Compare(a.Rule, b.Rule), cmp.Compare(a.CollectionOutcome, b.CollectionOutcome))
+	})
 	deployment.Health = health(*deployment)
 	return unresolved
 }

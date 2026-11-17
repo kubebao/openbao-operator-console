@@ -442,6 +442,126 @@ func (e DeploymentRole) Valid() bool {
 	}
 }
 
+// Defines values for DiagnosticGapCollectionOutcome.
+const (
+	DiagnosticGapCollectionOutcomeCancelled      DiagnosticGapCollectionOutcome = "cancelled"
+	DiagnosticGapCollectionOutcomeComplete       DiagnosticGapCollectionOutcome = "complete"
+	DiagnosticGapCollectionOutcomeDeleted        DiagnosticGapCollectionOutcome = "deleted"
+	DiagnosticGapCollectionOutcomeDenied         DiagnosticGapCollectionOutcome = "denied"
+	DiagnosticGapCollectionOutcomeExpired        DiagnosticGapCollectionOutcome = "expired"
+	DiagnosticGapCollectionOutcomeFailed         DiagnosticGapCollectionOutcome = "failed"
+	DiagnosticGapCollectionOutcomeInvalid        DiagnosticGapCollectionOutcome = "invalid"
+	DiagnosticGapCollectionOutcomeNotCollected   DiagnosticGapCollectionOutcome = "not_collected"
+	DiagnosticGapCollectionOutcomeNotRequested   DiagnosticGapCollectionOutcome = "not_requested"
+	DiagnosticGapCollectionOutcomePageLimit      DiagnosticGapCollectionOutcome = "page_limit"
+	DiagnosticGapCollectionOutcomePaginationLoop DiagnosticGapCollectionOutcome = "pagination_loop"
+	DiagnosticGapCollectionOutcomePartial        DiagnosticGapCollectionOutcome = "partial"
+	DiagnosticGapCollectionOutcomeRateLimited    DiagnosticGapCollectionOutcome = "rate_limited"
+	DiagnosticGapCollectionOutcomeReplaced       DiagnosticGapCollectionOutcome = "replaced"
+	DiagnosticGapCollectionOutcomeSizeLimit      DiagnosticGapCollectionOutcome = "size_limit"
+	DiagnosticGapCollectionOutcomeTimeout        DiagnosticGapCollectionOutcome = "timeout"
+	DiagnosticGapCollectionOutcomeUnknown        DiagnosticGapCollectionOutcome = "unknown"
+	DiagnosticGapCollectionOutcomeUnsupported    DiagnosticGapCollectionOutcome = "unsupported"
+)
+
+// Valid indicates whether the value is a known member of the DiagnosticGapCollectionOutcome enum.
+func (e DiagnosticGapCollectionOutcome) Valid() bool {
+	switch e {
+	case DiagnosticGapCollectionOutcomeCancelled:
+		return true
+	case DiagnosticGapCollectionOutcomeComplete:
+		return true
+	case DiagnosticGapCollectionOutcomeDeleted:
+		return true
+	case DiagnosticGapCollectionOutcomeDenied:
+		return true
+	case DiagnosticGapCollectionOutcomeExpired:
+		return true
+	case DiagnosticGapCollectionOutcomeFailed:
+		return true
+	case DiagnosticGapCollectionOutcomeInvalid:
+		return true
+	case DiagnosticGapCollectionOutcomeNotCollected:
+		return true
+	case DiagnosticGapCollectionOutcomeNotRequested:
+		return true
+	case DiagnosticGapCollectionOutcomePageLimit:
+		return true
+	case DiagnosticGapCollectionOutcomePaginationLoop:
+		return true
+	case DiagnosticGapCollectionOutcomePartial:
+		return true
+	case DiagnosticGapCollectionOutcomeRateLimited:
+		return true
+	case DiagnosticGapCollectionOutcomeReplaced:
+		return true
+	case DiagnosticGapCollectionOutcomeSizeLimit:
+		return true
+	case DiagnosticGapCollectionOutcomeTimeout:
+		return true
+	case DiagnosticGapCollectionOutcomeUnknown:
+		return true
+	case DiagnosticGapCollectionOutcomeUnsupported:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DiagnosticGapReasons.
+const (
+	DiagnosticGapReasonsAssociationUnconfirmed     DiagnosticGapReasons = "association_unconfirmed"
+	DiagnosticGapReasonsExcluded                   DiagnosticGapReasons = "excluded"
+	DiagnosticGapReasonsGenerationUnconfirmed      DiagnosticGapReasons = "generation_unconfirmed"
+	DiagnosticGapReasonsHigherPriorityBackupSignal DiagnosticGapReasons = "higher_priority_backup_signal"
+	DiagnosticGapReasonsInconsistentTime           DiagnosticGapReasons = "inconsistent_time"
+	DiagnosticGapReasonsMissingField               DiagnosticGapReasons = "missing_field"
+	DiagnosticGapReasonsMissingObservation         DiagnosticGapReasons = "missing_observation"
+	DiagnosticGapReasonsNotConfigured              DiagnosticGapReasons = "not_configured"
+	DiagnosticGapReasonsNotRequested               DiagnosticGapReasons = "not_requested"
+	DiagnosticGapReasonsScopeIncomplete            DiagnosticGapReasons = "scope_incomplete"
+	DiagnosticGapReasonsScopeRestricted            DiagnosticGapReasons = "scope_restricted"
+	DiagnosticGapReasonsStaleEvidence              DiagnosticGapReasons = "stale_evidence"
+	DiagnosticGapReasonsTargetUnverified           DiagnosticGapReasons = "target_unverified"
+	DiagnosticGapReasonsUnknown                    DiagnosticGapReasons = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the DiagnosticGapReasons enum.
+func (e DiagnosticGapReasons) Valid() bool {
+	switch e {
+	case DiagnosticGapReasonsAssociationUnconfirmed:
+		return true
+	case DiagnosticGapReasonsExcluded:
+		return true
+	case DiagnosticGapReasonsGenerationUnconfirmed:
+		return true
+	case DiagnosticGapReasonsHigherPriorityBackupSignal:
+		return true
+	case DiagnosticGapReasonsInconsistentTime:
+		return true
+	case DiagnosticGapReasonsMissingField:
+		return true
+	case DiagnosticGapReasonsMissingObservation:
+		return true
+	case DiagnosticGapReasonsNotConfigured:
+		return true
+	case DiagnosticGapReasonsNotRequested:
+		return true
+	case DiagnosticGapReasonsScopeIncomplete:
+		return true
+	case DiagnosticGapReasonsScopeRestricted:
+		return true
+	case DiagnosticGapReasonsStaleEvidence:
+		return true
+	case DiagnosticGapReasonsTargetUnverified:
+		return true
+	case DiagnosticGapReasonsUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EvidenceCollection.
 const (
 	EvidenceCollectionCurrent     EvidenceCollection = "current"
@@ -1366,31 +1486,32 @@ type CredentialUpdate struct {
 
 // Deployment defines model for Deployment.
 type Deployment struct {
-	Backup          *Backup               `json:"backup"`
-	Conditions      []Condition           `json:"conditions"`
-	ConnectionId    string                `json:"connectionId"`
-	DesiredReplicas *int32                `json:"desiredReplicas"`
-	DesiredVersion  string                `json:"desiredVersion"`
-	Environment     DeploymentEnvironment `json:"environment"`
-	Evidence        Evidence              `json:"evidence"`
-	Generation      int64                 `json:"generation"`
-	Health          DeploymentHealth      `json:"health"`
-	Id              string                `json:"id"`
-	Issues          []Issue               `json:"issues"`
-	Location        string                `json:"location"`
-	Name            string                `json:"name"`
-	Namespace       string                `json:"namespace"`
-	OperatorId      *string               `json:"operatorId"`
-	OperatorVersion *string               `json:"operatorVersion"`
-	ReadyReplicas   *int32                `json:"readyReplicas"`
-	Recovery        *Recovery             `json:"recovery"`
-	Replica         *Replica              `json:"replica"`
-	ResourceVersion string                `json:"resourceVersion"`
-	Role            DeploymentRole        `json:"role"`
-	Team            string                `json:"team"`
-	Uid             string                `json:"uid"`
-	UpgradeFailure  *OperationFailure     `json:"upgradeFailure"`
-	Version         string                `json:"version"`
+	Backup             *Backup               `json:"backup"`
+	Conditions         []Condition           `json:"conditions"`
+	ConnectionId       string                `json:"connectionId"`
+	DesiredReplicas    *int32                `json:"desiredReplicas"`
+	DesiredVersion     string                `json:"desiredVersion"`
+	Environment        DeploymentEnvironment `json:"environment"`
+	Evidence           Evidence              `json:"evidence"`
+	Generation         int64                 `json:"generation"`
+	Health             DeploymentHealth      `json:"health"`
+	Id                 string                `json:"id"`
+	Issues             []Issue               `json:"issues"`
+	Location           string                `json:"location"`
+	Name               string                `json:"name"`
+	Namespace          string                `json:"namespace"`
+	ObservedGeneration *int64                `json:"observedGeneration"`
+	OperatorId         *string               `json:"operatorId"`
+	OperatorVersion    *string               `json:"operatorVersion"`
+	ReadyReplicas      *int32                `json:"readyReplicas"`
+	Recovery           *Recovery             `json:"recovery"`
+	Replica            *Replica              `json:"replica"`
+	ResourceVersion    string                `json:"resourceVersion"`
+	Role               DeploymentRole        `json:"role"`
+	Team               string                `json:"team"`
+	Uid                string                `json:"uid"`
+	UpgradeFailure     *OperationFailure     `json:"upgradeFailure"`
+	Version            string                `json:"version"`
 }
 
 // DeploymentEnvironment defines model for Deployment.Environment.
@@ -1401,6 +1522,20 @@ type DeploymentHealth string
 
 // DeploymentRole defines model for Deployment.Role.
 type DeploymentRole string
+
+// DiagnosticGap defines model for DiagnosticGap.
+type DiagnosticGap struct {
+	CheckedAt         time.Time                      `json:"checkedAt"`
+	CollectionOutcome DiagnosticGapCollectionOutcome `json:"collectionOutcome"`
+	Reasons           []DiagnosticGapReasons         `json:"reasons"`
+	Rule              string                         `json:"rule"`
+}
+
+// DiagnosticGapCollectionOutcome defines model for DiagnosticGap.CollectionOutcome.
+type DiagnosticGapCollectionOutcome string
+
+// DiagnosticGapReasons defines model for DiagnosticGap.Reasons.
+type DiagnosticGapReasons string
 
 // EnrollmentInput defines model for EnrollmentInput.
 type EnrollmentInput struct {
@@ -1424,6 +1559,7 @@ type EnrollmentToken struct {
 
 // Evidence defines model for Evidence.
 type Evidence struct {
+	AnalysisGaps       *[]DiagnosticGap          `json:"analysisGaps,omitempty"`
 	AnalysisIncomplete *bool                     `json:"analysisIncomplete,omitempty"`
 	CollectedAt        time.Time                 `json:"collectedAt"`
 	Collection         EvidenceCollection        `json:"collection"`

@@ -178,22 +178,23 @@ var fixtures = []fixture{
 // collection; their first-seen times are fixed for a stable demonstration.
 func deployment(row fixture, now time.Time) fleet.Deployment {
 	d := fleet.Deployment{
-		ID:              row.id,
-		UID:             "demo-" + row.id,
-		Name:            row.name,
-		Namespace:       row.namespace,
-		ConnectionID:    row.connection,
-		Location:        row.location,
-		Team:            row.team,
-		Environment:     row.environment,
-		Version:         "2.7.0",
-		DesiredVersion:  "2.7.0",
-		OperatorVersion: ptr("development"),
-		Role:            row.role,
-		Generation:      3,
-		ResourceVersion: "demo-42",
-		ReadyReplicas:   ptr(int32(3)),
-		DesiredReplicas: ptr(int32(3)),
+		ID:                 row.id,
+		UID:                "demo-" + row.id,
+		Name:               row.name,
+		Namespace:          row.namespace,
+		ConnectionID:       row.connection,
+		Location:           row.location,
+		Team:               row.team,
+		Environment:        row.environment,
+		Version:            "2.7.0",
+		DesiredVersion:     "2.7.0",
+		OperatorVersion:    ptr("development"),
+		Role:               row.role,
+		Generation:         3,
+		ObservedGeneration: ptr(int64(3)),
+		ResourceVersion:    "demo-42",
+		ReadyReplicas:      ptr(int32(3)),
+		DesiredReplicas:    ptr(int32(3)),
 		Evidence: fleet.Evidence{
 			CollectedAt:       now,
 			LastAttemptAt:     now,
@@ -428,10 +429,12 @@ func history(current fleet.Deployment, now time.Time) []fleet.Observation {
 		later(now.Add(-2 * time.Hour))
 	case "staging":
 		state.DesiredVersion, state.Version, state.Generation = "2.6.1", "2.6.1", 2
+		state.ObservedGeneration = ptr(int64(2))
 		state.Conditions[0].ObservedGeneration = 2
 		events = append(events,
 			demoEvent{now.Add(-8 * time.Hour), func(d *fleet.Deployment) {
 				d.DesiredVersion, d.Generation = "2.7.0", 3
+				d.ObservedGeneration = ptr(int64(3))
 				d.Conditions = []fleet.Condition{
 					d.Conditions[0],
 					{

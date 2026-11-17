@@ -97,30 +97,37 @@ func capabilityContract(c fleet.Capability) contract.ApiCapability {
 }
 
 func deploymentContract(d fleet.Deployment) contract.Deployment {
+	var gaps *[]contract.DiagnosticGap
+	if len(d.Evidence.AnalysisGaps) > 0 {
+		mapped := mapSlice(d.Evidence.AnalysisGaps, diagnosticGapContract)
+		gaps = &mapped
+	}
 	return contract.Deployment{
-		Id:              d.ID,
-		Uid:             d.UID,
-		Name:            d.Name,
-		Namespace:       d.Namespace,
-		ConnectionId:    d.ConnectionID,
-		Team:            d.Team,
-		Environment:     contract.DeploymentEnvironment(d.Environment),
-		Location:        d.Location,
-		Generation:      d.Generation,
-		ResourceVersion: d.ResourceVersion,
-		Version:         d.Version,
-		DesiredVersion:  d.DesiredVersion,
-		ReadyReplicas:   d.ReadyReplicas,
-		DesiredReplicas: d.DesiredReplicas,
-		Role:            contract.DeploymentRole(d.Role),
-		Health:          contract.DeploymentHealth(d.Health),
-		OperatorId:      d.OperatorID,
-		OperatorVersion: d.OperatorVersion,
-		Conditions:      mapSlice(d.Conditions, conditionContract),
-		Issues:          mapSlice(d.Issues, issueContract),
+		Id:                 d.ID,
+		Uid:                d.UID,
+		Name:               d.Name,
+		Namespace:          d.Namespace,
+		ConnectionId:       d.ConnectionID,
+		Team:               d.Team,
+		Environment:        contract.DeploymentEnvironment(d.Environment),
+		Location:           d.Location,
+		Generation:         d.Generation,
+		ObservedGeneration: d.ObservedGeneration,
+		ResourceVersion:    d.ResourceVersion,
+		Version:            d.Version,
+		DesiredVersion:     d.DesiredVersion,
+		ReadyReplicas:      d.ReadyReplicas,
+		DesiredReplicas:    d.DesiredReplicas,
+		Role:               contract.DeploymentRole(d.Role),
+		Health:             contract.DeploymentHealth(d.Health),
+		OperatorId:         d.OperatorID,
+		OperatorVersion:    d.OperatorVersion,
+		Conditions:         mapSlice(d.Conditions, conditionContract),
+		Issues:             mapSlice(d.Issues, issueContract),
 		Evidence: contract.Evidence{
 			Collection:         contract.EvidenceCollection(d.Evidence.Collection),
 			AnalysisIncomplete: optionalTrue(d.Evidence.AnalysisIncomplete),
+			AnalysisGaps:       gaps,
 			CollectedAt:        d.Evidence.CollectedAt,
 			LastAttemptAt:      d.Evidence.LastAttemptAt,
 			ProducerFreshness:  contract.EvidenceProducerFreshness(d.Evidence.ProducerFreshness),
@@ -132,6 +139,16 @@ func deploymentContract(d fleet.Deployment) contract.Deployment {
 		Backup:   optional(d.Backup, backupContract),
 		Replica:  optional(d.Replica, replicaContract),
 		Recovery: optional(d.Recovery, recoveryContract),
+	}
+}
+
+func diagnosticGapContract(gap fleet.DiagnosticGap) contract.DiagnosticGap {
+	return contract.DiagnosticGap{
+		Rule: string(gap.Rule), CheckedAt: gap.CheckedAt,
+		CollectionOutcome: contract.DiagnosticGapCollectionOutcome(gap.CollectionOutcome),
+		Reasons: mapSlice(gap.Reasons, func(reason fleet.DiagnosticReason) contract.DiagnosticGapReasons {
+			return contract.DiagnosticGapReasons(reason)
+		}),
 	}
 }
 

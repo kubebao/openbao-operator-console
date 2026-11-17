@@ -74,6 +74,27 @@ func TestReadyReplicaOmissionUsesOnlyApprovedCurrentAcknowledgement(t *testing.T
 	}
 }
 
+func TestProjectionKeepsResourceAcknowledgementSeparateFromConditionAcknowledgement(t *testing.T) {
+	for _, observed := range []any{nil, "invalid", 0, 3, 4, 5} {
+		raw := testCluster()
+		status := map[string]any{"conditions": []any{map[string]any{
+			"type": "Available", "status": "True", "observedGeneration": 4,
+		}}}
+		if observed != nil {
+			status["observedGeneration"] = observed
+		}
+		raw["status"] = status
+		d := projectCluster(normalizedCluster(t, raw), config.Connection{ID: "one"}, config.Namespace{})
+		if value, ok := observed.(int); ok {
+			if d.ObservedGeneration == nil || *d.ObservedGeneration != int64(value) {
+				t.Fatalf("resource acknowledgement lost: %+v", d)
+			}
+		} else if d.ObservedGeneration != nil {
+			t.Fatal("condition acknowledgement filled in missing resource acknowledgement")
+		}
+	}
+}
+
 func TestBackupProjectionPreservesUnknownAndValidatedFields(t *testing.T) {
 	raw := testCluster()
 	raw["spec"].(map[string]any)["backup"] = map[string]any{}
