@@ -434,6 +434,15 @@ export interface components {
             /** @enum {string} */
             readonly producerFreshness: "unknown" | "fresh" | "stale";
             readonly analysisIncomplete?: boolean;
+            readonly analysisGaps?: readonly components["schemas"]["DiagnosticGap"][];
+        };
+        readonly DiagnosticGap: {
+            readonly rule: string;
+            readonly reasons: readonly ("excluded" | "not_requested" | "scope_incomplete" | "missing_observation" | "stale_evidence" | "missing_field" | "generation_unconfirmed" | "inconsistent_time" | "not_configured" | "higher_priority_backup_signal" | "target_unverified" | "association_unconfirmed" | "scope_restricted" | "unknown")[];
+            /** @enum {string} */
+            readonly collectionOutcome: "not_requested" | "not_collected" | "complete" | "partial" | "denied" | "expired" | "rate_limited" | "unsupported" | "timeout" | "cancelled" | "page_limit" | "size_limit" | "pagination_loop" | "deleted" | "replaced" | "invalid" | "failed" | "unknown";
+            /** Format: date-time */
+            readonly checkedAt: string;
         };
         readonly Condition: {
             readonly type: string;
@@ -541,6 +550,8 @@ export interface components {
             readonly resourceVersion: string;
             /** Format: int64 */
             readonly generation: number;
+            /** Format: int64 */
+            readonly observedGeneration: number | null;
             readonly upgradeFailure: components["schemas"]["OperationFailure"] | null;
             readonly operatorId: string | null;
         };

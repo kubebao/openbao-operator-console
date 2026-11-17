@@ -129,11 +129,23 @@ func TestCollectorPaginationAndOptionalAPIs(t *testing.T) {
 			if !d.Evidence.AnalysisIncomplete || d.Recovery != nil {
 				t.Fatal("optional incomplete evidence was concealed")
 			}
+			assertRestoreGap(t, d, want)
 		}
 	}
 	if reads != 8 {
 		t.Fatalf("initial and verification pagination reads = %d", reads)
 	}
+}
+
+func assertRestoreGap(t *testing.T, deployment fleet.Deployment, outcome fleet.CapabilityState) {
+	t.Helper()
+	for _, gap := range deployment.Evidence.AnalysisGaps {
+		if gap.Rule == fleet.RuleRecoveryInvestigate && string(gap.CollectionOutcome) == string(outcome) &&
+			len(gap.Reasons) > 0 && !gap.CheckedAt.IsZero() {
+			return
+		}
+	}
+	t.Fatal("optional read outcome and diagnostic causes were lost")
 }
 
 func TestCollectorVerifiesTargetAndKeepsMissingEvidenceUnknown(t *testing.T) {

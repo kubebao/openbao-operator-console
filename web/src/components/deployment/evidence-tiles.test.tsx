@@ -23,8 +23,8 @@ describe('lifecycle tile', () => {
     expect(tile).toHaveTextContent('Upgrade state unknown')
     expect(tile).not.toHaveTextContent('settled')
   })
-  it('reports a settled upgrade when both versions match', () => {
-    expect(renderTiles('2.7.0', '2.7.0')).toHaveTextContent('Upgrade settled')
+  it('reports matching versions without claiming completed post-upgrade checks', () => {
+    expect(renderTiles('2.7.0', '2.7.0')).toHaveTextContent('Versions match')
   })
   it('shows the requested version during an upgrade', () => {
     const tile = renderTiles('2.7.0', '2.8.0')

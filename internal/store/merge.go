@@ -150,6 +150,10 @@ func displayed(deployment fleet.Deployment) fleet.Deployment {
 	deployment.ResourceVersion = ""
 	deployment.Evidence.CollectedAt, deployment.Evidence.LastAttemptAt = time.Time{}, time.Time{}
 	deployment.Evidence.ProducerObservedAt = nil
+	deployment.Evidence.AnalysisGaps = slices.Clone(deployment.Evidence.AnalysisGaps)
+	for i := range deployment.Evidence.AnalysisGaps {
+		deployment.Evidence.AnalysisGaps[i].CheckedAt = time.Time{}
+	}
 	if deployment.Replica != nil {
 		replica := *deployment.Replica
 		replica.ObservedAt, replica.LocalIndex, replica.SourceIndex = nil, nil, nil

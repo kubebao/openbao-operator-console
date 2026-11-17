@@ -1,22 +1,26 @@
 import type { Deployment } from '../api/schema'
+import { assessCondition } from './conditions'
 
 export type UpgradeState = 'settled' | 'upgrading' | 'failed' | 'unknown'
 
-// Upgrade state from public fields only: a recorded failure, the Upgrading condition, or a
-// requested version that differs from the running version. Without both versions the
-// upgrade cannot be assessed and stays unknown.
+// Interpret upgrade status only from current collection and resource acknowledgement.
+// A condition acknowledges only its own status, independently of status.observedGeneration.
 export function upgradeState(deployment: Deployment): UpgradeState {
-  if (deployment.upgradeFailure) return 'failed'
-  const upgrading = deployment.conditions.some(
-    (condition) => condition.type === 'Upgrading' && condition.status === 'True',
+  if (!generationCurrent(deployment)) return 'unknown'
+  const upgrading = deployment.conditions.find((condition) => condition.type === 'Upgrading')
+  if (
+    upgrading &&
+    (assessCondition(upgrading, deployment.generation).outdated || upgrading.status === 'Unknown')
   )
-  if (upgrading) return 'upgrading'
+    return 'unknown'
+  if (deployment.upgradeFailure) return 'failed'
+  if (upgrading?.status === 'True') return 'upgrading'
   if (deployment.desiredVersion === '' || deployment.version === '') return 'unknown'
   return deployment.desiredVersion === deployment.version ? 'settled' : 'upgrading'
 }
 
 export const upgradeLabels: Record<UpgradeState, string> = {
-  settled: 'Settled',
+  settled: 'Versions match',
   upgrading: 'In progress',
   failed: 'Failed',
   unknown: 'Unknown',
@@ -24,17 +28,24 @@ export const upgradeLabels: Record<UpgradeState, string> = {
 
 // Short upgrade summaries for compact views.
 export const upgradeSummaries: Record<UpgradeState, string> = {
-  settled: 'Upgrade settled',
+  settled: 'Versions match',
   upgrading: 'Upgrade in progress',
   failed: 'Upgrade failed',
   unknown: 'Upgrade state unknown',
 }
 
-// The newest resource generation that the operator has reported conditions for, or null
-// when no conditions are reported. Conditions are the only public reconciliation signal.
+// Resource acknowledgement is projected directly from status.observedGeneration.
+// Older retained observations have no value; condition maxima cannot fill it in.
 export function observedGeneration(deployment: Deployment): number | null {
-  if (deployment.conditions.length === 0) return null
-  return Math.max(...deployment.conditions.map((condition) => condition.observedGeneration))
+  return deployment.observedGeneration
+}
+
+export function generationCurrent(deployment: Deployment): boolean {
+  return (
+    deployment.evidence.collection === 'current' &&
+    deployment.generation > 0 &&
+    deployment.observedGeneration === deployment.generation
+  )
 }
 
 // How many log entries a remote replica trails its source, from the two reported indices.

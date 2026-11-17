@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { diagnosticGap } from './diagnostic-gaps'
 import { activityObject } from './activity'
 import { localAccountObject } from './sign-in'
 
@@ -38,6 +39,7 @@ const deploymentObject = z.object({
   uid: z.string(),
   resourceVersion: z.string(),
   generation: z.number().int(),
+  observedGeneration: z.number().int().nullable(),
   name: z.string(),
   namespace: z.string(),
   connectionId: z.string(),
@@ -59,6 +61,7 @@ const deploymentObject = z.object({
     producerObservedAt: timestamp.nullable(),
     producerFreshness: z.enum(['unknown', 'fresh', 'stale']),
     analysisIncomplete: z.boolean().exactOptional(),
+    analysisGaps: z.array(diagnosticGap).max(180).exactOptional(),
   }),
   conditions: z.array(condition),
   backup: z

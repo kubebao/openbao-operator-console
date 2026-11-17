@@ -4,7 +4,13 @@ import type { Deployment, Issue } from '../../api/schema'
 import type { DeploymentTab, EvidenceDimension } from '../../lib/findings'
 import { dimensionSeverity, tabLabels } from '../../lib/findings'
 import { restoreOutcomes } from '../../lib/format'
-import { observedGeneration, upgradeState, upgradeSummaries } from '../../lib/lifecycle'
+import { assessCondition } from '../../lib/conditions'
+import {
+  generationCurrent,
+  observedGeneration,
+  upgradeState,
+  upgradeSummaries,
+} from '../../lib/lifecycle'
 import { Timestamp } from '../status'
 import { AgeMeter, ReplicaDots } from './charts'
 
@@ -61,7 +67,10 @@ const sealLabels = { True: 'Sealed', False: 'Unsealed', Unknown: 'Seal state unk
 
 function sealedState(deployment: Deployment): string {
   const sealed = deployment.conditions.find((condition) => condition.type === 'OpenBaoSealed')
-  return sealed ? sealLabels[sealed.status] : 'Seal state not reported'
+  if (!sealed) return 'Seal state not reported'
+  if (deployment.evidence.collection !== 'current') return 'Seal state last known'
+  if (assessCondition(sealed, deployment.generation).outdated) return 'Seal state not current'
+  return sealLabels[sealed.status]
 }
 
 function backupFooter(backup: Backup): ReactNode {
@@ -77,10 +86,11 @@ function backupFooter(backup: Backup): ReactNode {
 }
 
 function reconciliationFooter(deployment: Deployment): string {
+  if (deployment.evidence.collection !== 'current') return 'Acknowledgement last known'
   const generation = observedGeneration(deployment)
   if (generation === null || generation <= 0 || deployment.generation <= 0)
     return 'Reconciliation not reported'
-  if (generation === deployment.generation) return 'Operator caught up with spec'
+  if (generation === deployment.generation) return 'Resource generation acknowledged'
   if (generation > deployment.generation) return 'Reported generation is inconsistent'
   return `Operator at generation ${String(generation)} of ${String(deployment.generation)}`
 }
@@ -108,7 +118,7 @@ function AvailabilityTile({ deployment, onSelect }: TileProps) {
         <>
           <ReplicaDots ready={ready} desired={desired} />
           <strong>
-            {ready} of {desired} ready
+            {ready} of {desired} {generationCurrent(deployment) ? 'ready' : 'reported ready'}
           </strong>
         </>
       )}

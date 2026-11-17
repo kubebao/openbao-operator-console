@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -110,7 +111,13 @@ func TestServerAuthorizesBeforeHistoryAndFiltersEverySurface(t *testing.T) {
 				ID:           "hidden",
 				ConnectionID: "one",
 				Namespace:    "team-b",
-				Evidence:     fleet.Evidence{Collection: "current", LastAttemptAt: now},
+				Evidence: fleet.Evidence{
+					Collection:    "current",
+					LastAttemptAt: now,
+					AnalysisGaps: []fleet.DiagnosticGap{
+						{Rule: "private-diagnostic-check", Reasons: []fleet.DiagnosticReason{"missing_field"}},
+					},
+				},
 			},
 		},
 		Connections: []fleet.Connection{
@@ -133,7 +140,7 @@ func TestServerAuthorizesBeforeHistoryAndFiltersEverySurface(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(snapshot.Deployments) != 1 || len(snapshot.Relationships) != 0 ||
-		len(snapshot.Connections[0].Namespaces) != 1 {
+		len(snapshot.Connections[0].Namespaces) != 1 || strings.Contains(response.Body.String(), "private-diagnostic-check") {
 		t.Fatal("hidden inventory leaked")
 	}
 	hidden := httptest.NewRecorder()

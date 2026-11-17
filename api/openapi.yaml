@@ -1170,6 +1170,76 @@
                   "producerFreshness":
                     { "type": "string", "enum": ["unknown", "fresh", "stale"] },
                   "analysisIncomplete": { "type": "boolean" },
+                  "analysisGaps":
+                    {
+                      "type": "array",
+                      "maxItems": 180,
+                      "items": { "$ref": "#/components/schemas/DiagnosticGap" },
+                    },
+                },
+            },
+          "DiagnosticGap":
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["rule", "reasons", "collectionOutcome", "checkedAt"],
+              "properties":
+                {
+                  "rule": { "type": "string" },
+                  "reasons":
+                    {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 14,
+                      "uniqueItems": true,
+                      "items":
+                        {
+                          "type": "string",
+                          "enum":
+                            [
+                              "excluded",
+                              "not_requested",
+                              "scope_incomplete",
+                              "missing_observation",
+                              "stale_evidence",
+                              "missing_field",
+                              "generation_unconfirmed",
+                              "inconsistent_time",
+                              "not_configured",
+                              "higher_priority_backup_signal",
+                              "target_unverified",
+                              "association_unconfirmed",
+                              "scope_restricted",
+                              "unknown",
+                            ],
+                        },
+                    },
+                  "collectionOutcome":
+                    {
+                      "type": "string",
+                      "enum":
+                        [
+                          "not_requested",
+                          "not_collected",
+                          "complete",
+                          "partial",
+                          "denied",
+                          "expired",
+                          "rate_limited",
+                          "unsupported",
+                          "timeout",
+                          "cancelled",
+                          "page_limit",
+                          "size_limit",
+                          "pagination_loop",
+                          "deleted",
+                          "replaced",
+                          "invalid",
+                          "failed",
+                          "unknown",
+                        ],
+                    },
+                  "checkedAt": { "type": "string", "format": "date-time" },
                 },
             },
           "Condition":
@@ -1444,6 +1514,7 @@
                   "replica",
                   "issues",
                   "resourceVersion",
+                  "observedGeneration",
                   "generation",
                   "upgradeFailure",
                   "operatorId",
@@ -1507,6 +1578,8 @@
                     },
                   "resourceVersion": { "type": "string" },
                   "generation": { "type": "integer", "format": "int64" },
+                  "observedGeneration":
+                    { "type": "integer", "format": "int64", "nullable": true },
                   "upgradeFailure":
                     {
                       "allOf":

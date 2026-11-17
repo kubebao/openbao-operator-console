@@ -25,6 +25,28 @@ describe('upgrade state', () => {
       upgradeState(deploymentFixture({ upgradeFailure: failure, conditions: [upgrading] })),
     ).toBe('failed')
   })
+  it('does not interpret stale, missing, inconsistent, or uncollected acknowledgement as a current upgrade', () => {
+    for (const observedGeneration of [null, 0, 2, 4]) {
+      const deployment = deploymentFixture({ observedGeneration })
+      expect(upgradeState(deployment)).toBe('unknown')
+      expect(upgradeState({ ...deployment, desiredVersion: '2.8.0' })).toBe('unknown')
+      expect(
+        upgradeState({ ...deployment, upgradeFailure: { reason: 'PriorFailure', at: null } }),
+      ).toBe('unknown')
+    }
+    const deployment = deploymentFixture()
+    expect(
+      upgradeState({ ...deployment, evidence: { ...deployment.evidence, collection: 'stale' } }),
+    ).toBe('unknown')
+    for (const observedGeneration of [0, 2, 4]) {
+      expect(
+        upgradeState(deploymentFixture({ conditions: [{ ...upgrading, observedGeneration }] })),
+      ).toBe('unknown')
+    }
+    expect(
+      upgradeState(deploymentFixture({ conditions: [{ ...upgrading, status: 'Unknown' }] })),
+    ).toBe('unknown')
+  })
   it('stays unknown when either version is not observed', () => {
     expect(upgradeState(deploymentFixture({ version: '' }))).toBe('unknown')
     expect(upgradeState(deploymentFixture({ desiredVersion: '' }))).toBe('unknown')
@@ -33,9 +55,14 @@ describe('upgrade state', () => {
 })
 
 describe('reconciliation and replication evidence', () => {
-  it('reports no generation without conditions', () => {
-    expect(observedGeneration(deploymentFixture())).toBeNull()
-    expect(observedGeneration(deploymentFixture({ conditions: [upgrading] }))).toBe(3)
+  it('uses resource acknowledgement without inferring it from conditions', () => {
+    expect(observedGeneration(deploymentFixture())).toBe(3)
+    expect(
+      observedGeneration(deploymentFixture({ observedGeneration: null, conditions: [upgrading] })),
+    ).toBeNull()
+    expect(
+      observedGeneration(deploymentFixture({ observedGeneration: 2, conditions: [upgrading] })),
+    ).toBe(2)
   })
   it('compares replica indices beyond the safe integer range', () => {
     const replica = {

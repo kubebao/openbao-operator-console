@@ -20,6 +20,34 @@ describe('snapshot schema', () => {
       snapshotSchema.safeParse({ ...snapshotFixture(), deployments: [deployment] }).success,
     ).toBe(false)
   })
+  it('preserves bounded gap reasons and rejects unrecognized diagnostic codes', () => {
+    const deployment = deploymentFixture()
+    const gap = {
+      rule: 'recovery-investigate',
+      reasons: ['scope_incomplete'],
+      collectionOutcome: 'denied',
+      checkedAt: '2026-10-06T12:00:00Z',
+    }
+    const snapshot = {
+      ...snapshotFixture(),
+      deployments: [{ ...deployment, evidence: { ...deployment.evidence, analysisGaps: [gap] } }],
+    }
+    expect(snapshotSchema.parse(snapshot).deployments[0]?.evidence.analysisGaps).toEqual([gap])
+    expect(
+      snapshotSchema.safeParse({
+        ...snapshot,
+        deployments: [
+          {
+            ...deployment,
+            evidence: {
+              ...deployment.evidence,
+              analysisGaps: [{ ...gap, reasons: ['provider text'] }],
+            },
+          },
+        ],
+      }).success,
+    ).toBe(false)
+  })
   it('rejects timestamps without an offset and missing fields', () => {
     expect(
       snapshotSchema.safeParse({ ...snapshotFixture(), generatedAt: '2026-10-06 12:00' }).success,

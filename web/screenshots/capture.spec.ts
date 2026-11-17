@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test'
 import { snapshotSchema } from '../src/api/schema'
 import { expect, test } from '@playwright/test'
 import { administrator } from '../e2e/fixtures/administrator'
+import { diagnosticGaps } from '../e2e/fixtures/diagnostic-gaps'
 import { conditionFindings } from '../e2e/fixtures/condition-findings'
 
 const output = '../docs/images'
@@ -27,13 +28,22 @@ test('API group enrollment documentation screenshot', async ({ page }) => {
   await page.screenshot({ path: `${output}/api-group-enrollment.png` })
 })
 
-async function capture(page: Page, name: string, theme: 'light' | 'dark' = 'light') {
+async function capture(
+  page: Page,
+  name: string,
+  theme: 'light' | 'dark' = 'light',
+  expandGaps = false,
+) {
   await page.evaluate((value) => {
     localStorage.setItem('console-theme', value)
   }, theme)
   await page.reload()
   await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
   await expect(page.getByRole('main')).not.toContainText('Loading')
+  if (expandGaps) {
+    await page.getByText(/^View incomplete checks/).click()
+    await expect(page.locator('details[open]')).toBeVisible()
+  }
   await page.screenshot({ path: `${output}/${name}.png` })
 }
 
@@ -80,7 +90,18 @@ test('incomplete analysis documentation screenshot', async ({ page }) => {
       deployment.id === 'customer-x' && deployment.backup
         ? {
             ...deployment,
-            evidence: { ...deployment.evidence, analysisIncomplete: true },
+            evidence: {
+              ...deployment.evidence,
+              analysisIncomplete: true,
+              analysisGaps: [
+                {
+                  rule: 'backup-failed',
+                  reasons: ['missing_field' as const],
+                  collectionOutcome: 'complete' as const,
+                  checkedAt: snapshot.generatedAt,
+                },
+              ],
+            },
             backup: { ...deployment.backup, consecutiveFailures: null },
           }
         : deployment,
@@ -91,5 +112,12 @@ test('incomplete analysis documentation screenshot', async ({ page }) => {
   await expect(
     page.getByText('Some diagnostic rules could not be evaluated.', { exact: false }),
   ).toBeVisible()
-  await capture(page, 'analysis-incomplete')
+  await capture(page, 'analysis-incomplete', 'light', true)
+})
+
+test('generation evidence documentation screenshot', async ({ page }) => {
+  await diagnosticGaps(page)
+  await page.goto('/deployments/customer-x?tab=lifecycle')
+  await expect(page.getByText('Generation 3 of 4', { exact: true })).toBeVisible()
+  await capture(page, 'generation-evidence')
 })

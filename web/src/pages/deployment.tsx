@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowLeft } from 'lucide-react'
 import { useHistory, useSnapshot } from '../api/client'
 import type { Issue, Snapshot } from '../api/schema'
 import { BackupsTab } from '../components/deployment/backups'
+import { DiagnosticGaps } from '../components/deployment/diagnostic-gaps'
 import { ConditionsTab } from '../components/deployment/conditions'
 import { DeploymentHeader } from '../components/deployment/header'
 import { HistoryTab } from '../components/deployment/history'
@@ -86,12 +87,7 @@ function DeploymentDetails({ snapshot }: { snapshot: Snapshot }) {
           </span>
         </div>
       )}
-      {deployment.evidence.collection === 'current' && deployment.evidence.analysisIncomplete && (
-        <p className="notice notice-warning">
-          Some diagnostic rules could not be evaluated. Prior unresolved findings remain visible
-          with their last evaluation time.
-        </p>
-      )}
+      <DiagnosticGaps deployment={deployment} />
       <Tabs.Root
         value={search.tab}
         onValueChange={(value) => {

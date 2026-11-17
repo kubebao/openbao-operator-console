@@ -93,6 +93,12 @@ remains informational. Storage tests cover separate condition episodes, first-se
 and resolution. Browser fixtures verify links and matching condition rows. These checks do not extend the operator
 integration baselines above.
 
+Synthetic projection and browser checks preserve resource acknowledgement independently of condition generations.
+They cover stale and missing acknowledgement, stale seal and upgrade conditions, and incomplete diagnostics with
+bounded causes and read outcomes. SQLite and PostgreSQL tests preserve these fields across restart, failed collection,
+and history. Older retained projections keep missing acknowledgement and gap details unknown. These checks do not
+extend operator runtime qualification.
+
 ### Backup failure-count evidence
 
 The operator omits a zero `status.backup.consecutiveFailures`. The inspected adapter implies zero only when backup

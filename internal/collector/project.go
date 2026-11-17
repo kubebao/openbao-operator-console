@@ -43,7 +43,8 @@ func projectCluster(source shared.Cluster, connection config.Connection, namespa
 		ID: fleet.DeploymentID(connection.ID, id.Namespace, id.Name, id.UID), UID: id.UID, Name: id.Name, Namespace: id.Namespace,
 		ConnectionID: connection.ID, Team: namespace.Team, Environment: namespace.Environment, Location: namespace.Location,
 		Generation: integerValue(source.Generation), ResourceVersion: textValue(source.Reference.ResourceVersion),
-		Version: textValue(source.ObservedVersion), DesiredVersion: textValue(source.DesiredVersion),
+		ObservedGeneration: source.ObservedGeneration.Value,
+		Version:            textValue(source.ObservedVersion), DesiredVersion: textValue(source.DesiredVersion),
 		ReadyReplicas: countValue(source.ReadyReplicas), DesiredReplicas: countValue(source.DesiredReplicas),
 		Role: fleet.RolePrimary, Health: fleet.HealthUnknown, Conditions: []fleet.Condition{}, Issues: []fleet.Issue{},
 		Evidence: fleet.Evidence{
