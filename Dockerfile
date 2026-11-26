@@ -1,6 +1,6 @@
 # Build stages run on the build platform and cross-compile for the target platform.
 
-FROM --platform=$BUILDPLATFORM node:26-alpine@sha256:c6ad9e9c1d80f6eb607c26b4b0a132ff7a2344fad1c78ea3baa2a7d4c8de6d94 AS web
+FROM --platform=$BUILDPLATFORM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS web
 # Node.js 26 no longer bundles Corepack. npm ci verifies the bootstrap archive against
 # the lockfile; Corepack verifies pnpm against the hash in web/package.json.
 COPY tools/corepack/package.json tools/corepack/package-lock.json /opt/corepack/
@@ -15,7 +15,7 @@ COPY api /src/api
 COPY web ./
 RUN pnpm build
 
-FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS go
+FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 AS go
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -30,7 +30,7 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
     -ldflags="-s -w -X github.com/kubebao/openbao-operator-console/internal/buildinfo.Version=${VERSION} -X github.com/kubebao/openbao-operator-console/internal/buildinfo.Commit=${COMMIT}" \
     -o /console ./cmd/console
 
-FROM gcr.io/distroless/static-debian13:nonroot@sha256:aafe993665bf6200db38a02c11a9351e782a84b6a45e7f33b6695638c88e3931
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:8ce6dd87e9823c5b48dcfb2c8604714ccb351ce59607327bcc4957448da279b5
 ARG VERSION=dev
 ARG COMMIT=""
 LABEL org.opencontainers.image.title="OpenBao Operator Console" \
